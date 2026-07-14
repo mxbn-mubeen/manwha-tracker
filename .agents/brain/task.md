@@ -1,0 +1,18 @@
+- [x] Create project brain (master-memory, architecture, decisions, patterns, mistakes, dependency-graph, roadmap)
+- [x] Create monorepo scaffold (pnpm-workspace.yaml, turbo.json, tsconfig.base.json, package.json, README.md, .gitignore)
+- [x] Create `.env.example`
+- [x] Scaffold `@manhwa-tracker/shared`
+- [x] Scaffold `@manhwa-tracker/database` (including Drizzle schema)
+- [x] Scaffold `@manhwa-tracker/utils`
+- [x] Scaffold `@manhwa-tracker/parser`
+- [x] Scaffold `@manhwa-tracker/ui`
+- [x] Scaffold apps (`web`, `worker`, `extension`) package.json files
+- [x] Run `pnpm install` in the root
+- [x] Scaffold `apps/web` basic structure (App Router, tRPC, providers)
+  - [x] Set up Next.js root layout and Chakra UI v3 Provider
+  - [x] Set up tRPC React Query Provider
+  - [x] Set up tRPC root router and basic TRPC server logic
+  - [x] Scaffold Dashboard page
+  - [x] Scaffold Library page
+- [ ] Connect Drizzle to Neon in `apps/web` (via repositories/services)
+- [ ] Complete Phase 1 implementation (Library, Progress, Dashboard)
