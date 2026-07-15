@@ -1,7 +1,7 @@
 # Manhwa Tracker — Master Memory
 
 project_root: D:\manwha-tracker
-last_brain_review: 2026-07-14
+last_brain_review: 2026-07-15
 
 ## What This Project Does
 
@@ -21,20 +21,26 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - Telegram channel monitoring → auto-detects new chapters → download = last read (Phase 3)
 - Chrome Extension (MV3) — future phase
 
-## Current State (as of 2026-07-14)
+## Current State (as of 2026-07-15)
 
 - **Architecture fully migrated from Next.js to Vite + Express** (Option 2 — decoupled)
 - Express tRPC API (`apps/api`) running on port 3001 ✅
 - Vite React frontend (`apps/web`) running on port 3000 ✅
 - Neon PostgreSQL connected via `@manhwa-tracker/database` lib ✅
 - `packages/` renamed to `libs/` for clarity ✅
-- Old Next.js artifacts (`apps/web/app/`, `apps/web/server/`, `.next/`) deleted ✅
-- Feature-based architecture matching takeda-reporting pattern ✅
+- UI rebuilt with Tailwind v4 + shadcn/ui dark manhwa theme ✅
+- Dashboard, Library, Add Manhwa, Manhwa Detail pages implemented ✅
+- Phase 3 Telegram scripts created:
+  - `telegram-scan.ts` — scans all Telegram channels → CSV ✅
+  - `telegram-import.ts` — imports from Telegram live ✅
+  - `telegram-import-from-csv.ts` — imports from scan CSV ✅
+  - `import-from-enriched-csv.ts` — imports from `manhwa-only.enriched.csv` ✅
+- `manhwa-only.enriched.csv` (219 rows) curated with Telegram links + latest chapters ✅
 
 ## Active Work
 
-- UI/UX polish and functional completeness
-- Phase 3: Telegram channel integration
+- Running `import:enriched` to populate DB from the enriched CSV
+- After DB is populated: verify Library UI shows all titles
 
 ## Tech Stack
 

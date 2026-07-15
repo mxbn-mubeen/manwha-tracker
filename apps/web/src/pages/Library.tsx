@@ -1,97 +1,123 @@
-import {
-  Box, Heading, SimpleGrid, Card, Image, Text, Badge,
-  Button, Spinner, Center, Flex, Input, HStack,
-} from '@chakra-ui/react';
 import { useState } from 'react';
+import { Search } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
-import { AddManhwaModal } from '@/features/manhwa/components/AddManhwaModal';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 
 export function LibraryPage() {
   const { data: manhwas, isLoading } = trpc.manhwa.getAll.useQuery();
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<'All' | 'Reading' | 'Unread' | 'Completed' | 'Hiatus'>('All');
 
-  const filtered = manhwas?.filter((m) =>
-    m.title.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = manhwas?.filter((m) => {
+    const matchesSearch = m.title.toLowerCase().includes(search.toLowerCase());
+    
+    let matchesFilter = true;
+    if (filter === 'Reading') {
+      matchesFilter = m.progress?.status === 'reading';
+    } else if (filter === 'Completed') {
+      matchesFilter = m.progress?.status === 'completed';
+    } else if (filter === 'Unread') {
+      const unread = (m.progress?.latestChapter ?? 0) - (m.progress?.lastChapter ?? 0);
+      matchesFilter = unread > 0;
+    }
+    
+    return matchesSearch && matchesFilter;
+  });
 
   return (
-    <Box p={8} maxW="7xl" mx="auto">
-      <Flex justify="space-between" align="center" mb={6}>
-        <Box>
-          <Heading mb={1}>Library</Heading>
-          <Text color="gray.500">{manhwas?.length ?? 0} manhwa tracked</Text>
-        </Box>
-        <AddManhwaModal />
-      </Flex>
+    <div className="space-y-6 pb-10">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight mb-2">Library</h1>
+        <p className="text-muted-foreground">{manhwas?.length ?? 0} titles in your collection</p>
+      </div>
 
-      <HStack mb={6}>
-        <Input
-          placeholder="Search your library..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          maxW="360px"
-        />
-      </HStack>
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input 
+            placeholder="Search titles..." 
+            className="pl-9 bg-card border-border/50"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 scrollbar-none">
+          {(['All', 'Reading', 'Unread', 'Completed', 'Hiatus'] as const).map(f => (
+            <Button 
+              key={f}
+              variant={filter === f ? 'default' : 'secondary'}
+              size="sm"
+              onClick={() => setFilter(f)}
+              className={filter === f ? 'bg-amber-500 text-amber-950 hover:bg-amber-500/90' : 'bg-card hover:bg-card/80'}
+            >
+              {f}
+            </Button>
+          ))}
+        </div>
+      </div>
 
       {isLoading ? (
-        <Center h="40vh">
-          <Spinner size="xl" colorPalette="blue" />
-        </Center>
+        <div className="flex h-40 items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500"></div>
+        </div>
       ) : filtered && filtered.length > 0 ? (
-        <SimpleGrid columns={{ base: 2, md: 3, lg: 4, xl: 5 }} gap={5}>
-          {filtered.map((m) => (
-            <Card.Root
-              key={m.id}
-              overflow="hidden"
-              _hover={{ shadow: 'lg', transform: 'translateY(-2px)' }}
-              transition="all 0.2s"
-              cursor="pointer"
-            >
-              {m.coverUrl ? (
-                <Image
-                  src={m.coverUrl}
-                  alt={m.title}
-                  aspectRatio={2 / 3}
-                  objectFit="cover"
-                  w="full"
-                />
-              ) : (
-                <Box
-                  aspectRatio={2 / 3}
-                  bg="gray.100"
-                  _dark={{ bg: 'gray.700' }}
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
-                >
-                  <Text color="gray.400" fontSize="sm">No cover</Text>
-                </Box>
-              )}
-              <Card.Body p={3}>
-                <Text fontWeight="semibold" fontSize="sm" lineClamp={2} mb={2}>
-                  {m.title}
-                </Text>
-                <Badge
-                  colorPalette={
-                    m.progress?.status === 'reading' ? 'blue' :
-                    m.progress?.status === 'completed' ? 'green' : 'gray'
-                  }
-                  size="sm"
-                >
-                  Ch. {m.progress?.lastChapter ?? 0}
-                </Badge>
-              </Card.Body>
-            </Card.Root>
-          ))}
-        </SimpleGrid>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-5">
+          {filtered.map((m) => {
+            const unread = (m.progress?.latestChapter ?? 0) - (m.progress?.lastChapter ?? 0);
+            return (
+              <Link to={`/manhwa/${m.id}`} key={m.id} className="group relative rounded-xl overflow-hidden aspect-[3/4] bg-zinc-900 border border-border/50 transition-all hover:border-amber-500/50 hover:glow block">
+                {m.coverUrl ? (
+                  <img src={m.coverUrl} alt={m.title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center bg-zinc-800 text-zinc-600 text-xs font-medium">NO COVER</div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
+                
+                {unread > 0 && (
+                  <div className="absolute top-2 right-2">
+                    <Badge className="bg-amber-500 text-amber-950 font-bold border-none shadow-md">
+                      +{unread}
+                    </Badge>
+                  </div>
+                )}
+
+                <div className="absolute bottom-0 left-0 right-0 p-3">
+                  <h3 className="font-semibold text-sm line-clamp-2 mb-1 text-white">{m.title}</h3>
+                  <div className="flex items-center justify-between text-xs text-zinc-400">
+                    <span>Ch. {m.progress?.lastChapter ?? 0}</span>
+                    <span>/ {m.progress?.latestChapter ?? 0}</span>
+                  </div>
+                  <div className="mt-2 h-1 w-full bg-zinc-800 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-amber-500 rounded-full" 
+                      style={{ width: `${Math.min(100, Math.max(0, ((m.progress?.lastChapter ?? 0) / Math.max(1, (m.progress?.latestChapter ?? 1))) * 100))}%` }}
+                    />
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
       ) : (
-        <Center h="40vh" flexDirection="column" gap={4}>
-          <Text color="gray.400" fontSize="lg">
-            {search ? 'No results found' : 'Your library is empty'}
-          </Text>
-          {!search && <AddManhwaModal />}
-        </Center>
+        <div className="py-20 flex flex-col items-center justify-center text-center">
+          <div className="h-16 w-16 rounded-full bg-white/5 flex items-center justify-center mb-4 text-muted-foreground">
+            <Search size={24} />
+          </div>
+          <h3 className="text-lg font-medium mb-1">No manhwa found</h3>
+          <p className="text-muted-foreground max-w-sm mb-6">
+            {search ? `We couldn't find anything matching "${search}".` : "Your library is empty. Start by adding a manhwa."}
+          </p>
+          {!search && (
+            <Button asChild className="bg-amber-500 text-amber-950 hover:bg-amber-500/90">
+              <Link to="/add">Add Manhwa</Link>
+            </Button>
+          )}
+        </div>
       )}
-    </Box>
+    </div>
   );
 }

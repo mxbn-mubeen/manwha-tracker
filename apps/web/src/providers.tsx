@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpBatchLink } from '@trpc/client';
 import superjson from 'superjson';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { trpc } from '@/lib/trpc';
+import { Toaster } from 'sonner';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -28,9 +28,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        <ChakraProvider value={defaultSystem}>
-          {children}
-        </ChakraProvider>
+        {children}
+        <Toaster theme="dark" position="bottom-right" />
       </QueryClientProvider>
     </trpc.Provider>
   );
