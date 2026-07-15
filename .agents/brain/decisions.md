@@ -64,3 +64,24 @@ Append-only log. Never delete entries.
 - Reason: Better Neon PostgreSQL serverless compatibility, lighter runtime, schema defined in TypeScript code
 - Alternatives considered: Prisma (heavier runtime, slower cold starts on Vercel serverless)
 - Date: 2026-07-14
+
+---
+
+- Decision: Use only plain Drizzle query builder (`select/insert/update/delete`) — never relational API or transactions
+- Reason: `drizzle-orm/neon-http` driver does not support `db.query.*` relational API (silently fails) or `db.transaction()` (throws at runtime). This is a hard constraint of the Neon HTTP serverless driver.
+- Alternatives considered: Switching to `neon-serverless` WebSocket driver (would enable transactions + relational API, but requires persistent WS connection unsuitable for serverless/scripts)
+- Date: 2026-07-16
+
+---
+
+- Decision: Use `onConflictDoUpdate` upserts everywhere instead of read-then-update patterns
+- Reason: No transaction support means read-then-update has a race window. `onConflictDoUpdate` is atomic at the DB level and works with the neon-http driver.
+- Alternatives considered: Two-step update (fragile without transactions)
+- Date: 2026-07-16
+
+---
+
+- Decision: Manhwa detail page renders all data dynamically from the API (no hardcoded fallbacks)
+- Reason: Initial implementation had hardcoded author ("TurtleMe"), description, sources, and chapter count (241) as static HTML. This caused every manhwa to show the same wrong data.
+- Alternatives considered: Leaving hardcoded values as "default" (rejected — causes data integrity confusion)
+- Date: 2026-07-16

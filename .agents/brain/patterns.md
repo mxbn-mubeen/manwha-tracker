@@ -27,16 +27,23 @@ Package names follow `@manhwa-tracker/<name>` convention.
 
 ## Repository Pattern (DB Layer)
 
-All database access goes through repository functions. Never use Drizzle directly in services or route handlers.
+All database access goes through `ManhwaRepository` class methods. **Never** use `db.query.*` (relational API) or `db.transaction()` — both are unsupported by the `neon-http` driver.
 
 ```typescript
-// packages/database/src/repositories/manhwa.repository.ts
-export async function getManhwaBySlug(slug: string) {
-  return db.query.manhwa.findFirst({ where: eq(manhwa.slug, slug) });
-}
+// apps/api/src/modules/manhwa/manhwa.repository.ts
+export class ManhwaRepository {
+  async getAll() {
+    // ✅ Use plain select + leftJoin (NOT db.query.manhwa.findMany)
+    return db.select({...}).from(manhwa).leftJoin(progress, ...).leftJoin(sources, ...);
+  }
 
-export async function upsertManhwa(data: InsertManhwa) {
-  return db.insert(manhwa).values(data).onConflictDoUpdate({ ... });
+  async updateProgress(manhwaId: number, chapterNum: number) {
+    // ✅ Use onConflictDoUpdate (NOT transaction + update)
+    await db.insert(progress).values({...}).onConflictDoUpdate({
+      target: progress.manhwaId,
+      set: { chapterId: ..., lastReadAt: new Date() },
+    });
+  }
 }
 ```
 

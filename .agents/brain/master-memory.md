@@ -1,7 +1,7 @@
 # Manhwa Tracker — Master Memory
 
 project_root: D:\manwha-tracker
-last_brain_review: 2026-07-15
+last_brain_review: 2026-07-16
 
 ## What This Project Does
 
@@ -21,7 +21,7 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - Telegram channel monitoring → auto-detects new chapters → download = last read (Phase 3)
 - Chrome Extension (MV3) — future phase
 
-## Current State (as of 2026-07-15)
+## Current State (as of 2026-07-16)
 
 - **Architecture fully migrated from Next.js to Vite + Express** (Option 2 — decoupled)
 - Express tRPC API (`apps/api`) running on port 3001 ✅
@@ -29,29 +29,50 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - Neon PostgreSQL connected via `@manhwa-tracker/database` lib ✅
 - `packages/` renamed to `libs/` for clarity ✅
 - UI rebuilt with Tailwind v4 + shadcn/ui dark manhwa theme ✅
-- Dashboard, Library, Add Manhwa, Manhwa Detail pages implemented ✅
-- Phase 3 Telegram scripts created:
-  - `telegram-scan.ts` — scans all Telegram channels → CSV ✅
-  - `telegram-import.ts` — imports from Telegram live ✅
-  - `telegram-import-from-csv.ts` — imports from scan CSV ✅
-  - `import-from-enriched-csv.ts` — imports from `manhwa-only.enriched.csv` ✅
-- `manhwa-only.enriched.csv` (219 rows) curated with Telegram links + latest chapters ✅
+- Dashboard, Library, Add Manhwa, Manhwa Detail pages all working ✅
+- **214 manhwa imported from enriched CSV** into DB ✅
+- **Reading progress seeded** from CSV `LatestChapter` column for all 214 titles ✅
+
+### DB Driver Constraints (CRITICAL)
+- Driver: `drizzle-orm/neon-http` — **Neon HTTP serverless**
+- ❌ `db.query.*` relational API is NOT supported (throws `referencedTable` or hangs silently)
+- ❌ `db.transaction()` is NOT supported (throws `No transactions support in neon-http driver`)
+- ✅ Use only `db.select().from()`, `db.insert()`, `db.update()`, `db.delete()` with plain joins
+- ✅ Use `insert(...).onConflictDoUpdate()` for upserts instead of read-then-update
+
+### tRPC API Endpoints (manhwaRouter)
+| Endpoint | Type | Description |
+|---|---|---|
+| `getAll` | query | All manhwa with progress, latest chapter, sources |
+| `getById` | query | Single manhwa with full detail |
+| `create` | mutation | Manually create manhwa (title, status, chapters, cover…) |
+| `addFromUrl` | mutation | Scrape + create from website URL |
+| `updateProgress` | mutation | Update last read chapter (upserts progress row) |
+| `updateStatus` | mutation | Change status (ongoing/hiatus/completed/dropped) |
+| `addSource` | mutation | Add Telegram/website source to existing manhwa |
+| `delete` | mutation | Remove manhwa from library |
+
+### Phase 3 Scripts (in `apps/api/src/scripts/`)
+- `telegram-scan.ts` — scans all Telegram channels → CSV ✅
+- `telegram-import.ts` — imports from Telegram live ✅
+- `telegram-import-from-csv.ts` — imports from scan CSV ✅
+- `import-from-enriched-csv.ts` — imports from `manhwa-only.enriched.csv` ✅
+- `fix-progress.ts` — backfills progress rows for all manhwa from their latest chapter ✅
 
 ## Active Work
 
-- Running `import:enriched` to populate DB from the enriched CSV
-- After DB is populated: verify Library UI shows all titles
+- All core CRUD is working end-to-end
+- Next: Sync button, Telegram auto-progress, website adapter scraping
 
 ## Tech Stack
 
 - **Frontend**: Vite 5 + React 19 + react-router-dom 6 (port 3000)
 - **Backend**: Express 4 + tRPC v11 (port 3001)
 - TypeScript 5
-- Chakra UI v3 (`@chakra-ui/react` v3 — namespace syntax: `Card.Root`, `Dialog.Root`, `Stat.Root`)
-- TanStack Query v5
-- Zustand v4
-- Drizzle ORM + Neon PostgreSQL serverless
-- Zod
+- shadcn/ui components (Button, Card, Badge, Input, toast via Sonner)
+- TanStack Query v5 (via tRPC React hooks)
+- Drizzle ORM + Neon PostgreSQL serverless (`drizzle-orm/neon-http` driver)
+- Zod (tRPC input validation)
 - Superjson (tRPC transformer — must be on `createClient`, NOT inside `httpBatchLink`)
 - PNPM Workspaces + TurboRepo
 - GramJS (Phase 3 — Telegram MTProto)

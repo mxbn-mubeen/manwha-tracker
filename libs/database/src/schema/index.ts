@@ -8,6 +8,7 @@ import {
   timestamp,
   real,
   jsonb,
+  unique,
 } from 'drizzle-orm/pg-core';
 
 // ── manhwa ────────────────────────────────────────────────────────────────────
@@ -45,7 +46,9 @@ export const chapters = pgTable('chapters', {
   url: text('url'),
   publishedAt: timestamp('published_at'),
   discoveredAt: timestamp('discovered_at').notNull().defaultNow(),
-});
+}, (t) => ({
+  unq: unique().on(t.manhwaId, t.chapterNum),
+}));
 
 // ── progress ──────────────────────────────────────────────────────────────────
 // Single row per manhwa — single user, no user_id

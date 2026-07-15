@@ -1,59 +1,88 @@
 # Dependency Graph — Manhwa Tracker
 
-Generated: 2026-07-14 (pre-scaffold — based on planned architecture)
-Note: No code exists yet. Graph reflects planned import structure.
+Regenerated from source: 2026-07-16
 
 ---
 
-## Package Dependencies
+## Package Dependencies (actual)
 
 ```
-apps/web           → imports → @manhwa-tracker/database, @manhwa-tracker/shared, @manhwa-tracker/ui, @manhwa-tracker/utils, @manhwa-tracker/parser
-apps/worker        → imports → @manhwa-tracker/database, @manhwa-tracker/shared, @manhwa-tracker/parser
-apps/extension     → imports → @manhwa-tracker/shared, @manhwa-tracker/utils
+apps/api  → imports → @manhwa-tracker/database, @manhwa-tracker/parser
+apps/web  → imports → (no internal libs — all API calls go through tRPC to apps/api)
 
-packages/database  → imports → @manhwa-tracker/shared (for types)
-packages/ui        → imports → @manhwa-tracker/shared (for types)
-packages/parser    → imports → @manhwa-tracker/utils
-packages/utils     → imports → (none — leaf node)
-packages/shared    → imports → (none — leaf node)
+libs/database  → imports → (none — leaf node, exports db + schema)
+libs/parser    → imports → (none — leaf node, exports parseMetadataFromUrl)
+libs/shared    → imports → (none — leaf node, minimal types)
+```
+
+Note: `apps/web` does NOT directly import `@manhwa-tracker/database` or `@manhwa-tracker/parser` — all data access flows through the tRPC API. This is the key architectural constraint of the Vite + Express decoupled setup.
+
+---
+
+## Internal Module Dependencies (apps/api)
+
+```
+src/server.ts                 → imports → src/root.ts, express, cors, dotenv
+src/root.ts                   → imports → src/modules/manhwa/manhwa.router.ts, src/trpc.ts
+src/trpc.ts                   → imports → @trpc/server, superjson
+src/modules/manhwa/
+  manhwa.router.ts             → imports → manhwa.service.ts, zod, src/trpc.ts
+  manhwa.service.ts            → imports → manhwa.repository.ts, @manhwa-tracker/parser
+  manhwa.repository.ts         → imports → @manhwa-tracker/database (db, manhwa, progress, sources, chapters), drizzle-orm
+src/scripts/
+  telegram-scan.ts             → imports → gramjs, dotenv, csv-writer
+  telegram-import.ts           → imports → gramjs, @manhwa-tracker/database, dotenv
+  import-from-enriched-csv.ts  → imports → @manhwa-tracker/database, csv-parse, dotenv
+  fix-progress.ts              → imports → @manhwa-tracker/database, drizzle-orm, dotenv
 ```
 
 ## Internal Module Dependencies (apps/web)
 
 ```
-app/ (pages/layouts)              → imports → features/, lib/trpc/
-features/dashboard/               → imports → server/services/, server/db/
-features/library/                 → imports → server/services/, server/db/
-features/tracking/                → imports → server/services/
-features/notifications/           → imports → server/services/
-features/telegram/                → imports → server/db/, @manhwa-tracker/parser
-features/websites/adapters/       → imports → @manhwa-tracker/parser, @manhwa-tracker/shared
-server/api/routers/               → imports → server/services/
-server/services/                  → imports → server/db/ (repositories)
-server/db/ (repositories)         → imports → @manhwa-tracker/database
+src/main.tsx        → imports → src/App.tsx, src/providers.tsx
+src/providers.tsx   → imports → src/lib/trpc.ts, @tanstack/react-query
+src/App.tsx         → imports → src/pages/*, react-router-dom
+src/lib/trpc.ts     → imports → @trpc/client, @trpc/react-query, superjson, apps/api type AppRouter
+
+src/pages/Dashboard.tsx      → imports → src/lib/trpc.ts, src/components/ui/*
+src/pages/Library.tsx        → imports → src/lib/trpc.ts, src/components/ui/*
+src/pages/ManhwaDetail.tsx   → imports → src/lib/trpc.ts, src/components/ui/*, sonner, lucide-react
+src/pages/AddManhwa.tsx      → imports → src/lib/trpc.ts, src/components/ui/*
 ```
 
-## External Dependencies (planned)
+---
+
+## External Dependencies (actual installed)
 
 ```
+apps/api:
+  express              → HTTP server
+  cors                 → CORS middleware
+  @trpc/server         → tRPC router + procedures
+  drizzle-orm          → ORM (plain query builder only — no relational API)
+  @neondatabase/serverless → neon-http driver
+  zod                  → Input validation
+  superjson            → tRPC data transformer
+  gramjs               → Telegram MTProto (scripts only)
+  dotenv               → Env vars
+  tsx                  → TypeScript script runner
+
 apps/web:
-  gramjs          → Telegram MTProto client
-  cheerio         → HTML scraping for site adapters
-  @trpc/server    → tRPC router
-  @trpc/client    → tRPC client
-  drizzle-orm     → ORM
-  @neondatabase/serverless → Neon PostgreSQL driver
-  zod             → Schema validation
-  @tanstack/react-query → Data fetching
-  zustand         → Client state
-  chakra-ui       → Component library
+  react, react-dom              → UI framework
+  react-router-dom              → Client-side routing
+  @trpc/client                  → tRPC client
+  @trpc/react-query             → tRPC + TanStack Query hooks
+  @tanstack/react-query         → Data fetching / cache
+  superjson                     → Shared transformer with API
+  sonner                        → Toast notifications
+  lucide-react                  → Icons
+  tailwindcss v4                → Styling
+  shadcn/ui components          → Button, Card, Badge, Input
 
-apps/worker:
-  gramjs          → Same Telegram client
-  dotenv          → Env loading for standalone script
+libs/database:
+  drizzle-orm                   → ORM + schema definition
+  @neondatabase/serverless      → Neon PostgreSQL HTTP driver
 
-apps/extension:
-  react           → Popup UI
-  vite + crxjs    → Build tooling
+libs/parser:
+  cheerio                       → HTML scraping for website adapters
 ```

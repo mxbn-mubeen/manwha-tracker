@@ -1,26 +1,56 @@
 # Architecture — Manhwa Tracker
 
 project_root: D:\manwha-tracker
-source: implementation plan session 2026-07-14
+last_updated: 2026-07-16
 
-## Monorepo Structure
+## Monorepo Structure (Actual as of 2026-07-16)
 
 ```
 D:\manwha-tracker\
 ├── apps\
-│   ├── web\          Next.js 15 (App Router) — Vercel
-│   ├── worker\       Sync scripts (Node.js) — GitHub Actions / future OCI
-│   └── extension\    Chrome Extension MV3 — Vite + CRXJS
-├── packages\
+│   ├── api\          Express 4 + tRPC v11 — port 3001
+│   │   ├── src\
+│   │   │   ├── modules\
+│   │   │   │   └── manhwa\
+│   │   │   │       ├── manhwa.router.ts     tRPC routes
+│   │   │   │       ├── manhwa.service.ts    business logic
+│   │   │   │       └── manhwa.repository.ts DB access (plain select/join only)
+│   │   │   ├── scripts\
+│   │   │   │   ├── telegram-scan.ts         scan channels → CSV
+│   │   │   │   ├── telegram-import.ts       live Telegram import
+│   │   │   │   ├── telegram-import-from-csv.ts
+│   │   │   │   ├── import-from-enriched-csv.ts
+│   │   │   │   └── fix-progress.ts          backfill progress from latest chapter
+│   │   │   ├── root.ts                      tRPC app router composition
+│   │   │   ├── server.ts                    Express server entry
+│   │   │   └── trpc.ts                      tRPC context + procedures
+│   │   ├── manhwa-only.enriched.csv         219-row curated import CSV
+│   │   └── package.json
+│   └── web\          Vite 5 + React 19 — port 3000
+│       ├── src\
+│       │   ├── pages\
+│       │   │   ├── Dashboard.tsx
+│       │   │   ├── Library.tsx
+│       │   │   ├── ManhwaDetail.tsx
+│       │   │   └── AddManhwa.tsx
+│       │   ├── components\
+│       │   │   └── ui\                      shadcn/ui components
+│       │   ├── lib\
+│       │   │   └── trpc.ts                  tRPC client + React Query setup
+│       │   ├── providers.tsx                tRPC + QueryClient providers
+│       │   ├── App.tsx                      router (react-router-dom v6)
+│       │   └── main.tsx
+│       └── package.json
+├── libs\                          (was: packages\ — renamed for clarity)
 │   ├── database\     Drizzle ORM schema + Neon client singleton
-│   ├── shared\       Types, DTOs, Zod schemas
-│   ├── utils\        Pure utility functions
-│   ├── parser\       Chapter number + title extraction logic
-│   └── ui\           Shared Chakra UI components
-├── docs\
-├── .github\
-│   └── workflows\
-│       └── sync.yml  Cron every 30 min
+│   │   └── src\
+│   │       ├── db.ts              neon() + drizzle() singleton
+│   │       └── schema\
+│   │           └── index.ts       manhwa, sources, chapters, progress, notifications, settings
+│   ├── parser\       Chapter number + title extraction + site metadata parsing
+│   └── shared\       Shared TypeScript types (minimal)
+├── .agents\
+│   └── brain\        Project brain files
 ├── package.json      PNPM workspaces root
 ├── pnpm-workspace.yaml
 ├── turbo.json
@@ -29,14 +59,14 @@ D:\manwha-tracker\
 
 ## Database Schema (Neon PostgreSQL via Drizzle ORM)
 
-Tables:
+Driver: `drizzle-orm/neon-http` — **no relational queries, no transactions**
 
 | Table | Key Columns |
 |-------|-------------|
-| manhwa | id, slug, title, cover_url, status, genres[], created_at |
-| sources | id, manhwa_id, type (telegram\|website), url, adapter_key, priority, is_active |
-| chapters | id, manhwa_id, source_id, chapter_num, title, url, published_at, discovered_at |
-| progress | id, manhwa_id, chapter_id, last_read_at, is_completed |
+| manhwa | id, slug, title, cover_url, status (ongoing\|completed\|hiatus\|dropped), genres[], description, created_at, updated_at |
+| sources | id, manhwa_id, type (telegram\|website), url, adapter_key, priority, is_active, created_at |
+| chapters | id, manhwa_id, source_id, chapter_num (real), title, url, published_at, discovered_at |
+| progress | id, manhwa_id (unique), chapter_id, last_read_at, is_completed |
 | notifications | id, manhwa_id, chapter_id, type, sent_at, is_read |
 | settings | id, key, value (jsonb), updated_at |
 
@@ -45,108 +75,72 @@ No user_id — single user app.
 Relationships:
 - manhwa → sources (1:many)
 - manhwa → chapters (1:many)
-- manhwa → progress (1:1 per manhwa)
+- manhwa → progress (1:1, enforced by UNIQUE constraint on manhwa_id)
 - chapters → notifications (1:many)
+
+## API Architecture (apps/api)
+
+Express app serving tRPC at `/trpc/*` with CORS configured for port 3000.
+
+### tRPC Router (`manhwaRouter`)
+
+| Endpoint | Type | Input | Description |
+|---|---|---|---|
+| `getAll` | query | — | All manhwa + progress + latest chapter (via subquery) + first source |
+| `getById` | query | id (string\|number) | Single manhwa with full sources list |
+| `create` | mutation | title, status?, coverUrl?, description?, genres?, lastChapter?, latestChapter? | Manual add |
+| `addFromUrl` | mutation | url (string) | Scrape website + auto-create |
+| `updateProgress` | mutation | manhwaId, chapter | Upsert progress row + create chapter if needed |
+| `updateStatus` | mutation | id, status | Change ongoing/hiatus/completed/dropped |
+| `addSource` | mutation | manhwaId, url, type | Add source to existing manhwa (normalises @channel) |
+| `delete` | mutation | id (string\|number) | Delete manhwa (cascades to progress/chapters/sources) |
+
+### Repository Rules (CRITICAL)
+
+- ❌ `db.query.*` — NOT supported by neon-http (silently fails/hangs)
+- ❌ `db.transaction()` — NOT supported by neon-http (throws at runtime)
+- ✅ `db.select().from().leftJoin()` — use for all reads
+- ✅ `db.insert().onConflictDoUpdate()` — use for all upserts
+- ✅ Sequential plain inserts/updates — for multi-step writes (no atomicity guarantee)
 
 ## Frontend Architecture (apps/web)
 
+React 19 + react-router-dom v6 SPA. All API calls go via tRPC hooks.
+
 ```
-app/
-  layout.tsx                Root layout (Chakra, TanStack Query providers)
-  dashboard/page.tsx        Continue Reading, New Chapters, Source Status
-  library/page.tsx          All tracked manhwa
-  library/[slug]/page.tsx   Manhwa detail + chapter list + sources
-  settings/page.tsx         App settings, channel config
-features/
-  dashboard/                Dashboard components, hooks, server data
-  library/                  Library CRUD, search, filter
-  tracking/                 Progress read/write logic
-  notifications/            Notification bell + list
-  settings/                 Settings management
-server/
-  api/
-    routers/
-      manhwa.ts
-      progress.ts
-      sync.ts
-      notifications.ts
-    root.ts
-    trpc.ts
-  db/
-    manhwa.repository.ts
-    progress.repository.ts
-    chapter.repository.ts
-  services/
-    manhwa.service.ts
-    sync.service.ts
-    notification.service.ts
-lib/
-  trpc/client.tsx
-  trpc/server.ts
+/ → redirect to /dashboard
+/dashboard     Dashboard.tsx     Stats + Continue Reading + Recent Activity
+/library       Library.tsx       Full grid of all manhwa
+/manhwa/:id    ManhwaDetail.tsx  Detail: progress controls, status selector, sources, add source
+/add           AddManhwa.tsx     Manual add form (title, status, chapters, cover, description)
 ```
 
-## Backend / API Layer
+tRPC client configured in `lib/trpc.ts` with SuperJSON transformer, connected to `http://localhost:3001/trpc`.
 
-REST fallbacks (for worker + extension):
+## Telegram Sync (apps/api/src/scripts/)
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | /api/dashboard | Dashboard summary data |
-| GET | /api/library | All manhwa list |
-| POST | /api/manhwa | Add manhwa |
-| PUT | /api/progress | Update reading progress |
-| POST | /api/sync | Trigger manual sync |
-| GET | /api/notifications | Unread notifications |
-| POST | /api/extension/progress | Extension → progress update |
+- GramJS MTProto personal account (API_ID + API_HASH in `apps/api/.env`)
+- `telegram-scan.ts` — joins all channels, finds manhwa, exports CSV
+- `telegram-import.ts` — live import from Telegram API
+- `import-from-enriched-csv.ts` — imports from `manhwa-only.enriched.csv` (primary import)
+- `fix-progress.ts` — one-time script to seed progress from latest chapter per manhwa
 
-Primary API is tRPC, REST is fallback for non-browser clients.
+## Website Adapters (libs/parser)
 
-## Telegram Sync (apps/web/features/telegram + apps/worker)
-
-- GramJS MTProto personal account
-- Reads joined manhwa channels
-- Parses chapter number from message text
-- Detects media download event → marks chapter as last_read in progress table
-- Files: telegram.client.ts, channel.reader.ts, message.parser.ts, download-watcher.ts, channel.sync.ts
-
-## Website Adapters (apps/web/features/websites)
-
-Common interface: detectTitle(), latestChapter(), chapterList()
+Common interface: `parseMetadataFromUrl(url)`
 
 | Site | Method |
 |------|--------|
-| MangaDex | Public REST API (no scraping) |
+| AsuraScans | Cheerio HTML parse |
 | Webtoon | Cheerio HTML parse |
-| AsuraScans | Cheerio HTML parse + anti-Cloudflare headers |
 | Reaper Scans | Cheerio HTML parse |
-| Flame Comics | Cheerio HTML parse |
 | manhuaus.com | Cheerio HTML parse |
-
-Factory pattern: AdapterFactory.for(url) → correct adapter instance
-
-## Scheduler (apps/worker + .github/workflows/sync.yml)
-
-- GitHub Actions cron: every 30 minutes
-- Runs sync-telegram.ts + sync-websites.ts
-- Connects to Neon directly via DATABASE_URL env
-- Business logic fully decoupled from scheduler (OCI migration = new entrypoint only)
-
-## Chrome Extension (apps/extension)
-
-- Manifest V3
-- Content script: detects title + chapter number on page DOM
-- Background service worker: debounces, POSTs to /api/extension/progress
-- Build: Vite + CRXJS
-- Popup: mini React UI showing current manhwa + progress
+| Generic | Basic fallback |
 
 ## Design Patterns Used
 
-- Feature-Based Architecture (web app)
-- Repository Pattern (db layer)
-- Service Pattern (business logic)
-- Adapter Pattern (website connectors)
-- Factory Pattern (adapter selection)
-- Strategy Pattern (sync sources)
-- Observer Pattern (notifications)
-- Singleton (Neon DB connection)
-- DTO Pattern (tRPC inputs/outputs)
+- Repository Pattern (db layer — class-based, in `manhwa.repository.ts`)
+- Service Pattern (business logic — `manhwa.service.ts`)
+- Adapter Pattern (website connectors in `libs/parser`)
+- Singleton (Neon DB connection in `libs/database/src/db.ts`)
+- Upsert Pattern (onConflictDoUpdate instead of transactions)

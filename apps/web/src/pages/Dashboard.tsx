@@ -5,19 +5,34 @@ import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 
 export function DashboardPage() {
-  const { data: manhwas, isLoading } = trpc.manhwa.getAll.useQuery();
+  const { data: manhwas, isLoading, isError, error } = trpc.manhwa.getAll.useQuery();
+
+  if (isError) {
+    return (
+      <div className="py-20 flex flex-col items-center justify-center text-center">
+        <div className="text-red-500 mb-4">
+          <BookOpen size={48} className="opacity-50" />
+        </div>
+        <h3 className="text-lg font-medium mb-1">Failed to load library</h3>
+        <p className="text-muted-foreground max-w-sm">
+          There was an error loading your manhwa. Please try refreshing the page.
+        </p>
+      </div>
+    );
+  }
+
   const manhwasList = Array.isArray(manhwas) ? manhwas : [];
 
   const totalManhwa = manhwasList.length;
-  
+
   // Calculate unread
   const unreadCount = manhwasList.reduce((acc, m) => {
     const unread = (m.progress?.latestChapter ?? 0) - (m.progress?.lastChapter ?? 0);
     return acc + (unread > 0 ? unread : 0);
   }, 0);
-  
+
   const ongoingCount = manhwasList.filter(m => m.status === 'ongoing').length;
-  
+
   // For telegram sources, we don't have sources array in this schema yet, mock it or use 0
   const telegramSources = 0;
 
@@ -69,7 +84,7 @@ export function DashboardPage() {
             <h2 className="text-xl font-bold tracking-tight">Continue Reading</h2>
             <p className="text-sm text-muted-foreground">Pick up where you left off</p>
           </div>
-          
+
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {continueReading.map((m) => {
               const unread = (m.progress?.latestChapter ?? 0) - (m.progress?.lastChapter ?? 0);
@@ -81,7 +96,7 @@ export function DashboardPage() {
                     <div className="absolute inset-0 flex items-center justify-center bg-zinc-800 text-zinc-600 text-xs font-medium">NO COVER</div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
-                  
+
                   {unread > 0 && (
                     <div className="absolute top-2 right-2">
                       <Badge className="bg-amber-500 text-amber-950 font-bold border-none hover:bg-amber-500/90 shadow-md">
@@ -97,8 +112,8 @@ export function DashboardPage() {
                       <span>/ {m.progress?.latestChapter ?? 0}</span>
                     </div>
                     <div className="mt-2 h-1 w-full bg-zinc-800 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-amber-500 rounded-full" 
+                      <div
+                        className="h-full bg-amber-500 rounded-full"
                         style={{ width: `${Math.min(100, Math.max(0, ((m.progress?.lastChapter ?? 0) / Math.max(1, (m.progress?.latestChapter ?? 1))) * 100))}%` }}
                       />
                     </div>

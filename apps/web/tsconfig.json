@@ -12,6 +12,7 @@
     "paths": {
       "@/*": ["./src/*"]
     },
+    "types": ["vite/client"],
     "noEmit": true
   },
   "include": ["src", "vite.config.ts"]

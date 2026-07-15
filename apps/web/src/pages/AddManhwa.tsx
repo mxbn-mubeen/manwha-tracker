@@ -15,6 +15,7 @@ export function AddManhwaPage() {
   const [author, setAuthor] = useState('');
   const [tags, setTags] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
+  const [status, setStatus] = useState<'ongoing' | 'completed' | 'hiatus' | 'dropped'>('ongoing');
   const [lastChapter, setLastChapter] = useState(0);
   const [latestChapter, setLatestChapter] = useState(0);
   const [description, setDescription] = useState('');
@@ -41,6 +42,9 @@ export function AddManhwaPage() {
       title,
       coverUrl: coverUrl || undefined,
       description: description || undefined,
+      status,
+      lastChapter: lastChapter || undefined,
+      latestChapter: latestChapter || undefined,
     });
   };
 
@@ -93,14 +97,30 @@ export function AddManhwaPage() {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-white">Cover URL</label>
-            <Input 
-              placeholder="https://..." 
-              value={coverUrl}
-              onChange={(e) => setCoverUrl(e.target.value)}
-              className="bg-[#0e0f11] border-border/50 text-white h-11"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label htmlFor="manhwa-status" className="text-sm font-medium text-white">Status</label>
+              <select
+                id="manhwa-status"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as typeof status)}
+                className="flex w-full rounded-md border border-border/50 bg-[#0e0f11] px-3 py-2.5 text-sm text-white shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 h-11"
+              >
+                <option value="ongoing">Ongoing</option>
+                <option value="hiatus">Hiatus</option>
+                <option value="completed">Completed</option>
+                <option value="dropped">Dropped</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-white">Cover URL</label>
+              <Input 
+                placeholder="https://..." 
+                value={coverUrl}
+                onChange={(e) => setCoverUrl(e.target.value)}
+                className="bg-[#0e0f11] border-border/50 text-white h-11"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

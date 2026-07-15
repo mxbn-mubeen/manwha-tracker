@@ -17,9 +17,11 @@ export function LibraryPage() {
     
     let matchesFilter = true;
     if (filter === 'Reading') {
-      matchesFilter = m.progress?.status === 'reading';
+      matchesFilter = m.status === 'ongoing';
     } else if (filter === 'Completed') {
-      matchesFilter = m.progress?.status === 'completed';
+      matchesFilter = m.status === 'completed';
+    } else if (filter === 'Hiatus') {
+      matchesFilter = m.status === 'hiatus';
     } else if (filter === 'Unread') {
       const unread = (m.progress?.latestChapter ?? 0) - (m.progress?.lastChapter ?? 0);
       matchesFilter = unread > 0;

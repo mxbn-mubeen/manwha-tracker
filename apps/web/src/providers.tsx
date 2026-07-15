@@ -16,10 +16,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   const [trpcClient] = useState(() =>
     trpc.createClient({
-      transformer: superjson,
       links: [
         httpBatchLink({
           url: `${API_URL}/trpc`,
+          transformer: superjson,
         }),
       ],
     })
