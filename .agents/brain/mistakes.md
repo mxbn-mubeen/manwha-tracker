@@ -194,3 +194,19 @@ Append-only log. Never delete entries.
 - Known limitation: verified against the real page's *content* (fetched live), but not against a full round-trip through the actual running app/DB — still recommend confirming with a real resync after deploying this change. If it still doesn't pick up chapter 7, the next thing to check is whether the deployed server actually has this file's changes (rebuild/restart), and whether `currentMax` in the DB is already stuck at some value for unrelated reasons (stale progress row, duplicate un-deduped source rows still pointing at old data, etc. — see the duplicate-sources issue logged earlier).
 - Status: Fixed in code, verified against real fetched page content — not yet confirmed via a live end-to-end resync.
 - Date: 2026-07-21
+
+---
+
+- Problem: Direct navigation to React Router routes (e.g. `/dashboard`) on Vercel returned 404 NOT_FOUND.
+- Cause: Vercel is a static host; it looked for a `dashboard/index.html` file which doesn't exist, rather than letting the Single Page Application handle the client-side route.
+- Fix: Added `vercel.json` with a rewrite rule routing `/(.*)` to `/index.html`.
+- Status: Resolved
+- Date: 2026-07-22
+
+---
+
+- Problem: The entire web UI layout (grid, margins, cards) broke and shrunk on mobile screens.
+- Cause: The `AppShell` Navbar was too wide for a 375px screen (it included the logo, "Dashboard", "Library", "Add Manhwa", and "Sync" text). This forced the `<body>` width to stretch, breaking all responsive constraints.
+- Fix: Made the Navbar fully responsive by hiding the text labels for Dashboard/Library/Sync/Add on mobile screens (using `hidden sm:inline`), keeping only their icons, and reducing the flex gaps. User verified and committed the fix.
+- Status: Resolved
+- Date: 2026-07-22

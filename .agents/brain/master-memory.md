@@ -19,7 +19,6 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - Library: cover grid, search, add manhwa from URL
 - Website adapters for: AsuraScans, Webtoon, ReaperScans, manhuaus.com (+ generic)
 - Telegram channel monitoring → auto-detects new chapters → download = last read (Phase 3)
-- Chrome Extension (MV3) — future phase
 
 ## Current State (as of 2026-07-16)
 
@@ -93,5 +92,4 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 
 - Phase 1: Monorepo scaffold, DB schema, Dashboard, Library, Reading Progress ✅
 - Phase 2: Architecture migration (Next.js → Vite + Express) ✅
-- Phase 3: Telegram sync, Website adapters expanded, GitHub Actions worker
-- Phase 4: Chrome Extension, Notification system, OCI migration, PWA
+- Phase 3: Telegram sync, Website adapters expanded, Render & Vercel deployment
