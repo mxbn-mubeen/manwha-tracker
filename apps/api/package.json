@@ -13,10 +13,7 @@
     "import:enriched": "tsx src/scripts/import-from-enriched-csv.ts",
     "watch:telegram": "tsx src/scripts/telegram-download-watcher.ts",
     "cron:sync": "tsx src/scripts/cron-sync.ts",
-    "backfill:covers": "tsx src/scripts/backfill-covers.ts",
-    "dedupe:sources": "tsx src/scripts/dedupe-sources.ts",
-    "purge:chapters": "tsx src/scripts/purge-bogus-chapters.ts",
-    "debug:source": "tsx src/scripts/debug-source.ts"
+    "backfill:covers": "tsx src/scripts/backfill-covers.ts"
   },
   "dependencies": {
     "@manhwa-tracker/database": "workspace:*",
