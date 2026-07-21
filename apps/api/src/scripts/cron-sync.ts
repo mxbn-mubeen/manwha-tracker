@@ -26,9 +26,11 @@ async function main() {
   );
 
   if (result.errors.length > 0) {
-    console.error(`[cron-sync] ${result.errors.length} error(s):`);
+    console.error(`[cron-sync] ${result.errors.length} error(s) (partial failure, continuing):`);
     for (const err of result.errors) console.error(`  - ${err}`);
-    process.exit(1);
+    // We explicitly DO NOT exit with 1 here. Cloudflare 403s on scanlation sites are 
+    // extremely common from GitHub Actions IPs. Failing the whole workflow masks 
+    // successful syncs and causes alert fatigue.
   }
 }
 
