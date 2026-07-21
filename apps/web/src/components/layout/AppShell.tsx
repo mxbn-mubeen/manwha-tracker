@@ -1,8 +1,8 @@
-import { useState } from "react"
 import { Link, useLocation } from "react-router-dom"
-import { RefreshCw, Plus } from "lucide-react"
+import { RefreshCw, Plus, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
+import { trpc } from "@/lib/trpc"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -17,17 +17,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 function Navbar() {
   const location = useLocation()
-  
-  const [isSyncing, setIsSyncing] = useState(false);
+  const utils = trpc.useUtils()
+
+  const syncMutation = trpc.sync.run.useMutation({
+    onSuccess: async (result) => {
+      // Refresh library/dashboard data so any newly-discovered chapters show up
+      await utils.manhwa.getAll.invalidate()
+
+      if (result.errors.length > 0) {
+        toast.warning(
+          `Sync finished with ${result.errors.length} issue(s). Found ${result.newChapters} new chapter(s).`,
+          { description: result.errors[0] }
+        )
+      } else if (result.newChapters > 0) {
+        toast.success(
+          `Sync complete! Found ${result.newChapters} new chapter(s) across ${result.updatedManhwa} title(s).`
+        )
+      } else {
+        toast.success(`Sync complete! Scanned ${result.scannedSources} source(s) — no new chapters.`)
+      }
+    },
+    onError: (err) => {
+      toast.error("Sync failed", { description: err.message })
+    },
+  })
 
   const handleSync = () => {
-    setIsSyncing(true);
-    // Simulate a sync process for 1.5 seconds since the backend sync logic isn't fully implemented yet
-    setTimeout(() => {
-      setIsSyncing(false);
-      toast.success("Sync complete! Your library is up to date.");
-    }, 1500);
+    syncMutation.mutate({ scope: "all" })
   };
+
+  const isSyncing = syncMutation.isPending;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -77,6 +96,16 @@ function Navbar() {
           >
             <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
             {isSyncing ? 'Syncing...' : 'Sync'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-9 w-9 rounded-full ${location.pathname === '/settings' ? 'bg-white/10 text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            asChild
+          >
+            <Link to="/settings" aria-label="Settings">
+              <Settings className="h-4 w-4" />
+            </Link>
           </Button>
           <Button size="sm" className="gap-2 rounded-full px-4" asChild>
             <Link to="/add">

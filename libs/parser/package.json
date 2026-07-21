@@ -13,6 +13,7 @@
     "typescript": "^5.5.0"
   },
   "dependencies": {
+    "@manhwa-tracker/shared": "workspace:^",
     "@manhwa-tracker/utils": "workspace:^",
     "cheerio": "^1.2.0"
   }

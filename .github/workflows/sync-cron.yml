@@ -1,0 +1,36 @@
+name: Sync manhwa websites
+
+# Runs the website-adapter sync every 30 minutes. Talks directly to Neon via
+# DATABASE_URL — no deployed/public API required. Telegram sources are NOT
+# touched here; those are handled live by the telegram-download-watcher
+# process, which needs to run continuously somewhere (not a fit for a
+# 30-minute cron), see .agents/brain/roadmap.md.
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch: {} # allows manually triggering a run from the Actions tab
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run sync
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm run cron:sync

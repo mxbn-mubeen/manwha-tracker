@@ -125,17 +125,53 @@ tRPC client configured in `lib/trpc.ts` with SuperJSON transformer, connected to
 - `import-from-enriched-csv.ts` — imports from `manhwa-only.enriched.csv` (primary import)
 - `fix-progress.ts` — one-time script to seed progress from latest chapter per manhwa
 
-## Website Adapters (libs/parser)
+## Website Adapters (libs/parser/src/adapters/)
 
-Common interface: `parseMetadataFromUrl(url)`
+Implements the `WebsiteAdapter` interface from `libs/shared/src/types/adapter.ts`
+(`key`, `name`, `urlPatterns`, `detectTitle`, `latestChapter`, `chapterList`).
 
-| Site | Method |
-|------|--------|
-| AsuraScans | Cheerio HTML parse |
-| Webtoon | Cheerio HTML parse |
-| Reaper Scans | Cheerio HTML parse |
-| manhuaus.com | Cheerio HTML parse |
-| Generic | Basic fallback |
+| Site | Adapter key | File |
+|------|------------|------|
+| AsuraScans | `asurascans` | `asurascans.ts` |
+| Webtoon | `webtoon` | `webtoon.ts` |
+| Reaper Scans | `reaperscans` | `reaperscans.ts` |
+| manhuaus.com | `manhuaus` | `manhuaus.ts` |
+| Generic (catch-all) | `generic` | `generic.ts` |
+
+All adapters share `chapter-extract.ts`, which does a markup-agnostic scan of every
+`<a>` tag on a page for text/href matching `chapter|ch|episode|ep <number>`, taking
+the highest number found as the latest chapter. This is deliberately robust-but-approximate:
+it works without knowing each site's exact CSS classes, at the cost of relying on
+the site including chapter numbers in visible link text or hrefs.
+
+`factory.ts` exposes:
+- `detectAdapterKey(url)` — matches `urlPatterns` to pick a key, defaults to `'generic'`
+- `getAdapter(adapterKey, url)` — resolves an adapter instance, preferring the stored
+  `adapter_key` (so a manually-corrected key is respected) and falling back to URL detection
+
+`libs/parser/src/metadata.ts` (`parseMetadataFromUrl`) is unchanged — used for the initial
+title/cover/description scrape when adding a manhwa via `addFromUrl`, separate from chapter sync.
+
+## Sync Flow (apps/api/src/modules/sync/)
+
+Added 2026-07-21 to replace the placeholder "Sync" button (previously a `setTimeout` + toast).
+
+- `sync.repository.ts` — `getActiveSources(type)`, `getMaxChapterNum(manhwaId)`, `insertChapter(...)`,
+  `touchManhwaUpdatedAt(manhwaId)`. Plain select/join/insert only (same neon-http constraints as manhwa module).
+- `sync.service.ts` — `SyncService.run(scope: 'telegram' | 'websites' | 'all')`:
+  - For each active **website** source: resolves the adapter via `getAdapter`, calls `latestChapter(url)`,
+    compares against the manhwa's current max chapter, inserts a new `chapters` row if higher, touches `updatedAt`.
+  - For active **telegram** sources: not implemented yet — counted and surfaced as a skipped/error note
+    (needs the GramJS download-watcher, see roadmap).
+  - Per-source failures are caught individually so one bad source doesn't abort the whole run.
+- `sync.router.ts` — `sync.run` tRPC mutation, input `{ scope }` (defaults `'all'`), no auth
+  (single-user app; same trust model as the rest of the API).
+- Frontend: `AppShell.tsx`'s Sync button calls `trpc.sync.run.useMutation()`, invalidates
+  `manhwa.getAll` on success, and shows the real `newChapters`/`updatedManhwa`/`errors` in a toast.
+
+Note: `libs/shared/src/schemas/sync.ts` already defined a `TriggerSyncSchema` with a `secret`
+field for an external cron trigger (e.g. GitHub Actions) — that REST/secret-protected entrypoint
+is still TODO; the `sync.run` tRPC mutation added here is for the in-app button only.
 
 ## Design Patterns Used
 

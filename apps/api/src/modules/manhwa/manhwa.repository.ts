@@ -323,16 +323,81 @@ export class ManhwaRepository {
   }
 
   async addSource(manhwaId: number, url: string, type: 'telegram' | 'website') {
-    // Auto-detect adapterKey from url
-    const adapterKey = url.includes('t.me') || url.startsWith('@') ? 'telegram' : 'website';
     // Normalise @channel to https://t.me/channel
     const normUrl = url.startsWith('@') ? `https://t.me/${url.slice(1)}` : url;
+    // Resolve the real per-site adapter (asurascans/webtoon/reaperscans/manhuaus/generic)
+    // for website sources so the sync flow knows which scraper to use.
+    const adapterKey = type === 'telegram'
+      ? 'telegram'
+      : (await import('@manhwa-tracker/parser')).detectAdapterKey(normUrl);
+
     const [source] = await db.insert(sources).values({
       manhwaId,
       type,
       url: normUrl,
       adapterKey,
-    }).returning();
-    return source;
+    })
+      // (manhwaId, url) is unique — re-adding the same source (double-submit,
+      // or re-running "Add from URL") returns the existing row instead of
+      // creating a duplicate. This is what was producing two identical
+      // "asurascans.com" rows under Sources.
+      .onConflictDoNothing()
+      .returning();
+
+    if (source) return source;
+
+    const [existing] = await db
+      .select()
+      .from(sources)
+      .where(and(eq(sources.manhwaId, manhwaId), eq(sources.url, normUrl)))
+      .limit(1);
+    return existing ?? null;
+  }
+
+  async removeSource(manhwaId: number, url: string) {
+    await db.delete(sources)
+      .where(and(eq(sources.manhwaId, manhwaId), eq(sources.url, url)));
+  }
+
+  async getTelegramCount() {
+    const [row] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(sources)
+      .where(eq(sources.type, 'telegram'));
+    return Number(row?.count ?? 0);
+  }
+
+  /** All manhwa with no cover_url set (or an empty string) — candidates for the cover backfill script. */
+  async getManhwaMissingCovers() {
+    return await db
+      .select({
+        id: manhwa.id,
+        title: manhwa.title,
+      })
+      .from(manhwa)
+      .where(sql`${manhwa.coverUrl} IS NULL OR ${manhwa.coverUrl} = ''`);
+  }
+
+  /** Also returns a manhwa's website source url (if any), for the og:image scrape fallback. */
+  async getWebsiteSourceUrl(manhwaId: number): Promise<string | null> {
+    const [row] = await db
+      .select({ url: sources.url })
+      .from(sources)
+      .where(and(eq(sources.manhwaId, manhwaId), eq(sources.type, 'website')))
+      .limit(1);
+    return row?.url ?? null;
+  }
+
+  async update(id: number, data: { title?: string; coverUrl?: string; description?: string }) {
+    const [updated] = await db
+      .update(manhwa)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(manhwa.id, id))
+      .returning();
+    return updated;
+  }
+
+  async updateCoverUrl(id: number, coverUrl: string) {
+    await db.update(manhwa).set({ coverUrl }).where(eq(manhwa.id, id));
   }
 }

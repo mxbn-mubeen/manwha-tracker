@@ -1,6 +1,7 @@
 import { initTRPC } from '@trpc/server';
 import superjson from 'superjson';
 import { ZodError } from 'zod';
+import type { Request } from 'express';
 
 export const createTRPCContext = async (opts: { req: Request }) => {
   return { ...opts };

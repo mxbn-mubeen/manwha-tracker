@@ -5,7 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 
 export function DashboardPage() {
-  const { data: manhwas, isLoading, isError, error } = trpc.manhwa.getAll.useQuery();
+  const { data: manhwas, isLoading, isError } = trpc.manhwa.getAll.useQuery();
+  const { data: telegramSourcesCount } = trpc.manhwa.getTelegramCount.useQuery();
 
   if (isError) {
     return (
@@ -33,8 +34,7 @@ export function DashboardPage() {
 
   const ongoingCount = manhwasList.filter(m => m.status === 'ongoing').length;
 
-  // For telegram sources, we don't have sources array in this schema yet, mock it or use 0
-  const telegramSources = 0;
+  const telegramSources = telegramSourcesCount ?? 0;
 
   // Manhwas with unread chapters
   const continueReading = manhwasList

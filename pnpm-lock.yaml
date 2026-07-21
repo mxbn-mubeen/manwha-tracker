@@ -259,6 +259,9 @@ importers:
 
   libs/parser:
     dependencies:
+      '@manhwa-tracker/shared':
+        specifier: workspace:^
+        version: link:../shared
       '@manhwa-tracker/utils':
         specifier: workspace:^
         version: link:../utils
