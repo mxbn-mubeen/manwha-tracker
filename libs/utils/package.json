@@ -2,8 +2,12 @@
   "name": "@manhwa-tracker/utils",
   "version": "0.0.1",
   "private": true,
-  "main": "./src/index.ts",
-  "exports": { ".": "./src/index.ts" },
-  "scripts": { "typecheck": "tsc --noEmit" },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": "./dist/index.js" },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
   "devDependencies": { "typescript": "^5.5.0" }
 }

@@ -29,7 +29,16 @@ COPY libs/parser ./libs/parser
 COPY libs/shared ./libs/shared
 COPY libs/utils ./libs/utils
 
-# Compile TypeScript to JS
+# Compile libs in dependency order, then the API
+# shared has no internal workspace deps
+RUN pnpm --filter @manhwa-tracker/shared build
+# utils has no internal workspace deps
+RUN pnpm --filter @manhwa-tracker/utils build
+# database depends on shared
+RUN pnpm --filter @manhwa-tracker/database build
+# parser depends on shared + utils
+RUN pnpm --filter @manhwa-tracker/parser build
+# api depends on all libs
 RUN pnpm --filter api build
 
 # ── Stage 3: runtime ──────────────────────────────────────────────────────────
@@ -54,11 +63,11 @@ RUN pnpm install --frozen-lockfile --filter api... --prod
 # Copy compiled output from builder
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
-# Copy source of workspace libs (needed for require resolution at runtime)
-COPY --from=builder /app/libs/database ./libs/database
-COPY --from=builder /app/libs/parser ./libs/parser
-COPY --from=builder /app/libs/shared ./libs/shared
-COPY --from=builder /app/libs/utils ./libs/utils
+# Copy compiled dist/ of each lib (not src — those are .ts files Node can't run)
+COPY --from=builder /app/libs/database/dist ./libs/database/dist
+COPY --from=builder /app/libs/parser/dist ./libs/parser/dist
+COPY --from=builder /app/libs/shared/dist ./libs/shared/dist
+COPY --from=builder /app/libs/utils/dist ./libs/utils/dist
 
 # Cloud Run injects PORT; default to 3001 locally
 ENV PORT=3001
