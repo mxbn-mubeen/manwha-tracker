@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Trash2, ChevronDown, ChevronUp, Plus, Send } from 'lucide-react';
+import { ArrowLeft, Trash2, ChevronDown, ChevronUp, Plus, Send, Edit } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -65,6 +65,14 @@ export function ManhwaDetailPage() {
     onError: () => toast.error('Failed to add source'),
   });
 
+  const removeSourceMutation = trpc.manhwa.removeSource.useMutation({
+    onSuccess: () => {
+      toast.success('Source removed');
+      utils.manhwa.getById.invalidate(numericId);
+    },
+    onError: () => toast.error('Failed to remove source'),
+  });
+
   const handleAddSource = () => {
     addSourceMutation.mutate({ manhwaId: numericId, url: newSourceUrl.trim(), type: newSourceType });
   };
@@ -73,6 +81,62 @@ export function ManhwaDetailPage() {
     onSuccess: () => utils.manhwa.getById.invalidate(numericId),
     onError: () => toast.error('Failed to update status'),
   });
+
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editCoverUrl, setEditCoverUrl] = useState('');
+
+  const openEditModal = () => {
+    setEditTitle(manhwa?.title || '');
+    setEditDescription(manhwa?.description || '');
+    setEditCoverUrl(manhwa?.coverUrl || '');
+    setIsEditModalOpen(true);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isEditModalOpen) {
+        setIsEditModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isEditModalOpen]);
+
+  const updateMutation = trpc.manhwa.update.useMutation({
+    onSuccess: () => {
+      toast.success('Manhwa updated');
+      utils.manhwa.getById.invalidate(numericId);
+      utils.manhwa.getAll.invalidate();
+      setIsEditModalOpen(false);
+    },
+    onError: () => toast.error('Failed to update manhwa'),
+  });
+
+  const handleUpdate = () => {
+    updateMutation.mutate({
+      id: numericId,
+      title: editTitle,
+      description: editDescription,
+      coverUrl: editCoverUrl,
+    });
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 1024 * 1024 * 5) {
+         toast.error("File is too large. Max 5MB.");
+         return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditCoverUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -136,15 +200,11 @@ export function ManhwaDetailPage() {
 
           <Button 
             variant="ghost" 
-            className="w-full text-red-500 hover:text-red-400 hover:bg-red-500/10 gap-2 font-medium"
-            onClick={() => {
-              if (confirm('Are you sure you want to remove this manhwa?')) {
-                deleteMutation.mutate(numericId);
-              }
-            }}
+            className="w-full text-zinc-400 hover:text-white hover:bg-zinc-800 gap-2 font-medium"
+            onClick={openEditModal}
           >
-            <Trash2 className="h-4 w-4" />
-            Remove
+            <Edit className="h-4 w-4" />
+            Edit Manhwa
           </Button>
         </div>
 
@@ -253,31 +313,45 @@ export function ManhwaDetailPage() {
                   return null;
                 }
                 return (
-                  <a key={i} href={source.url} target="_blank" rel="noopener noreferrer">
-                    <Card className="bg-[#161719] border-border/30 p-4 rounded-xl flex items-center justify-between group hover:border-amber-500/30 transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                          isTelegram ? 'bg-blue-500/10 text-blue-400' : 'bg-emerald-500/10 text-emerald-400'
-                        }`}>
-                          {isTelegram ? (
-                            <Send size={18} className="-ml-0.5" />
-                          ) : (
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                              <path d="M2 12H22" stroke="currentColor" strokeWidth="2"/>
-                              <path d="M12 2C15.3137 2 18 6.47715 18 12C18 17.5228 15.3137 22 12 22C8.68629 22 6 17.5228 6 12C6 6.47715 8.68629 2 12 2Z" stroke="currentColor" strokeWidth="2"/>
-                            </svg>
-                          )}
+                  <div key={i} className="relative group/source">
+                    <a href={source.url} target="_blank" rel="noopener noreferrer" className="block">
+                      <Card className="bg-[#161719] border-border/30 p-4 rounded-xl flex items-center justify-between group-hover/source:border-amber-500/30 transition-colors pr-14">
+                        <div className="flex items-center gap-4">
+                          <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                            isTelegram ? 'bg-blue-500/10 text-blue-400' : 'bg-emerald-500/10 text-emerald-400'
+                          }`}>
+                            {isTelegram ? (
+                              <Send size={18} className="-ml-0.5" />
+                            ) : (
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                                <path d="M2 12H22" stroke="currentColor" strokeWidth="2"/>
+                                <path d="M12 2C15.3137 2 18 6.47715 18 12C18 17.5228 15.3137 22 12 22C8.68629 22 6 17.5228 6 12C6 6.47715 8.68629 2 12 2Z" stroke="currentColor" strokeWidth="2"/>
+                              </svg>
+                            )}
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-white truncate max-w-[200px] sm:max-w-[300px]">{displayName}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {isTelegram ? 'Telegram' : 'Website'} · Latest Ch. {manhwa.progress?.latestChapter ?? '?'}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="font-semibold text-white">{displayName}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {isTelegram ? 'Telegram' : 'Website'} · Latest Ch. {manhwa.progress?.latestChapter ?? '?'}
-                          </p>
-                        </div>
-                      </div>
-                    </Card>
-                  </a>
+                      </Card>
+                    </a>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="opacity-100 sm:opacity-0 sm:group-hover/source:opacity-100 sm:group-focus-within/source:opacity-100 transition-opacity text-zinc-500 hover:text-red-400 hover:bg-red-500/10 absolute right-3 top-1/2 -translate-y-1/2"
+                      onClick={() => {
+                        if (confirm('Are you sure you want to remove this source?')) {
+                          removeSourceMutation.mutate({ manhwaId: numericId, url: source.url as string });
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 );
               })
             ) : (
@@ -321,6 +395,94 @@ export function ManhwaDetailPage() {
           </div>
         </div>
       </div>
+
+      {isEditModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-modal-title"
+          onClick={() => setIsEditModalOpen(false)}
+        >
+          <Card 
+            className="bg-[#161719] border-border/30 p-6 rounded-2xl w-full max-w-md shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="edit-modal-title" className="text-xl font-bold text-white mb-4">Edit Manhwa</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-zinc-400">Title</label>
+                <input 
+                  type="text" 
+                  value={editTitle} 
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="mt-1 bg-[#0e0f11] border border-border/50 text-white text-sm rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium text-zinc-400">Description</label>
+                <textarea 
+                  value={editDescription} 
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  rows={4}
+                  className="mt-1 bg-[#0e0f11] border border-border/50 text-white text-sm rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-zinc-400">Cover URL or Image Upload</label>
+                {editCoverUrl && editCoverUrl.startsWith('data:image/') ? (
+                  <div className="mt-1 flex items-center gap-4 bg-[#0e0f11] p-3 rounded-lg border border-border/50">
+                    <img src={editCoverUrl} alt="Cover preview" className="w-16 h-16 object-cover rounded shadow-md" />
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                      onClick={() => setEditCoverUrl('')}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <input 
+                    type="text" 
+                    value={editCoverUrl} 
+                    onChange={(e) => setEditCoverUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="mt-1 bg-[#0e0f11] border border-border/50 text-white text-sm rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  />
+                )}
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-xs text-zinc-500">Or upload:</span>
+                  <input type="file" accept="image/*" onChange={handleFileUpload} className="text-xs text-zinc-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-zinc-800 file:text-amber-500 hover:file:bg-zinc-700 w-full overflow-hidden" />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 flex justify-between items-center">
+              <Button 
+                variant="ghost" 
+                className="text-red-500 hover:text-red-400 hover:bg-red-500/10 px-3 h-9"
+                onClick={() => {
+                  if (confirm('Are you sure you want to remove this manhwa?')) {
+                    deleteMutation.mutate(numericId);
+                  }
+                }}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="ghost" className="h-9 px-4 text-zinc-300 hover:text-white" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
+                <Button className="bg-amber-500 hover:bg-amber-600 text-amber-950 font-semibold h-9 px-4" onClick={handleUpdate} disabled={updateMutation.isPending || !editTitle.trim()}>Save Changes</Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

@@ -34,7 +34,9 @@ export const sources = pgTable('sources', {
   priority: integer('priority').notNull().default(10),
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-});
+}, (table) => ({
+  manhwaUrlUnique: unique().on(table.manhwaId, table.url),
+}));
 
 // ── chapters ──────────────────────────────────────────────────────────────────
 export const chapters = pgTable('chapters', {

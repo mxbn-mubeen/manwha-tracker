@@ -18,7 +18,7 @@ export const manhwaRouter = createTRPCRouter({
   create: publicProcedure
     .input(z.object({
       title: z.string().min(1),
-      coverUrl: z.string().optional(),
+      coverUrl: z.string().max(7500000).optional(),
       description: z.string().optional(),
       genres: z.array(z.string()).optional(),
       status: z.enum(['ongoing', 'completed', 'hiatus', 'dropped']).optional(),
@@ -27,6 +27,18 @@ export const manhwaRouter = createTRPCRouter({
     }))
     .mutation(async ({ input }) => {
       return await service.create(input);
+    }),
+
+  update: publicProcedure
+    .input(z.object({
+      id: z.coerce.number().int().positive(),
+      title: z.string().min(1).optional(),
+      coverUrl: z.string().max(7500000).optional(),
+      description: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const { id, ...data } = input;
+      return await service.update(id, data);
     }),
 
   updateStatus: publicProcedure
@@ -79,4 +91,17 @@ export const manhwaRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       return await service.addSource(input.manhwaId, input.url, input.type);
     }),
+
+  removeSource: publicProcedure
+    .input(z.object({
+      manhwaId: z.coerce.number().int().positive(),
+      url: z.string().min(1),
+    }))
+    .mutation(async ({ input }) => {
+      return await service.removeSource(input.manhwaId, input.url);
+    }),
+
+  getTelegramCount: publicProcedure.query(async () => {
+    return await service.getTelegramCount();
+  }),
 });

@@ -4,6 +4,7 @@ import { DashboardPage } from '@/pages/Dashboard';
 import { LibraryPage } from '@/pages/Library';
 import { AddManhwaPage } from '@/pages/AddManhwa';
 import { ManhwaDetailPage } from '@/pages/ManhwaDetail';
+import { SettingsPage } from '@/pages/Settings';
 
 export function App() {
   return (
@@ -15,6 +16,7 @@ export function App() {
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/add" element={<AddManhwaPage />} />
           <Route path="/manhwa/:id" element={<ManhwaDetailPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </AppShell>

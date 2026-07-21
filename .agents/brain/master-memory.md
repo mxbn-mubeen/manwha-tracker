@@ -1,7 +1,7 @@
 # Manhwa Tracker — Master Memory
 
 project_root: D:\manwha-tracker
-last_brain_review: 2026-07-16
+last_brain_review: 2026-07-21
 
 ## What This Project Does
 
@@ -53,16 +53,15 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 | `delete` | mutation | Remove manhwa from library |
 
 ### Phase 3 Scripts (in `apps/api/src/scripts/`)
-- `telegram-scan.ts` — scans all Telegram channels → CSV ✅
-- `telegram-import.ts` — imports from Telegram live ✅
-- `telegram-import-from-csv.ts` — imports from scan CSV ✅
-- `import-from-enriched-csv.ts` — imports from `manhwa-only.enriched.csv` ✅
-- `fix-progress.ts` — backfills progress rows for all manhwa from their latest chapter ✅
+- `backfill-covers.ts` — backfills cover URLs for manhwa missing them via MangaDex/scraping ✅
+- `cron-sync.ts` — runs the website sync loop ✅
+- `telegram-download-watcher.ts` — watches Telegram channels and updates progress automatically ✅
+- `telegram-login.ts` — handles MTProto authentication ✅
 
 ## Active Work
 
-- All core CRUD is working end-to-end
-- Next: Sync button, Telegram auto-progress, website adapter scraping
+- Website adapters, Telegram auto-progress, and cron sync implementation complete; production validation pending.
+- Outstanding: Verifying sync behavior against live website HTML markup and actual Telegram channels in production.
 
 ## Tech Stack
 

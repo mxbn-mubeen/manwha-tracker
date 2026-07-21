@@ -85,3 +85,17 @@ Append-only log. Never delete entries.
 - Reason: Initial implementation had hardcoded author ("TurtleMe"), description, sources, and chapter count (241) as static HTML. This caused every manhwa to show the same wrong data.
 - Alternatives considered: Leaving hardcoded values as "default" (rejected — causes data integrity confusion)
 - Date: 2026-07-16
+
+---
+
+- Decision: Website adapters use one shared markup-agnostic "scan every `<a>` tag for a chapter number" extractor (`chapter-extract.ts`), rather than hand-written CSS selectors per site
+- Reason: Built without live network access to AsuraScans/Webtoon/Reaper Scans/manhuaus.com to inspect real markup, so selector-specific scraping couldn't be verified. A generic link-text/href regex scan is markup-agnostic and degrades gracefully; per-site adapters can layer tighter selectors on top later once tested against the real sites.
+- Alternatives considered: Hand-written CSS selectors per site (more accurate if correct, but unverifiable here and brittle to markup changes); Puppeteer/headless browser (heavier, not needed since these are server-rendered pages)
+- Date: 2026-07-21
+
+---
+
+- Decision: `sync.run` tRPC mutation is unauthenticated, matching the rest of the API
+- Reason: Single-user personal app, same trust model as every other endpoint (no auth system by design).
+- Alternatives considered: Requiring the `secret` from `TriggerSyncSchema` even for the in-app button (rejected — that schema is for an external cron trigger, not the logged-in user's own button)
+- Date: 2026-07-21
