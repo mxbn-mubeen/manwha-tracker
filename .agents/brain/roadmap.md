@@ -39,16 +39,16 @@ Entries sourced only from explicit user statements and implementation plans.
 
 ---
 
-- Item: Telegram auto-progress — when user downloads a chapter PDF from Telegram, auto-mark it as last read
+- Item: Telegram auto-progress — when user reads a chapter in Telegram, auto-mark it as last read; when a new chapter is posted, auto-catalogue it
 - Source: User blueprint (session 2026-07-14) — core feature
-- Status: 🟡 IMPLEMENTED, UNVERIFIED (2026-07-21) — `telegram-download-watcher.ts` uses MTProto read-receipts (`UpdateReadChannelInbox`/`UpdateReadHistoryInbox`) as the closest available proxy for "downloaded", since MTProto has no true file-download event. Never run against a live session. `apps/api/telegram-session.txt` is a leaked live credential — rotate before use.
+- Status: ✅ COMPLETED & VERIFIED (2026-07-22) — `telegram-download-watcher.ts` uses `NewMessageEvent` for new chapter detection and `UpdateReadChannelInbox` for read-progress advancement. Tested live in production. NO historical catch-up logic (unsafe — see mistakes.md).
 - Date noted: 2026-07-14
 
 ---
 
 - Item: Telegram channel scan/import scripts referenced in `apps/api/package.json` (`telegram-scan.ts`, `telegram-import.ts`, `telegram-import-from-csv.ts`, `import-from-enriched-csv.ts`)
 - Source: Brain previously marked these ✅, but the files do not exist in the repo — likely lost or never committed
-- Status: 🔲 TODO — needs to be re-written from scratch
+- Status: 🔲 TODO — needs to be re-written from scratch IF needed (data is already imported; new manhwa added manually or via UI)
 - Date noted: 2026-07-21
 
 ---

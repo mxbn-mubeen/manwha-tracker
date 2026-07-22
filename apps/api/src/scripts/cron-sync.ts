@@ -13,7 +13,7 @@
  * Exits non-zero on any per-source error so a failing run shows up red in
  * the GitHub Actions UI instead of silently succeeding.
  */
-import 'dotenv/config';
+import '../env';
 import { SyncService } from '../modules/sync/sync.service';
 
 async function main() {

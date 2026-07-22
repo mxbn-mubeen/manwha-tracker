@@ -1,7 +1,7 @@
 # Manhwa Tracker — Master Memory
 
 project_root: D:\manwha-tracker
-last_brain_review: 2026-07-21
+last_brain_review: 2026-07-22
 
 ## What This Project Does
 
@@ -20,7 +20,7 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - Website adapters for: AsuraScans, Webtoon, ReaperScans, manhuaus.com (+ generic)
 - Telegram channel monitoring → auto-detects new chapters → download = last read (Phase 3)
 
-## Current State (as of 2026-07-16)
+## Current State (as of 2026-07-22)
 
 - **Architecture fully migrated from Next.js to Vite + Express** (Option 2 — decoupled)
 - Express tRPC API (`apps/api`) running on port 3001 ✅
@@ -28,9 +28,12 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - Neon PostgreSQL connected via `@manhwa-tracker/database` lib ✅
 - `packages/` renamed to `libs/` for clarity ✅
 - UI rebuilt with Tailwind v4 + shadcn/ui dark manhwa theme ✅
-- Dashboard, Library, Add Manhwa, Manhwa Detail pages all working ✅
-- **214 manhwa imported from enriched CSV** into DB ✅
-- **Reading progress seeded** from CSV `LatestChapter` column for all 214 titles ✅
+- Dashboard, Library, AddManhwa, ManhwaDetail, Settings pages all working ✅
+- **Web src reorganized from `pages/` to `features/`** (feature-based folder structure) ✅
+- **ManhwaDetail refactored** into sub-components: ManhwaHeader, ManhwaPoster, ProgressCard, SourcesList, EditManhwaModal ✅
+- **ManhwaHeader now shows ID badge** (`ID #42`) below the title ✅
+- **214 manhwa imported** from enriched CSV into DB ✅
+- **Telegram watcher live and running** (`telegram-download-watcher.ts`) — event-driven, catches new chapters + read progress ✅
 
 ### DB Driver Constraints (CRITICAL)
 - Driver: `drizzle-orm/neon-http` — **Neon HTTP serverless**
@@ -54,18 +57,23 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 ### Phase 3 Scripts (in `apps/api/src/scripts/`)
 - `backfill-covers.ts` — backfills cover URLs for manhwa missing them via MangaDex/scraping ✅
 - `cron-sync.ts` — runs the website sync loop ✅
-- `telegram-download-watcher.ts` — watches Telegram channels and updates progress automatically ✅
+- `telegram-download-watcher.ts` — watches Telegram channels, event-driven (NewMessage + ReadInbox) ✅
+- `fix-db.ts` — emergency cleanup script for corrupted chapters ✅
 - `telegram-login.ts` — handles MTProto authentication ✅
+
+⚠️ Scripts that DO NOT EXIST (stale references in package.json): `telegram-scan.ts`, `telegram-import.ts`, `telegram-import-from-csv.ts`, `import-from-enriched-csv.ts`, `fix-progress.ts`
 
 ## Active Work
 
-- Website adapters, Telegram auto-progress, and cron sync implementation complete; production validation pending.
-- Outstanding: Verifying sync behavior against live website HTML markup and actual Telegram channels in production.
+- Telegram watcher is live and functioning correctly (event-driven, tested in production).
+- Website adapter sync implemented but not yet verified against all live sites (asurascans chapter extraction tested with synthetic HTML only).
+- Settings page added but may be minimal/stub.
+- Missing scripts (telegram-scan, telegram-import, etc.) referenced in package.json — these need to be re-written if ever needed.
 
 ## Tech Stack
 
 - **Frontend**: Vite 5 + React 19 + react-router-dom 6 (port 3000)
-- **Backend**: Express 4 + tRPC v11 (port 3001)
+- **Backend**: Express 4 + tRPC v11 + settings + sync routers (port 3001)
 - TypeScript 5
 - shadcn/ui components (Button, Card, Badge, Input, toast via Sonner)
 - TanStack Query v5 (via tRPC React hooks)
@@ -73,7 +81,7 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - Zod (tRPC input validation)
 - Superjson (tRPC transformer — must be on `createClient`, NOT inside `httpBatchLink`)
 - PNPM Workspaces + TurboRepo
-- GramJS (Phase 3 — Telegram MTProto)
+- GramJS (Telegram MTProto — telegram-download-watcher.ts)
 - Cheerio (HTML scraping — in `libs/parser`)
 
 ## Personal Info / Credentials
@@ -84,8 +92,9 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 
 ## Env Setup
 
-- Root `.env` — shared
-- `apps/api/.env` — copy of root `.env` (needed for DATABASE_URL at runtime)
+- Root `.env` — shared (DATABASE_URL + Telegram API_ID/API_HASH/PHONE/SESSION)
+- `apps/api/src/env.ts` — loads root `.env` explicitly via `dotenv.config({ path: resolve(__dirname, '../../../.env') })`
+- `apps/api/.env` — copy of root `.env` (kept as fallback)
 - Frontend uses `VITE_API_URL` env var (defaults to `http://localhost:3001`)
 
 ## Roadmap Phases

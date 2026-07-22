@@ -1,3 +1,3 @@
 export * from "./factory";
-export * from "./chapter-extract";
+export * from "./utils/chapter-extract";
 export * from "./http";

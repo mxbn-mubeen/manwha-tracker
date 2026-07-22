@@ -17,15 +17,17 @@
  * verify with `pnpm run backfill:covers` and check a few results before
  * assuming all 214 imported entries now have working covers.
  */
-import 'dotenv/config';
+import '../env';
 import { lookupCoverUrl, parseMetadataFromUrl } from '@manhwa-tracker/parser';
 import { ManhwaRepository } from '../modules/manhwa/manhwa.repository';
+import { SourcesRepository } from '../modules/manhwa/sources.repository';
 
 const DELAY_MS = 500;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function main() {
   const repo = new ManhwaRepository();
+  const sourcesRepo = new SourcesRepository();
   const missing = await repo.getManhwaMissingCovers();
 
   console.log(`[backfill-covers] ${missing.length} manhwa missing cover art.`);
@@ -47,7 +49,7 @@ async function main() {
     if (coverUrl) {
       foundViaMangaDex++;
     } else {
-      const websiteUrl = await repo.getWebsiteSourceUrl(m.id);
+      const websiteUrl = await sourcesRepo.getWebsiteSourceUrl(m.id);
       if (websiteUrl) {
         try {
           const metadata = await parseMetadataFromUrl(websiteUrl);

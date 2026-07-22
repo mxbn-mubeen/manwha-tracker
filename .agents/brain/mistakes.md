@@ -210,3 +210,19 @@ Append-only log. Never delete entries.
 - Fix: Made the Navbar fully responsive by hiding the text labels for Dashboard/Library/Sync/Add on mobile screens (using `hidden sm:inline`), keeping only their icons, and reducing the flex gaps. User verified and committed the fix.
 - Status: Resolved
 - Date: 2026-07-22
+
+---
+
+- Problem: Numerical inputs for `lastChapter` and `latestChapter` in `AddManhwa.tsx` behaved erratically (could not clear `0`, typing produced strings like `097`).
+- Cause: React state was bound to `number` type for inputs that were conceptually text inputs until submission. Leading zeros and empty strings caused NaN or string concatenation inside number inputs.
+- Fix: Changed the state to `string` (e.g. `const [latestChapter, setLatestChapter] = useState('')`) and handled coercion to number at submission time.
+- Status: Resolved
+- Date: 2026-07-22
+
+---
+
+- Problem: Fetching historical messages in `telegram-download-watcher.ts` to "catch up" on downtime caused massive data corruption, marking chapter numbers like 18, 202, and 250 for unrelated manhwas.
+- Cause: Telegram scanlation channels frequently post cross-promotional ads ("Read Chapter 18 of X on our other channel!"). The aggressive fallback extraction blindly parsed numbers from these ads and catalogued them as new chapters for the tracked manhwa. Attempting to bulk-scan historical messages exposed the database to these false positives, unlike the passive live-listener which only processes messages when the user triggers a read event or a new message arrives.
+- Fix: Deleted the catch-up logic entirely. Reverted to a purely passive event-driven design (using `UpdateReadChannelInbox` and `NewMessageEvent`) which is intrinsically safer. Ran `fix-db.ts` to delete all recently inserted corrupted chapters from the database.
+- Status: Resolved
+- Date: 2026-07-22

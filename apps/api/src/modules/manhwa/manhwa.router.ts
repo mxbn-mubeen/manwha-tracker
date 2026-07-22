@@ -35,6 +35,7 @@ export const manhwaRouter = createTRPCRouter({
       title: z.string().min(1).optional(),
       coverUrl: z.string().max(7500000).optional(),
       description: z.string().optional(),
+      genres: z.array(z.string()).optional(),
     }))
     .mutation(async ({ input }) => {
       const { id, ...data } = input;

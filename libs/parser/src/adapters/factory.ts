@@ -1,9 +1,9 @@
 import type { WebsiteAdapter } from "@manhwa-tracker/shared";
-import { asuraScansAdapter } from "./asurascans";
-import { webtoonAdapter } from "./webtoon";
-import { reaperScansAdapter } from "./reaperscans";
-import { manhuausAdapter } from "./manhuaus";
-import { genericAdapter } from "./generic";
+import { asuraScansAdapter } from "./sites/asurascans";
+import { webtoonAdapter } from "./sites/webtoon";
+import { reaperScansAdapter } from "./sites/reaperscans";
+import { manhuausAdapter } from "./sites/manhuaus";
+import { genericAdapter } from "./sites/generic";
 
 /** Ordered by specificity — generic (matches everything) is never in this list. */
 const SITE_ADAPTERS: WebsiteAdapter[] = [

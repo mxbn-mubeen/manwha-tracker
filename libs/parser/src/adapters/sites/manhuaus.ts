@@ -1,11 +1,11 @@
 import type { WebsiteAdapter } from "@manhwa-tracker/shared";
-import { fetchHtml } from "./http";
-import { detectTitleFromHtml, extractChaptersFromHtml } from "./chapter-extract";
+import { fetchHtml } from "../http";
+import { detectTitleFromHtml, extractChaptersFromHtml } from "../utils/chapter-extract";
 
-export const asuraScansAdapter: WebsiteAdapter = {
-  key: "asurascans",
-  name: "AsuraScans",
-  urlPatterns: [/asuracomic\.net/i, /asurascans\.com/i, /asurascan\.com/i],
+export const manhuausAdapter: WebsiteAdapter = {
+  key: "manhuaus",
+  name: "Manhuaus",
+  urlPatterns: [/manhuaus\.com/i],
 
   async detectTitle(url) {
     const html = await fetchHtml(url);

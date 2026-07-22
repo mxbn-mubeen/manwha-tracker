@@ -1,9 +1,9 @@
 # Architecture — Manhwa Tracker
 
 project_root: D:\manwha-tracker
-last_updated: 2026-07-16
+last_updated: 2026-07-22
 
-## Monorepo Structure (Actual as of 2026-07-16)
+## Monorepo Structure (Actual as of 2026-07-22)
 
 ```
 D:\manwha-tracker\
@@ -11,34 +11,57 @@ D:\manwha-tracker\
 │   ├── api\          Express 4 + tRPC v11 — port 3001
 │   │   ├── src\
 │   │   │   ├── modules\
-│   │   │   │   └── manhwa\
-│   │   │   │       ├── manhwa.router.ts     tRPC routes
-│   │   │   │       ├── manhwa.service.ts    business logic
-│   │   │   │       └── manhwa.repository.ts DB access (plain select/join only)
+│   │   │   │   ├── manhwa\
+│   │   │   │   │   ├── manhwa.router.ts     tRPC routes
+│   │   │   │   │   ├── manhwa.service.ts    business logic
+│   │   │   │   │   └── manhwa.repository.ts DB access (plain select/join only)
+│   │   │   │   ├── sync\
+│   │   │   │   │   ├── sync.router.ts
+│   │   │   │   │   ├── sync.service.ts
+│   │   │   │   │   └── sync.repository.ts
+│   │   │   │   ├── settings\
+│   │   │   │   │   └── settings.router.ts
+│   │   │   │   └── telegram\
+│   │   │   │       └── (telegram module files)
 │   │   │   ├── scripts\
-│   │   │   │   ├── telegram-scan.ts         scan channels → CSV
-│   │   │   │   ├── telegram-import.ts       live Telegram import
-│   │   │   │   ├── telegram-import-from-csv.ts
-│   │   │   │   ├── import-from-enriched-csv.ts
-│   │   │   │   └── fix-progress.ts          backfill progress from latest chapter
-│   │   │   ├── root.ts                      tRPC app router composition
-│   │   │   ├── server.ts                    Express server entry
-│   │   │   └── trpc.ts                      tRPC context + procedures
-│   │   ├── manhwa-only.enriched.csv         219-row curated import CSV
+│   │   │   │   ├── backfill-covers.ts         backfills cover URLs via MangaDex
+│   │   │   │   ├── cron-sync.ts               runs website sync loop
+│   │   │   │   ├── telegram-download-watcher.ts  GramJS event-driven chapter + progress tracker
+│   │   │   │   └── fix-db.ts                  one-off DB cleanup script
+│   │   │   ├── env.ts                         loads .env from workspace root
+│   │   │   ├── root.ts                        tRPC app router composition
+│   │   │   ├── server.ts                      Express server entry
+│   │   │   └── trpc.ts                        tRPC context + procedures
 │   │   └── package.json
 │   └── web\          Vite 5 + React 19 — port 3000
 │       ├── src\
-│       │   ├── pages\
-│       │   │   ├── Dashboard.tsx
-│       │   │   ├── Library.tsx
-│       │   │   ├── ManhwaDetail.tsx
-│       │   │   └── AddManhwa.tsx
+│       │   ├── features\                      Feature-based folder structure (NOT pages/)
+│       │   │   ├── dashboard\
+│       │   │   │   ├── Dashboard.tsx
+│       │   │   │   └── components\
+│       │   │   ├── manhwa\                    Library + AddManhwa
+│       │   │   │   ├── Library.tsx
+│       │   │   │   ├── AddManhwa.tsx
+│       │   │   │   └── components\
+│       │   │   │       └── ManhwaCard.tsx
+│       │   │   ├── manhwa-detail\
+│       │   │   │   ├── ManhwaDetail.tsx       (page entry - thin orchestrator)
+│       │   │   │   └── components\
+│       │   │   │       ├── ManhwaHeader.tsx   (title, ID, genres, status dropdown, description)
+│       │   │   │       ├── ManhwaPoster.tsx   (cover image, continue reading, edit button)
+│       │   │   │       ├── ProgressCard.tsx   (chapter progress controls)
+│       │   │   │       ├── SourcesList.tsx    (sources list + add source form)
+│       │   │   │       └── EditManhwaModal.tsx (edit title, cover, description, genres)
+│       │   │   └── settings\
+│       │   │       └── Settings.tsx
 │       │   ├── components\
-│       │   │   └── ui\                      shadcn/ui components
+│       │   │   ├── layout\
+│       │   │   │   └── AppShell.tsx           (navbar + layout)
+│       │   │   └── ui\                        shadcn/ui components
 │       │   ├── lib\
-│       │   │   └── trpc.ts                  tRPC client + React Query setup
-│       │   ├── providers.tsx                tRPC + QueryClient providers
-│       │   ├── App.tsx                      router (react-router-dom v6)
+│       │   │   └── trpc.ts                    tRPC client + React Query setup
+│       │   ├── providers.tsx                  tRPC + QueryClient providers
+│       │   ├── App.tsx                        router (react-router-dom v6)
 │       │   └── main.tsx
 │       └── package.json
 ├── libs\                          (was: packages\ — renamed for clarity)
@@ -46,11 +69,28 @@ D:\manwha-tracker\
 │   │   └── src\
 │   │       ├── db.ts              neon() + drizzle() singleton
 │   │       └── schema\
-│   │           └── index.ts       manhwa, sources, chapters, progress, notifications, settings
-│   ├── parser\       Chapter number + title extraction + site metadata parsing
-│   └── shared\       Shared TypeScript types (minimal)
+│   │           └── index.ts       manhwa, sources, chapters, progress, settings
+│   ├── parser\       Chapter extraction + site adapter + metadata parsing
+│   │   └── src\
+│   │       ├── adapters\
+│   │       │   ├── sites\
+│   │       │   │   ├── asurascans.ts
+│   │       │   │   ├── webtoon.ts
+│   │       │   │   ├── reaperscans.ts
+│   │       │   │   ├── manhuaus.ts
+│   │       │   │   └── generic.ts
+│   │       │   ├── utils\
+│   │       │   │   ├── extract-chapter-number.ts
+│   │       │   │   └── chapter-extract.ts
+│   │       │   ├── factory.ts
+│   │       │   ├── http.ts
+│   │       │   └── index.ts
+│   │       └── metadata.ts
+│   └── shared\       Shared TypeScript types (minimal — may be deprecated)
 ├── .agents\
 │   └── brain\        Project brain files
+├── .env              Shared workspace env (DATABASE_URL + Telegram creds)
+├── .env.example
 ├── package.json      PNPM workspaces root
 ├── pnpm-workspace.yaml
 ├── turbo.json
@@ -67,7 +107,7 @@ Driver: `drizzle-orm/neon-http` — **no relational queries, no transactions**
 | sources | id, manhwa_id, type (telegram\|website), url, adapter_key, priority, is_active, created_at |
 | chapters | id, manhwa_id, source_id, chapter_num (real), title, url, published_at, discovered_at |
 | progress | id, manhwa_id (unique), chapter_id, last_read_at, is_completed |
-| notifications | id, manhwa_id, chapter_id, type, sent_at, is_read |
+| notifications | (removed from schema — table was defined but never used anywhere) |
 | settings | id, key, value (jsonb), updated_at |
 
 No user_id — single user app.
@@ -109,21 +149,29 @@ React 19 + react-router-dom v6 SPA. All API calls go via tRPC hooks.
 
 ```
 / → redirect to /dashboard
-/dashboard     Dashboard.tsx     Stats + Continue Reading + Recent Activity
-/library       Library.tsx       Full grid of all manhwa
-/manhwa/:id    ManhwaDetail.tsx  Detail: progress controls, status selector, sources, add source
-/add           AddManhwa.tsx     Manual add form (title, status, chapters, cover, description)
+/dashboard     features/dashboard/Dashboard.tsx     Stats + Continue Reading + Recent Activity
+/library       features/manhwa/Library.tsx          Full grid of all manhwa, search, status filter
+/manhwa/:id    features/manhwa-detail/ManhwaDetail  Detail: progress, status dropdown, ID badge, sources, edit
+/add           features/manhwa/AddManhwa.tsx        Manual add form (title, status, chapters, cover, genres, description)
+/settings      features/settings/Settings.tsx       Settings page
 ```
+
+Note: There is NO `src/pages/` directory. All pages live inside `src/features/` as the main file at the feature root.
 
 tRPC client configured in `lib/trpc.ts` with SuperJSON transformer, connected to `http://localhost:3001/trpc`.
 
 ## Telegram Sync (apps/api/src/scripts/)
 
-- GramJS MTProto personal account (API_ID + API_HASH in `apps/api/.env`)
-- `telegram-scan.ts` — joins all channels, finds manhwa, exports CSV
-- `telegram-import.ts` — live import from Telegram API
-- `import-from-enriched-csv.ts` — imports from `manhwa-only.enriched.csv` (primary import)
-- `fix-progress.ts` — one-time script to seed progress from latest chapter per manhwa
+- GramJS MTProto personal account (API_ID + API_HASH in root `.env`)
+- `telegram-download-watcher.ts` — the ONLY active Telegram script. Purely event-driven:
+  - `NewMessageEvent` → detects new chapters posted to tracked channels → inserts into `chapters` table → touches `manhwa.updatedAt`
+  - `UpdateReadChannelInbox` → detects when user reads messages → advances progress (`last_read_at`, `chapter_id`)
+  - **NO historical fetch / catch-up logic** — safe by design (cross-promotion ads would corrupt chapter numbers)
+- `backfill-covers.ts` — one-off script to backfill missing cover URLs
+- `cron-sync.ts` — runs website adapter sync loop for all website sources
+- `fix-db.ts` — emergency cleanup script (deletes recently-added Telegram chapters, used after corruption events)
+
+⚠️ Scripts that DO NOT EXIST (were in brain/roadmap but were never written): `telegram-scan.ts`, `telegram-import.ts`, `telegram-import-from-csv.ts`, `import-from-enriched-csv.ts`, `fix-progress.ts`
 
 ## Website Adapters (libs/parser/src/adapters/)
 
@@ -172,6 +220,15 @@ Added 2026-07-21 to replace the placeholder "Sync" button (previously a `setTime
 Note: `libs/shared/src/schemas/sync.ts` already defined a `TriggerSyncSchema` with a `secret`
 field for an external cron trigger (e.g. GitHub Actions) — that REST/secret-protected entrypoint
 is still TODO; the `sync.run` tRPC mutation added here is for the in-app button only.
+
+## Settings Module (apps/api/src/modules/settings/)
+
+Added to support a `/settings` page in the frontend. Persists key/value pairs in the `settings` table (jsonb value column).
+- `settingsRouter` exported and registered in `root.ts` as `settings`.
+
+## Telegram Module (apps/api/src/modules/telegram/)
+
+Houses the repository and service used by `telegram-download-watcher.ts` for DB operations (insertChapter, findChapter, markAsReadIfNewer, touchManhwaUpdatedAt, getActiveTelegramSources).
 
 ## Design Patterns Used
 

@@ -82,23 +82,27 @@ export interface WebsiteAdapter {
 
 Factory usage:
 ```typescript
-const adapter = AdapterFactory.for(sourceUrl); // returns correct adapter or throws
-const latest = await adapter.latestChapter(url);
+import { detectAdapterKey, getAdapter } from '@manhwa-tracker/parser';
+const key = detectAdapterKey(sourceUrl);  // 'asurascans' | 'webtoon' | 'reaperscans' | 'manhuaus' | 'generic'
+const adapter = getAdapter(key, sourceUrl);
+const latest = await adapter.latestChapter(sourceUrl);
 ```
 
 ---
 
 ## Zod Validation Pattern
 
-All API inputs validated with Zod. Schemas live in `packages/shared/src/schemas/`.
+All API inputs validated with Zod. Schemas live in `libs/shared/src/schemas/` (or inline in the router).
 
 ```typescript
-// packages/shared/src/schemas/progress.ts
-export const UpdateProgressSchema = z.object({
-  manhwaId: z.number().int().positive(),
-  chapterNum: z.number(),
-  lastReadAt: z.date().optional(),
-});
+// apps/api/src/modules/manhwa/manhwa.router.ts
+update: publicProcedure
+  .input(z.object({
+    id: z.coerce.number().int().positive(),
+    title: z.string().min(1).optional(),
+    genres: z.array(z.string()).optional(),
+  }))
+  .mutation(async ({ input }) => { ... })
 ```
 
 tRPC routers use `.input(schema)`:
@@ -116,7 +120,7 @@ progress.update.useMutation({...})
 Single Neon connection instance, shared across the app. Never create multiple connections.
 
 ```typescript
-// packages/database/src/db.ts
+// libs/database/src/db.ts
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from './schema';
@@ -132,12 +136,11 @@ export const db = drizzle(sql, { schema });
 Routers are modular by domain. All routers composed into root router.
 
 ```typescript
-// apps/web/server/api/root.ts
+// apps/api/src/root.ts
 export const appRouter = createTRPCRouter({
   manhwa: manhwaRouter,
-  progress: progressRouter,
   sync: syncRouter,
-  notifications: notificationsRouter,
+  settings: settingsRouter,
 });
 ```
 
@@ -156,8 +159,15 @@ const num = extractChapterNumber("Chapter 150 - The Return"); // → 150
 
 ## Progress Auto-Update from Telegram
 
-When GramJS detects a media download event for a manhwa chapter message:
-1. Extract chapter number from message
-2. Look up manhwa by channel → manhwa mapping in settings/sources table
-3. Call progress service to upsert last_read_at + chapter_id
-4. Never update progress for messages older than current last_read
+`telegram-download-watcher.ts` uses a **purely event-driven** model (no polling, no historical fetch):
+
+1. `NewMessageEvent` fires when a tracked channel posts a new message:
+   - Extract chapter number from message caption or filename
+   - Only process if message has a document attached (prevents ads from triggering false chapters)
+   - Insert into `chapters` table + touch `manhwa.updatedAt`
+2. `UpdateReadChannelInbox` fires when user reads messages in a tracked channel:
+   - Fetch the messages in the read range (up to 10), find the highest chapter number
+   - Upsert the chapter row if it wasn't already catalogued
+   - Call `markAsReadIfNewer` — only advances progress, never goes backwards
+
+⚠️ **Do NOT add historical fetch/catch-up logic** — Telegram channels post cross-promotional ads that contain chapter-shaped numbers from other manhwas. Blind scanning of historical messages will corrupt chapter data (logged in mistakes.md).

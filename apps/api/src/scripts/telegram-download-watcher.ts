@@ -26,7 +26,7 @@
  * This has not been run against a live Telegram session — verify against
  * your actual channels before trusting it unattended.
  */
-import 'dotenv/config';
+import '../env';
 import { TelegramClient, Api } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 import { NewMessage, type NewMessageEvent } from 'telegram/events';
@@ -92,11 +92,31 @@ async function buildChannelMap(client: TelegramClient) {
         manhwaTitle: source.manhwaTitle,
       });
       console.log(`[watcher] Mapped channel "${source.url}" (id=${id}) -> ${source.manhwaTitle}`);
+
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[watcher] Could not resolve entity for source url "${source.url}": ${message}`);
     }
   }
+}
+
+function extractFallbackChapter(text: string): number | null {
+  const cleaned = text
+    .replace(/\b(19\d\d|20\d\d)\b/g, '') // remove years
+    .replace(/\b(720|1080|1440|2160|480|360)[pi]?\b/gi, '') // remove resolutions
+    .replace(/\b\d+(?:kb|mb|gb)\b/gi, '') // remove sizes
+    .replace(/\b(66666|10000|4000|100|99|1st|2nd|3rd|\d+th)\b/gi, ''); // remove common title numbers
+
+  const matches = cleaned.match(/(?:^|\b|_|-|#)(\d+(?:\.\d+)?)(?:\b|_|-|\.|$)/g);
+  if (!matches) return null;
+
+  const lastMatch = matches[matches.length - 1];
+  if (!lastMatch) return null;
+  const numMatch = lastMatch.match(/\d+(?:\.\d+)?/);
+  if (!numMatch) return null;
+
+  const num = parseFloat(numMatch[0]);
+  return Number.isNaN(num) ? null : num;
 }
 
 /** Best-effort chapter number extraction from a Telegram message: caption text, then filename. */
@@ -111,6 +131,23 @@ function extractChapterFromMessage(message: Api.Message): number | null {
     const fromFilename = extractChapterNumber(filenameAttr);
     if (fromFilename !== null) return fromFilename;
   }
+
+  // Telegram-specific fallback: look for numbers that look like chapters in the text
+  // Many channels post things like "Murim Psycho 82" or "082.cbz" without the word "Chapter"
+  // BUT only apply this aggressive fallback if the message actually has a file (document) attached,
+  // or if it has a photo + link. If it's a pure text/photo ad without a file, aggressive fallback
+  // will parse random numbers like "18+" into chapter 18.
+  if (doc) {
+    if (message.message) {
+      const fallback = extractFallbackChapter(message.message);
+      if (fallback !== null) return fallback;
+    }
+    if (filenameAttr) {
+      const fallback = extractFallbackChapter(filenameAttr);
+      if (fallback !== null) return fallback;
+    }
+  }
+
   return null;
 }
 

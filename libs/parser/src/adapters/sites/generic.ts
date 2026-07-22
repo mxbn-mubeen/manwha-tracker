@@ -1,6 +1,6 @@
 import type { WebsiteAdapter } from "@manhwa-tracker/shared";
-import { fetchHtml } from "./http";
-import { detectTitleFromHtml, extractChaptersFromHtml } from "./chapter-extract";
+import { fetchHtml } from "../http";
+import { detectTitleFromHtml, extractChaptersFromHtml } from "../utils/chapter-extract";
 
 /**
  * Fallback adapter used for any website source that doesn't match a

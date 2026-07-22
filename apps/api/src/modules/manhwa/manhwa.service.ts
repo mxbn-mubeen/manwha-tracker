@@ -1,10 +1,16 @@
 import { ManhwaRepository } from './manhwa.repository';
+import { ProgressRepository } from './progress.repository';
+import { SourcesRepository } from './sources.repository';
 
 export class ManhwaService {
   private repo: ManhwaRepository;
+  private progressRepo: ProgressRepository;
+  private sourcesRepo: SourcesRepository;
 
   constructor() {
     this.repo = new ManhwaRepository();
+    this.progressRepo = new ProgressRepository();
+    this.sourcesRepo = new SourcesRepository();
   }
 
   async addFromUrl(url: string) {
@@ -12,7 +18,7 @@ export class ManhwaService {
     const metadata = await parseMetadataFromUrl(url);
     const adapterKey = detectAdapterKey(url);
 
-    return await this.repo.createWithSource({
+    return await this.sourcesRepo.createWithSource({
       title: metadata.title,
       slug: metadata.slug,
       coverUrl: metadata.coverUrl,
@@ -50,7 +56,7 @@ export class ManhwaService {
     return await this.repo.createManual({ ...data, coverUrl });
   }
 
-  async update(id: number, data: { title?: string; coverUrl?: string; description?: string }) {
+  async update(id: number, data: { title?: string; coverUrl?: string; description?: string; genres?: string[] }) {
     return await this.repo.update(id, data);
   }
 
@@ -67,7 +73,7 @@ export class ManhwaService {
   }
 
   async updateProgress(manhwaId: number, chapter: number) {
-    return await this.repo.updateProgress(manhwaId, chapter);
+    return await this.progressRepo.updateProgress(manhwaId, chapter);
   }
 
   async delete(id: number) {
@@ -75,14 +81,15 @@ export class ManhwaService {
   }
 
   async addSource(manhwaId: number, url: string, type: 'telegram' | 'website') {
-    return await this.repo.addSource(manhwaId, url, type);
+    return await this.sourcesRepo.addSource(manhwaId, url, type);
   }
 
   async removeSource(manhwaId: number, url: string) {
-    return await this.repo.removeSource(manhwaId, url);
+    return await this.sourcesRepo.removeSource(manhwaId, url);
   }
 
   async getTelegramCount() {
-    return await this.repo.getTelegramCount();
+    return await this.sourcesRepo.getTelegramCount();
   }
 }
+

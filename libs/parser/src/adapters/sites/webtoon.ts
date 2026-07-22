@@ -1,11 +1,11 @@
 import type { WebsiteAdapter } from "@manhwa-tracker/shared";
-import { fetchHtml } from "./http";
-import { detectTitleFromHtml, extractChaptersFromHtml } from "./chapter-extract";
+import { fetchHtml } from "../http";
+import { detectTitleFromHtml, extractChaptersFromHtml } from "../utils/chapter-extract";
 
-export const manhuausAdapter: WebsiteAdapter = {
-  key: "manhuaus",
-  name: "Manhuaus",
-  urlPatterns: [/manhuaus\.com/i],
+export const webtoonAdapter: WebsiteAdapter = {
+  key: "webtoon",
+  name: "Webtoon",
+  urlPatterns: [/webtoons\.com/i],
 
   async detectTitle(url) {
     const html = await fetchHtml(url);
@@ -14,6 +14,8 @@ export const manhuausAdapter: WebsiteAdapter = {
 
   async chapterList(url) {
     const html = await fetchHtml(url);
+    // Webtoon lists episodes rather than "chapters" — the generic extractor
+    // also matches "Episode"/"Ep" so it covers this site's link text too.
     return extractChaptersFromHtml(html, url);
   },
 

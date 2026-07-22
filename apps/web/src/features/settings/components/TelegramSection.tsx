@@ -16,24 +16,31 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 type LoginStep = 'idle' | 'phone' | 'code' | '2fa' | 'success';
 
-export function SettingsPage() {
+function StepHeader({
+  icon,
+  title,
+  step,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  step: number;
+}) {
   return (
-    <div className="space-y-8 pb-10 max-w-2xl">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight mb-1">Settings</h1>
-        <p className="text-muted-foreground">Manage your tracker configuration</p>
+    <div className="flex items-center gap-3">
+      <div className="h-7 w-7 rounded-full bg-white/5 flex items-center justify-center text-xs font-bold text-muted-foreground border border-border/50">
+        {step}
       </div>
-
-      <TelegramSection />
+      <div className="flex items-center gap-2 font-semibold text-sm">
+        {icon}
+        {title}
+      </div>
     </div>
   );
 }
 
-// ─── Telegram Section ─────────────────────────────────────────────────────────
-function TelegramSection() {
+export function TelegramSection() {
   const utils = trpc.useUtils();
 
   // Login wizard state
@@ -309,28 +316,5 @@ function TelegramSection() {
         </p>
       </div>
     </section>
-  );
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-function StepHeader({
-  icon,
-  title,
-  step,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  step: number;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="h-7 w-7 rounded-full bg-white/5 flex items-center justify-center text-xs font-bold text-muted-foreground border border-border/50">
-        {step}
-      </div>
-      <div className="flex items-center gap-2 font-semibold text-sm">
-        {icon}
-        {title}
-      </div>
-    </div>
   );
 }

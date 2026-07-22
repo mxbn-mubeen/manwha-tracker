@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './env';
 import { timingSafeEqual } from 'crypto';
 import express from 'express';
 import cors from 'cors';

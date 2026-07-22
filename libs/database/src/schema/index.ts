@@ -62,17 +62,6 @@ export const progress = pgTable('progress', {
   isCompleted: boolean('is_completed').notNull().default(false),
 });
 
-// ── notifications ─────────────────────────────────────────────────────────────
-export const notifications = pgTable('notifications', {
-  id: serial('id').primaryKey(),
-  manhwaId: integer('manhwa_id').references(() => manhwa.id, { onDelete: 'cascade' }),
-  chapterId: integer('chapter_id').references(() => chapters.id, { onDelete: 'set null' }),
-  type: varchar('type', { length: 50 }).notNull(), // 'new_chapter' | 'source_error' | 'sync_complete'
-  message: text('message').notNull(),
-  sentAt: timestamp('sent_at').notNull().defaultNow(),
-  isRead: boolean('is_read').notNull().default(false),
-});
-
 // ── settings ──────────────────────────────────────────────────────────────────
 export const settings = pgTable('settings', {
   id: serial('id').primaryKey(),
@@ -93,9 +82,6 @@ export type InsertChapter = typeof chapters.$inferInsert;
 
 export type Progress = typeof progress.$inferSelect;
 export type InsertProgress = typeof progress.$inferInsert;
-
-export type Notification = typeof notifications.$inferSelect;
-export type InsertNotification = typeof notifications.$inferInsert;
 
 export type Setting = typeof settings.$inferSelect;
 export type InsertSetting = typeof settings.$inferInsert;

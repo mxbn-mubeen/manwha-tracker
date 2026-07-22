@@ -137,96 +137,6 @@ export class ManhwaRepository {
     await db.delete(manhwa).where(eq(manhwa.id, id));
   }
 
-  async updateProgress(manhwaId: number, chapterNum: number) {
-    let [chapterRow] = await db
-      .select()
-      .from(chapters)
-      .where(and(eq(chapters.manhwaId, manhwaId), eq(chapters.chapterNum, chapterNum)))
-      .limit(1);
-
-    if (!chapterRow) {
-      const [inserted] = await db.insert(chapters).values({
-        manhwaId,
-        chapterNum,
-        url: '',
-        title: `Chapter ${chapterNum}`,
-      })
-      .onConflictDoNothing()
-      .returning();
-      
-      if (inserted) {
-        chapterRow = inserted;
-      } else {
-        const [found] = await db
-          .select()
-          .from(chapters)
-          .where(and(eq(chapters.manhwaId, manhwaId), eq(chapters.chapterNum, chapterNum)))
-          .limit(1);
-        if (!found) throw new Error("Failed to create or find chapter");
-        chapterRow = found;
-      }
-    }
-
-    // Update or create progress
-    await db.insert(progress)
-      .values({
-        manhwaId,
-        chapterId: chapterRow.id,
-        lastReadAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: progress.manhwaId,
-        set: {
-          chapterId: chapterRow.id,
-          lastReadAt: new Date(),
-        },
-      });
-      
-    return chapterRow;
-  }
-
-  async createWithSource(data: {
-    title: string;
-    slug: string;
-    coverUrl?: string;
-    description?: string;
-    sourceUrl: string;
-    adapterKey: string;
-  }) {
-    const [newManhwa] = await db
-      .insert(manhwa)
-      .values({
-        title: data.title,
-        slug: data.slug,
-        coverUrl: data.coverUrl,
-        description: data.description,
-      })
-      .onConflictDoUpdate({
-        target: manhwa.slug,
-        set: {
-          title: data.title,
-          coverUrl: data.coverUrl,
-          description: data.description,
-        }
-      })
-      .returning();
-
-    if (!newManhwa) throw new Error("Failed to create manhwa");
-
-    await db.insert(sources).values({
-      manhwaId: newManhwa.id,
-      type: 'website',
-      url: data.sourceUrl,
-      adapterKey: data.adapterKey,
-    }).onConflictDoNothing();
-
-    await db.insert(progress).values({
-      manhwaId: newManhwa.id,
-    }).onConflictDoNothing();
-
-    return newManhwa;
-  }
-
   async createManual(data: {
     title: string;
     coverUrl?: string;
@@ -322,51 +232,6 @@ export class ManhwaRepository {
     await db.update(manhwa).set({ status }).where(eq(manhwa.id, id));
   }
 
-  async addSource(manhwaId: number, url: string, type: 'telegram' | 'website') {
-    // Normalise @channel to https://t.me/channel
-    const normUrl = url.startsWith('@') ? `https://t.me/${url.slice(1)}` : url;
-    // Resolve the real per-site adapter (asurascans/webtoon/reaperscans/manhuaus/generic)
-    // for website sources so the sync flow knows which scraper to use.
-    const adapterKey = type === 'telegram'
-      ? 'telegram'
-      : (await import('@manhwa-tracker/parser')).detectAdapterKey(normUrl);
-
-    const [source] = await db.insert(sources).values({
-      manhwaId,
-      type,
-      url: normUrl,
-      adapterKey,
-    })
-      // (manhwaId, url) is unique — re-adding the same source (double-submit,
-      // or re-running "Add from URL") returns the existing row instead of
-      // creating a duplicate. This is what was producing two identical
-      // "asurascans.com" rows under Sources.
-      .onConflictDoNothing()
-      .returning();
-
-    if (source) return source;
-
-    const [existing] = await db
-      .select()
-      .from(sources)
-      .where(and(eq(sources.manhwaId, manhwaId), eq(sources.url, normUrl)))
-      .limit(1);
-    return existing ?? null;
-  }
-
-  async removeSource(manhwaId: number, url: string) {
-    await db.delete(sources)
-      .where(and(eq(sources.manhwaId, manhwaId), eq(sources.url, url)));
-  }
-
-  async getTelegramCount() {
-    const [row] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(sources)
-      .where(eq(sources.type, 'telegram'));
-    return Number(row?.count ?? 0);
-  }
-
   /** All manhwa with no cover_url set (or an empty string) — candidates for the cover backfill script. */
   async getManhwaMissingCovers() {
     return await db
@@ -378,17 +243,7 @@ export class ManhwaRepository {
       .where(sql`${manhwa.coverUrl} IS NULL OR ${manhwa.coverUrl} = ''`);
   }
 
-  /** Also returns a manhwa's website source url (if any), for the og:image scrape fallback. */
-  async getWebsiteSourceUrl(manhwaId: number): Promise<string | null> {
-    const [row] = await db
-      .select({ url: sources.url })
-      .from(sources)
-      .where(and(eq(sources.manhwaId, manhwaId), eq(sources.type, 'website')))
-      .limit(1);
-    return row?.url ?? null;
-  }
-
-  async update(id: number, data: { title?: string; coverUrl?: string; description?: string }) {
+  async update(id: number, data: { title?: string; coverUrl?: string; description?: string; genres?: string[] }) {
     const [updated] = await db
       .update(manhwa)
       .set({ ...data, updatedAt: new Date() })

@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { Search } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Link } from 'react-router-dom';
+import { ManhwaCard } from '@/features/manhwa/components/ManhwaCard';
 
 export function LibraryPage() {
   const { data: manhwas, isLoading } = trpc.manhwa.getAll.useQuery();
@@ -68,41 +67,9 @@ export function LibraryPage() {
         </div>
       ) : filtered && filtered.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-5">
-          {filtered.map((m) => {
-            const unread = (m.progress?.latestChapter ?? 0) - (m.progress?.lastChapter ?? 0);
-            return (
-              <Link to={`/manhwa/${m.id}`} key={m.id} className="group relative rounded-xl overflow-hidden aspect-[3/4] bg-zinc-900 border border-border/50 transition-all hover:border-amber-500/50 hover:glow block">
-                {m.coverUrl ? (
-                  <img src={m.coverUrl} alt={m.title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center bg-zinc-800 text-zinc-600 text-xs font-medium">NO COVER</div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
-                
-                {unread > 0 && (
-                  <div className="absolute top-2 right-2">
-                    <Badge className="bg-amber-500 text-amber-950 font-bold border-none shadow-md">
-                      +{unread}
-                    </Badge>
-                  </div>
-                )}
-
-                <div className="absolute bottom-0 left-0 right-0 p-3">
-                  <h3 className="font-semibold text-sm line-clamp-2 mb-1 text-white">{m.title}</h3>
-                  <div className="flex items-center justify-between text-xs text-zinc-400">
-                    <span>Ch. {m.progress?.lastChapter ?? 0}</span>
-                    <span>/ {m.progress?.latestChapter ?? 0}</span>
-                  </div>
-                  <div className="mt-2 h-1 w-full bg-zinc-800 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-amber-500 rounded-full" 
-                      style={{ width: `${Math.min(100, Math.max(0, ((m.progress?.lastChapter ?? 0) / Math.max(1, (m.progress?.latestChapter ?? 1))) * 100))}%` }}
-                    />
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
+          {filtered.map((m) => (
+            <ManhwaCard key={m.id} manhwa={m} />
+          ))}
         </div>
       ) : (
         <div className="py-20 flex flex-col items-center justify-center text-center">
