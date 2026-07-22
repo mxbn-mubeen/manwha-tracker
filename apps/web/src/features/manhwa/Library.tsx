@@ -9,11 +9,10 @@ import { ManhwaCard } from '@/features/manhwa/components/ManhwaCard';
 export function LibraryPage() {
   const { data: manhwas, isLoading } = trpc.manhwa.getAll.useQuery();
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'All' | 'Reading' | 'Unread' | 'Completed' | 'Hiatus'>('All');
-
+  const [filter, setFilter] = useState<'All' | 'Reading' | 'Unread' | 'Completed' | 'Hiatus' | 'Dropped'>('All');
   const filtered = manhwas?.filter((m) => {
     const matchesSearch = m.title.toLowerCase().includes(search.toLowerCase());
-    
+
     let matchesFilter = true;
     if (filter === 'Reading') {
       matchesFilter = m.status === 'ongoing';
@@ -21,11 +20,16 @@ export function LibraryPage() {
       matchesFilter = m.status === 'completed';
     } else if (filter === 'Hiatus') {
       matchesFilter = m.status === 'hiatus';
+    } else if (filter === 'Dropped') {
+      matchesFilter = m.status === 'dropped';
     } else if (filter === 'Unread') {
-      const unread = (m.progress?.latestChapter ?? 0) - (m.progress?.lastChapter ?? 0);
+      const unread =
+        (m.progress?.latestChapter ?? 0) -
+        (m.progress?.lastChapter ?? 0);
+
       matchesFilter = unread > 0;
     }
-    
+
     return matchesSearch && matchesFilter;
   });
 
@@ -39,16 +43,16 @@ export function LibraryPage() {
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Search titles..." 
+          <Input
+            placeholder="Search titles..."
             className="pl-9 bg-card border-border/50"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 scrollbar-none">
-          {(['All', 'Reading', 'Unread', 'Completed', 'Hiatus'] as const).map(f => (
-            <Button 
+          {(['All', 'Reading', 'Unread', 'Completed', 'Hiatus', 'Dropped'] as const).map(f => (
+            <Button
               key={f}
               variant={filter === f ? 'default' : 'secondary'}
               size="sm"

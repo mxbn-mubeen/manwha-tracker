@@ -64,6 +64,10 @@ export class ManhwaService {
     return await this.repo.updateStatus(id, status);
   }
 
+  async setLatestChapter(id: number, chapterNum: number) {
+    return await this.repo.setLatestChapter(id, chapterNum);
+  }
+
   async getAll() {
     return await this.repo.getAll();
   }

@@ -1,14 +1,100 @@
 import { useState } from 'react';
-import { Plus, Send, Trash2 } from 'lucide-react';
+import { Plus, Send, Trash2, Star, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 
+interface Source {
+  url: string | null;
+  type: string | null;
+  latestChapterNum: number | null;
+  lastDiscoveredAt: Date | string | null;
+}
+
 interface SourcesListProps {
   manhwaId: number;
-  sources: { url: string | null; type: string | null }[] | undefined;
-  latestChapter: number;
+  sources: Source[] | undefined;
+  latestChapter: number; // global max — used to compute relative status
+}
+
+/** Returns a compact relative time string like "2 min ago", "just now", "3 days ago". */
+function timeAgo(dateRaw: Date | string | null): string {
+  if (!dateRaw) return 'never';
+  const date = typeof dateRaw === 'string' ? new Date(dateRaw) : dateRaw;
+  const diffMs = Date.now() - date.getTime();
+  if (diffMs < 0) return 'just now';
+  const s = Math.floor(diffMs / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  return `${d} day${d !== 1 ? 's' : ''} ago`;
+}
+
+type SourceStatus = 'leading' | 'synced' | 'behind' | 'unknown';
+
+function computeStatus(
+  sourceChapter: number | null,
+  globalMax: number,
+  allSources: Source[],
+): SourceStatus {
+  if (sourceChapter === null) return 'unknown';
+
+  // If every source has the same chapter, all are synced
+  const allKnown = allSources.filter(s => s.latestChapterNum !== null);
+  const allSame =
+    allKnown.length > 1 &&
+    allKnown.every(s => s.latestChapterNum === sourceChapter);
+  if (allSame) return 'synced';
+
+  if (sourceChapter >= globalMax) return 'leading';
+  return 'behind';
+}
+
+function StatusBadge({
+  status,
+  sourceChapter,
+  globalMax,
+}: {
+  status: SourceStatus;
+  sourceChapter: number | null;
+  globalMax: number;
+}) {
+  if (status === 'unknown') {
+    return (
+      <span className="text-xs text-muted-foreground/60">— No chapters synced yet</span>
+    );
+  }
+
+  if (status === 'leading') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-400">
+        <Star className="h-3 w-3 fill-amber-400" />
+        Leading source
+      </span>
+    );
+  }
+
+  if (status === 'synced') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400">
+        <CheckCircle2 className="h-3 w-3" />
+        Synced
+      </span>
+    );
+  }
+
+  // behind
+  const diff = globalMax - (sourceChapter ?? 0);
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-400/80">
+      <AlertTriangle className="h-3 w-3" />
+      Behind by {diff} chapter{diff !== 1 ? 's' : ''}
+    </span>
+  );
 }
 
 export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListProps) {
@@ -40,12 +126,12 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
   return (
     <div className="space-y-4 pt-2">
       <h3 className="text-xl font-bold text-white mb-4">Sources</h3>
-      
-      {/* Dynamic Sources from DB */}
+
       {sources && sources.length > 0 ? (
         sources.map((source, i: number) => {
           if (!source.url || !source.type) return null;
           const isTelegram = source.type === 'telegram';
+
           let displayName = 'Unknown';
           try {
             displayName = isTelegram
@@ -54,12 +140,16 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
           } catch {
             return null;
           }
+
+          const status = computeStatus(source.latestChapterNum, latestChapter, sources);
+
           return (
             <div key={i} className="relative group/source">
               <a href={source.url} target="_blank" rel="noopener noreferrer" className="block">
-                <Card className="bg-[#161719] border-border/30 p-4 rounded-xl flex items-center justify-between group-hover/source:border-amber-500/30 transition-colors pr-14">
-                  <div className="flex items-center gap-4">
-                    <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                <Card className="bg-[#161719] border-border/30 p-4 rounded-xl group-hover/source:border-amber-500/30 transition-colors pr-14">
+                  <div className="flex items-start gap-4">
+                    {/* Icon */}
+                    <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
                       isTelegram ? 'bg-blue-500/10 text-blue-400' : 'bg-emerald-500/10 text-emerald-400'
                     }`}>
                       {isTelegram ? (
@@ -72,11 +162,41 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
                         </svg>
                       )}
                     </div>
-                    <div>
-                      <h4 className="font-semibold text-white truncate max-w-[200px] sm:max-w-[300px]">{displayName}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {isTelegram ? 'Telegram' : 'Website'} · Latest Ch. {latestChapter ?? '?'}
-                      </p>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      {/* Name + type row */}
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <h4 className="font-semibold text-white truncate max-w-[200px] sm:max-w-[300px]">
+                          {displayName}
+                        </h4>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {isTelegram ? 'Telegram' : 'Website'}
+                        </span>
+                      </div>
+
+                      {/* Chapter + timestamp row */}
+                      <div className="flex items-center gap-3 mt-1 flex-wrap">
+                        <span className="text-sm font-medium text-zinc-300">
+                          {source.latestChapterNum !== null
+                            ? `Ch. ${source.latestChapterNum}`
+                            : '—'}
+                        </span>
+                        {source.lastDiscoveredAt && (
+                          <span className="text-xs text-muted-foreground/60">
+                            Last discovered {timeAgo(source.lastDiscoveredAt)}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Status badge row */}
+                      <div className="mt-1.5">
+                        <StatusBadge
+                          status={status}
+                          sourceChapter={source.latestChapterNum}
+                          globalMax={latestChapter}
+                        />
+                      </div>
                     </div>
                   </div>
                 </Card>
@@ -84,7 +204,7 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
               <Button
                 variant="ghost"
                 size="icon"
-                className="opacity-100 sm:opacity-0 sm:group-hover/source:opacity-100 sm:group-focus-within/source:opacity-100 transition-opacity text-zinc-500 hover:text-red-400 hover:bg-red-500/10 absolute right-3 top-1/2 -translate-y-1/2"
+                className="opacity-100 sm:opacity-0 sm:group-hover/source:opacity-100 sm:group-focus-within/source:opacity-100 transition-opacity text-zinc-500 hover:text-red-400 hover:bg-red-500/10 absolute right-3 top-3"
                 onClick={() => {
                   if (confirm('Are you sure you want to remove this source?')) {
                     removeSourceMutation.mutate({ manhwaId, url: source.url as string });
@@ -103,7 +223,7 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
       <Card className="bg-transparent border border-dashed border-border/50 p-4 rounded-xl mt-4">
         <p className="text-sm font-medium text-white mb-3">Add a source</p>
         <div className="flex flex-col sm:flex-row gap-3">
-          <select 
+          <select
             value={newSourceType}
             onChange={(e) => setNewSourceType(e.target.value as 'telegram' | 'website')}
             className="bg-[#161719] border border-border/50 text-white text-sm rounded-lg px-3 py-2 w-full sm:w-[140px] focus:outline-none focus:ring-1 focus:ring-amber-500"
@@ -112,7 +232,7 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
             <option value="website">Website</option>
           </select>
           <div className="flex-1 flex gap-2">
-            <input 
+            <input
               type="text"
               value={newSourceUrl}
               onChange={(e) => setNewSourceUrl(e.target.value)}
@@ -120,7 +240,7 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
               placeholder={newSourceType === 'telegram' ? '@channel_name or t.me/...' : 'https://example.com/...'}
               className="bg-[#161719] border border-border/50 text-white text-sm rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-amber-500 placeholder:text-muted-foreground"
             />
-            <Button 
+            <Button
               className="bg-amber-500 hover:bg-amber-600 text-amber-950 px-3 shrink-0 rounded-lg"
               onClick={handleAddSource}
               disabled={addSourceMutation.isPending || !newSourceUrl.trim()}

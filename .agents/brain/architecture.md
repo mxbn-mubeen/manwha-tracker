@@ -12,9 +12,12 @@ D:\manwha-tracker\
 │   │   ├── src\
 │   │   │   ├── modules\
 │   │   │   │   ├── manhwa\
-│   │   │   │   │   ├── manhwa.router.ts     tRPC routes
-│   │   │   │   │   ├── manhwa.service.ts    business logic
-│   │   │   │   │   └── manhwa.repository.ts DB access (plain select/join only)
+│   │   │   │   │   ├── manhwa.router.ts          tRPC routes
+│   │   │   │   │   ├── manhwa.service.ts         business logic
+│   │   │   │   │   ├── manhwa.repository.ts      write operations (create/update/delete)
+│   │   │   │   │   ├── manhwa.read.repository.ts read operations (getAll, getById + per-source stats)
+│   │   │   │   │   ├── progress.repository.ts    progress upserts
+│   │   │   │   │   └── sources.repository.ts     source CRUD + adapter key resolution
 │   │   │   │   ├── sync\
 │   │   │   │   │   ├── sync.router.ts
 │   │   │   │   │   ├── sync.service.ts
@@ -126,14 +129,18 @@ Express app serving tRPC at `/trpc/*` with CORS configured for port 3000.
 
 | Endpoint | Type | Input | Description |
 |---|---|---|---|
-| `getAll` | query | — | All manhwa + progress + latest chapter (via subquery) + first source |
-| `getById` | query | id (string\|number) | Single manhwa with full sources list |
+| `getAll` | query | — | All manhwa + progress + latest chapter (subquery) + first source |
+| `getById` | query | id | Single manhwa + full sources list with per-source `latestChapterNum` + `lastDiscoveredAt` |
 | `create` | mutation | title, status?, coverUrl?, description?, genres?, lastChapter?, latestChapter? | Manual add |
-| `addFromUrl` | mutation | url (string) | Scrape website + auto-create |
+| `addFromUrl` | mutation | url | Scrape website + auto-create |
+| `update` | mutation | id, title?, coverUrl?, description?, genres? | Edit manhwa metadata |
 | `updateProgress` | mutation | manhwaId, chapter | Upsert progress row + create chapter if needed |
 | `updateStatus` | mutation | id, status | Change ongoing/hiatus/completed/dropped |
-| `addSource` | mutation | manhwaId, url, type | Add source to existing manhwa (normalises @channel) |
-| `delete` | mutation | id (string\|number) | Delete manhwa (cascades to progress/chapters/sources) |
+| `updateLatestChapter` | mutation | id, chapterNum | Manually bump latest chapter |
+| `addSource` | mutation | manhwaId, url, type | Add source (validates Telegram/website format, detects adapterKey) |
+| `removeSource` | mutation | manhwaId, url | Remove a source row |
+| `delete` | mutation | id | Delete manhwa (cascades to progress/chapters/sources) |
+| `getTelegramCount` | query | — | Count of active Telegram sources |
 
 ### Repository Rules (CRITICAL)
 
@@ -150,8 +157,8 @@ React 19 + react-router-dom v6 SPA. All API calls go via tRPC hooks.
 ```
 / → redirect to /dashboard
 /dashboard     features/dashboard/Dashboard.tsx     Stats + Continue Reading + Recent Activity
-/library       features/manhwa/Library.tsx          Full grid of all manhwa, search, status filter
-/manhwa/:id    features/manhwa-detail/ManhwaDetail  Detail: progress, status dropdown, ID badge, sources, edit
+/library       features/manhwa/Library.tsx          Full grid, search, status filter (All/Reading/Unread/Completed/Hiatus/Dropped)
+/manhwa/:id    features/manhwa-detail/ManhwaDetail  Detail: progress, status dropdown, ID badge, sources with per-source status badge, edit
 /add           features/manhwa/AddManhwa.tsx        Manual add form (title, status, chapters, cover, genres, description)
 /settings      features/settings/Settings.tsx       Settings page
 ```
@@ -232,8 +239,9 @@ Houses the repository and service used by `telegram-download-watcher.ts` for DB 
 
 ## Design Patterns Used
 
-- Repository Pattern (db layer — class-based, in `manhwa.repository.ts`)
+- Repository Pattern (db layer — class-based, split into `manhwa.read.repository.ts` + `manhwa.repository.ts` + `sources.repository.ts` + `progress.repository.ts`)
 - Service Pattern (business logic — `manhwa.service.ts`)
 - Adapter Pattern (website connectors in `libs/parser`)
 - Singleton (Neon DB connection in `libs/database/src/db.ts`)
 - Upsert Pattern (onConflictDoUpdate instead of transactions)
+- Client-side Status Derivation (per-source Leading/Synced/Behind computed in SourcesList.tsx from API data)

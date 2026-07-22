@@ -14,7 +14,7 @@ export function ManhwaDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const utils = trpc.useUtils();
-  
+
   const numericId = Number(id!);
   const { data: manhwa, isLoading } = trpc.manhwa.getById.useQuery(numericId, {
     enabled: !!id && !isNaN(numericId),
@@ -41,10 +41,12 @@ export function ManhwaDetailPage() {
 
   const handleProgressChange = (newChapter: number) => {
     if (newChapter < 0) return;
-    setLocalChapter(newChapter);
+    const cap = manhwa?.progress?.latestChapter ?? Infinity;
+    const clamped = Math.min(newChapter, cap);
+    setLocalChapter(clamped);
     updateProgressMutation.mutate({
       manhwaId: numericId,
-      chapter: newChapter,
+      chapter: clamped,
     });
   };
 
@@ -82,50 +84,53 @@ export function ManhwaDetailPage() {
 
       <div className="flex flex-col md:flex-row gap-10">
         {/* Left Column - Poster and Actions */}
-        <ManhwaPoster 
-          coverUrl={manhwa.coverUrl || null} 
-          title={manhwa.title} 
-          localChapter={localChapter} 
-          onContinueReading={() => handleProgressChange(localChapter + 1)} 
-          onEdit={() => setIsEditModalOpen(true)} 
+        <ManhwaPoster
+          coverUrl={manhwa.coverUrl || null}
+          title={manhwa.title}
+          localChapter={localChapter}
+          latestChapter={latestChapter}
+          onContinueReading={() => handleProgressChange(localChapter + 1)}
+          onEdit={() => setIsEditModalOpen(true)}
         />
 
         {/* Right Column - Info and Progress */}
         <div className="flex-1 space-y-8 mt-2">
           {/* Header Info */}
-          <ManhwaHeader 
-            id={numericId} 
-            title={manhwa.title} 
-            status={manhwa.status || null} 
-            genres={manhwa.genres || null} 
-            description={manhwa.description || null} 
+          <ManhwaHeader
+            id={numericId}
+            title={manhwa.title}
+            status={manhwa.status || null}
+            genres={manhwa.genres || null}
+            description={manhwa.description || null}
+            latestChapter={latestChapter}
           />
 
           {/* Reading Progress Card */}
-          <ProgressCard 
-            localChapter={localChapter} 
-            latestChapter={latestChapter} 
-            onProgressChange={handleProgressChange} 
-            isPending={updateProgressMutation.isPending} 
+          <ProgressCard
+            localChapter={localChapter}
+            latestChapter={latestChapter}
+            status={manhwa.status}
+            onProgressChange={handleProgressChange}
+            isPending={updateProgressMutation.isPending}
           />
 
           {/* Sources Section */}
-          <SourcesList 
-            manhwaId={numericId} 
-            sources={manhwa.sources} 
-            latestChapter={latestChapter} 
+          <SourcesList
+            manhwaId={numericId}
+            sources={manhwa.sources}
+            latestChapter={latestChapter}
           />
         </div>
       </div>
 
       {isEditModalOpen && (
-        <EditManhwaModal 
-          manhwaId={numericId} 
-          initialTitle={manhwa.title} 
-          initialDescription={manhwa.description || null} 
-          initialCoverUrl={manhwa.coverUrl || null} 
+        <EditManhwaModal
+          manhwaId={numericId}
+          initialTitle={manhwa.title}
+          initialDescription={manhwa.description || null}
+          initialCoverUrl={manhwa.coverUrl || null}
           initialGenres={manhwa.genres || null}
-          onClose={() => setIsEditModalOpen(false)} 
+          onClose={() => setIsEditModalOpen(false)}
         />
       )}
     </div>

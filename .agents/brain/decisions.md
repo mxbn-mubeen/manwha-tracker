@@ -99,3 +99,19 @@ Append-only log. Never delete entries.
 - Reason: Single-user personal app, same trust model as every other endpoint (no auth system by design).
 - Alternatives considered: Requiring the `secret` from `TriggerSyncSchema` even for the in-app button (rejected — that schema is for an external cron trigger, not the logged-in user's own button)
 - Date: 2026-07-21
+
+---
+
+- Decision: Per-source chapter stats added to `getById` only, not `getAll`
+- Reason: Library page doesn't use per-source data. Adding another GROUP BY query to every library page load is wasteful with no immediate benefit. Extend `getAll` when Library cards actually need the data.
+- Alternatives considered: Adding to `getAll` preemptively (rejected — unnecessary N+1-equivalent work per library load)
+- Affected modules: apps/api/src/modules/manhwa/manhwa.repository.ts (getById only)
+- Date: 2026-07-22
+
+---
+
+- Decision: `lastDiscoveredAt` (not `lastCheckedAt`) is the field name for per-source chapter timestamps
+- Reason: `MAX(chapters.discovered_at)` is when a chapter was *found* from that source, not when the source was polled. Naming it `lastCheckedAt` would be misleading — a true polling timestamp would require a separate column on the `sources` table.
+- Alternatives considered: `lastCheckedAt` (rejected — factually incorrect for this data), `lastSyncedAt` (ambiguous — could mean the last sync run, not the last chapter found)
+- Affected modules: apps/api/src/modules/manhwa/manhwa.repository.ts, apps/web/src/features/manhwa-detail/components/SourcesList.tsx
+- Date: 2026-07-22

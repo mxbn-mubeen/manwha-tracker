@@ -51,6 +51,15 @@ export const manhwaRouter = createTRPCRouter({
       return await service.updateStatus(input.id, input.status);
     }),
 
+  updateLatestChapter: publicProcedure
+    .input(z.object({
+      id: z.coerce.number().int().positive(),
+      chapterNum: z.number().positive(),
+    }))
+    .mutation(async ({ input }) => {
+      return await service.setLatestChapter(input.id, input.chapterNum);
+    }),
+
   getById: publicProcedure
     .input(z.coerce.number().int().positive())
     .query(async ({ input }) => {
@@ -58,9 +67,9 @@ export const manhwaRouter = createTRPCRouter({
     }),
 
   updateProgress: publicProcedure
-    .input(z.object({ 
-      manhwaId: z.coerce.number().int().positive(), 
-      chapter: z.number() 
+    .input(z.object({
+      manhwaId: z.coerce.number().int().positive(),
+      chapter: z.number()
     }))
     .mutation(async ({ input }) => {
       return await service.updateProgress(input.manhwaId, input.chapter);

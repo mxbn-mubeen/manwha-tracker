@@ -2,7 +2,13 @@ import { db, manhwa, sources, chapters, progress } from '@manhwa-tracker/databas
 import { eq, and, sql } from 'drizzle-orm';
 
 export class TelegramRepository {
-  /** All active telegram sources, joined with their manhwa title — for building the channel → manhwa map. */
+  /**
+   * All active telegram sources, joined with their manhwa title — for building the channel → manhwa map.
+   * Excludes manhwa marked 'completed', 'dropped', or 'hiatus': there's nothing left to watch for
+   * (or nothing expected to post right now, for hiatus), and leaving them mapped means the watcher
+   * keeps advancing/read-tracking and flagging "new chapters" for a series the user isn't actively
+   * following.
+   */
   async getActiveTelegramSources() {
     return await db
       .select({
@@ -13,7 +19,11 @@ export class TelegramRepository {
       })
       .from(sources)
       .innerJoin(manhwa, eq(manhwa.id, sources.manhwaId))
-      .where(and(eq(sources.isActive, true), eq(sources.type, 'telegram')));
+      .where(and(
+        eq(sources.isActive, true),
+        eq(sources.type, 'telegram'),
+        sql`${manhwa.status} NOT IN ('completed', 'dropped')`,
+      ));
   }
 
   async getMaxChapterNum(manhwaId: number): Promise<number> {
@@ -82,7 +92,7 @@ export class TelegramRepository {
       ), 0)
       RETURNING id;
     `);
-    
+
     // Different Postgres drivers return the result rows differently.
     // Drizzle with Postgres.js returns an array of rows directly on `result`,
     // while node-postgres returns `{ rows: [...] }`.

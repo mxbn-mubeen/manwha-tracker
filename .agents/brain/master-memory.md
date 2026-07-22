@@ -34,6 +34,9 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - **ManhwaHeader now shows ID badge** (`ID #42`) below the title ✅
 - **214 manhwa imported** from enriched CSV into DB ✅
 - **Telegram watcher live and running** (`telegram-download-watcher.ts`) — event-driven, catches new chapters + read progress ✅
+- **`manhwa.repository.ts` split** into `manhwa.repository.ts` (writes) + `manhwa.read.repository.ts` (reads) ✅
+- **Per-source chapter status** in SourcesList: each source card shows its own latest chapter, ★ Leading/✓ Synced/⚠ Behind status badge, and "Last discovered X ago" ✅
+- **Library “Unread” filter** added (shows manhwa where latestChapter > lastChapter) ✅
 
 ### DB Driver Constraints (CRITICAL)
 - Driver: `drizzle-orm/neon-http` — **Neon HTTP serverless**
@@ -45,14 +48,18 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 ### tRPC API Endpoints (manhwaRouter)
 | Endpoint | Type | Description |
 |---|---|---|
-| `getAll` | query | All manhwa with progress, latest chapter, sources |
-| `getById` | query | Single manhwa with full detail |
+| `getAll` | query | All manhwa with progress, global latest chapter, first source |
+| `getById` | query | Single manhwa with full sources + per-source `latestChapterNum` + `lastDiscoveredAt` |
 | `create` | mutation | Manually create manhwa (title, status, chapters, cover…) |
 | `addFromUrl` | mutation | Scrape + create from website URL |
+| `update` | mutation | Edit manhwa metadata (title, cover, description, genres) |
 | `updateProgress` | mutation | Update last read chapter (upserts progress row) |
 | `updateStatus` | mutation | Change status (ongoing/hiatus/completed/dropped) |
+| `updateLatestChapter` | mutation | Manually bump latest chapter (inserts chapter row if needed) |
 | `addSource` | mutation | Add Telegram/website source to existing manhwa |
+| `removeSource` | mutation | Remove a source from manhwa |
 | `delete` | mutation | Remove manhwa from library |
+| `getTelegramCount` | query | Count of active Telegram sources |
 
 ### Phase 3 Scripts (in `apps/api/src/scripts/`)
 - `backfill-covers.ts` — backfills cover URLs for manhwa missing them via MangaDex/scraping ✅

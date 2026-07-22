@@ -5,6 +5,10 @@ export class SyncRepository {
   /**
    * All active sources of a given type, joined with their manhwa's title.
    * Plain select + join only — neon-http does not support the relational API.
+   * Excludes manhwa marked 'completed', 'dropped', or 'hiatus': there's nothing
+   * new to check for on any of those, and leaving them included means the sync
+   * keeps surfacing "new chapters available" on a series the user isn't actively
+   * following right now.
    */
   async getActiveSources(type: 'telegram' | 'website') {
     return await db
@@ -18,7 +22,11 @@ export class SyncRepository {
       })
       .from(sources)
       .innerJoin(manhwa, eq(manhwa.id, sources.manhwaId))
-      .where(and(eq(sources.isActive, true), eq(sources.type, type)));
+      .where(and(
+        eq(sources.isActive, true),
+        eq(sources.type, type),
+        sql`${manhwa.status} NOT IN ('completed', 'dropped', 'hiatus')`,
+      ));
   }
 
   async getExistingChapterNums(manhwaId: number): Promise<Set<number>> {
