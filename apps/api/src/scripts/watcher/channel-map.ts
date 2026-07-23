@@ -4,8 +4,18 @@ import { isSessionDeathError, handleSessionDeath, alertUnresolvable } from './se
 
 export const repo = new TelegramRepository();
 
-// entity id (channel/chat id, as a string) -> { manhwaId, sourceId, manhwaTitle }
-export type ChannelMapEntry = { manhwaId: number; sourceId: number; manhwaTitle: string };
+// entity id (channel/chat id, as a string) -> { manhwaId, sourceId, manhwaTitle, accessHash, entityType }
+// accessHash/entityType are required to build a proper InputPeer for client.getMessages() —
+// see handlers.ts. Without them, gramJS falls back to guessing the peer type from a bare
+// numeric ID, which it defaults to PeerUser and fails with
+// "Could not find the input entity" for anything that's actually a channel.
+export type ChannelMapEntry = {
+  manhwaId: number;
+  sourceId: number;
+  manhwaTitle: string;
+  accessHash: string | null;
+  entityType: 'channel' | 'chat' | 'user' | null;
+};
 export const channelMap = new Map<string, ChannelMapEntry>();
 
 // Sources whose username resolution is currently flood-blocked, and when it's
@@ -40,6 +50,8 @@ export async function buildChannelMap(client: TelegramClient) {
 
     try {
       let entityId: string;
+      let accessHash: string | null;
+      let entityType: 'channel' | 'chat' | 'user' | null;
 
       if (source.telegramEntityId && source.telegramEntityType) {
         // Fast path: use the cached entity ID directly — no Telegram API call needed.
@@ -52,6 +64,8 @@ export async function buildChannelMap(client: TelegramClient) {
         // exactly what message.chatId.toString() produces in the event handlers, so
         // matching works correctly without a round-trip through Telegram.
         entityId = source.telegramEntityId;
+        accessHash = source.telegramAccessHash ?? null;
+        entityType = (source.telegramEntityType as 'channel' | 'chat' | 'user') ?? null;
       } else {
         // Slow path: only hit for a source we've never successfully resolved
         // before (e.g. newly added via the web UI).
@@ -62,8 +76,8 @@ export async function buildChannelMap(client: TelegramClient) {
           continue;
         }
         entityId = entity.id.toString();
-        const accessHash = (entity as any).accessHash?.toString() ?? null;
-        const entityType =
+        accessHash = (entity as any).accessHash?.toString() ?? null;
+        entityType =
           entity.className === 'Channel' || entity.className === 'ChannelForbidden' ? 'channel' :
             entity.className === 'Chat' || entity.className === 'ChatForbidden' ? 'chat' :
               entity.className === 'User' ? 'user' : null;
@@ -84,6 +98,8 @@ export async function buildChannelMap(client: TelegramClient) {
         manhwaId: source.manhwaId,
         sourceId: source.sourceId,
         manhwaTitle: source.manhwaTitle,
+        accessHash,
+        entityType,
       });
       floodBlockedUntil.delete(source.sourceId);
     } catch (err: any) {
@@ -178,6 +194,8 @@ export async function resolveAccessHashViaDialogs(client: TelegramClient) {
         manhwaId: src.manhwaId,
         sourceId: src.sourceId,
         manhwaTitle: '',  // title not needed for event matching
+        accessHash: hash,
+        entityType: (src.telegramEntityType as 'channel' | 'chat' | 'user') ?? 'channel',
       });
       console.log(`[watcher] Resolved accessHash for entity ${src.telegramEntityId} via dialogs.`);
     } else {

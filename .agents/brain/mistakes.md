@@ -250,3 +250,21 @@ Append-only log. Never delete entries.
 - Fix: For channel/supergroup type chats, use `Math.abs(chat.id) - 1_000_000_000_000` to recover the real MTProto ID. Also ran fix-bot-entity-ids.ts to patch the one existing bad DB record (source 399, manhwa 179).
 - Status: Resolved
 - Date: 2026-07-23
+
+---
+
+- Problem: `pnpm run db:push` failed to apply schema updates to Neon DB.
+- Cause: `drizzle-kit push` is unreliable with the `neon-http` serverless driver and branching. Generating explicit migrations is required.
+- Fix: Added `db:migrate` (`drizzle-kit migrate`) to package.json and updated documentation to use `db:generate` followed by `db:migrate`.
+- Status: Resolved
+- Date: 2026-07-23
+
+
+---
+
+- Problem: Telegram watcher failed to update read progress because GramJS threw "Could not find the input entity for PeerUser".
+- Cause: The `handleReadUpdate` method passed a bare numeric `chatId` string to `client.getMessages`. Without a prior message caching the entity locally, GramJS falls back to assuming it's a User, which fails for Channels. The `accessHash` and `entityType` were stored in the DB but unused here.
+- Fix: Created `buildInputPeer` in `handlers.ts` to explicitly construct an `InputPeerChannel` using the stored `accessHash` and `entityType` instead of guessing. Also added `big-integer` as an explicit dependency since it was required for this fix.
+- Status: Resolved
+- Date: 2026-07-23
+

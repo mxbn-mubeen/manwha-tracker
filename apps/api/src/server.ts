@@ -7,6 +7,7 @@ import { appRouter } from './root';
 import { SyncService } from './modules/sync/sync.service';
 import { TriggerSyncSchema } from './modules/sync/sync.router';
 import { startWatcher } from './scripts/watcher';
+import { poll as startBot } from './scripts/bot/poll';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -107,5 +108,15 @@ app.listen(PORT, () => {
     });
   } else {
     console.log('⚠️ Skipping Telegram watcher (TELEGRAM_API_ID not set)');
+  }
+
+  // Start the Telegram bot in the background
+  if (process.env.TELEGRAM_BOT_TOKEN) {
+    console.log('🤖 Starting Telegram bot...');
+    startBot().catch(err => {
+      console.error('❌ Failed to start Telegram bot:', err);
+    });
+  } else {
+    console.log('⚠️ Skipping Telegram bot (TELEGRAM_BOT_TOKEN not set)');
   }
 });

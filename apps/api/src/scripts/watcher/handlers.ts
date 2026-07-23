@@ -1,8 +1,40 @@
 import { Api, TelegramClient } from 'telegram';
 import { type NewMessageEvent } from 'telegram/events';
+import bigInt from 'big-integer';
 import { extractChapterNumber } from '@manhwa-tracker/parser';
-import { repo, channelMap } from './channel-map';
+import { repo, channelMap, type ChannelMapEntry } from './channel-map';
 import { isSessionDeathError, handleSessionDeath } from './session';
+
+/**
+ * Build the exact InputPeer gramJS needs for client.getMessages().
+ *
+ * Root cause of "Could not find the input entity for ... PeerUser": handleReadUpdate
+ * used to pass the bare numeric chatId (a string) straight to client.getMessages().
+ * gramJS can only resolve a bare ID through its *local* entity cache; if this process
+ * hasn't independently "seen" that entity this session (e.g. right after a fresh
+ * login, or a channel that never triggered NewMessage), the cache lookup misses and
+ * gramJS's fallback guesses PeerUser — which fails for anything that's actually a
+ * channel or chat, exactly as seen in the logs.
+ *
+ * We already persist each source's accessHash + entity type in Postgres precisely so
+ * we don't depend on gramJS's session-local cache. Building the InputPeer explicitly
+ * from that stored data sidesteps the guesswork entirely.
+ */
+export function buildInputPeer(chatId: string, mapped: ChannelMapEntry): Api.TypeInputPeer | null {
+  if (mapped.entityType === 'chat') {
+    // Basic (non-super) group chats don't use an accessHash.
+    return new Api.InputPeerChat({ chatId: bigInt(chatId) });
+  }
+  if (!mapped.accessHash) return null;
+  const id = bigInt(chatId);
+  const hash = bigInt(mapped.accessHash);
+  if (mapped.entityType === 'user') {
+    return new Api.InputPeerUser({ userId: id, accessHash: hash });
+  }
+  // Default to channel — UpdateReadChannelInbox is always a channel, and it's the
+  // overwhelmingly common case for UpdateReadHistoryInbox too.
+  return new Api.InputPeerChannel({ channelId: id, accessHash: hash });
+}
 
 export function extractFallbackChapter(text: string): number | null {
   const cleaned = text
@@ -88,9 +120,18 @@ export async function handleReadUpdate(client: TelegramClient, chatId: string, m
   if (!mapped) return;
 
   try {
+    const inputPeer = buildInputPeer(chatId, mapped);
+    if (!inputPeer) {
+      // Known channel, but we don't have its accessHash yet (e.g. added via the bot
+      // and dialogs scan hasn't found it). It'll self-heal once resolveAccessHashViaDialogs
+      // picks it up on a later remap — nothing to do here but wait.
+      console.warn(`[watcher] Skipping read-update for ${mapped.manhwaTitle}: no accessHash cached yet for entity ${chatId}.`);
+      return;
+    }
+
     // Fetch the message at the new read pointer (and a small window before it,
     // in case several messages were read at once) to find the highest chapter number.
-    const messages = await client.getMessages(chatId, { maxId: maxId + 1, limit: 10 });
+    const messages = await client.getMessages(inputPeer, { maxId: maxId + 1, limit: 10 });
 
     let chapterNum: number | null = null;
     let targetMessage: Api.Message | null = null;

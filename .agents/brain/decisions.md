@@ -115,3 +115,10 @@ Append-only log. Never delete entries.
 - Alternatives considered: `lastCheckedAt` (rejected — factually incorrect for this data), `lastSyncedAt` (ambiguous — could mean the last sync run, not the last chapter found)
 - Affected modules: apps/api/src/modules/manhwa/manhwa.repository.ts, apps/web/src/features/manhwa-detail/components/SourcesList.tsx
 - Date: 2026-07-22
+
+- Decision: Use explicit Drizzle migrations (db:generate + db:migrate) instead of db:push
+- Reason: drizzle-kit push failed to apply schema updates using the neon-http driver.
+- Alternatives considered: Keeping db:push (failed), using local psql (defeats neon serverless config).
+- Affected modules: libs/database/, package.json, README.md
+- Date: 2026-07-23
+

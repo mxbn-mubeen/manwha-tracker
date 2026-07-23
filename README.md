@@ -126,9 +126,10 @@ How the Watcher works:
 > Uses `drizzle-orm/neon-http` driver — **no transactions, no relational query API**. All queries use plain `select/insert/update/delete` with manual joins.
 
 ### Updating the Database Schema
-If you make changes to `libs/database/src/schema/index.ts`, you must push them to Neon:
+If you make changes to `libs/database/src/schema/index.ts`, you must generate and apply migrations to Neon:
 ```bash
-pnpm run db:push
+pnpm run db:generate
+pnpm run db:migrate
 ```
 
 ## Website Adapters
