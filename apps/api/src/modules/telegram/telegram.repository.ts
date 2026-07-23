@@ -16,6 +16,9 @@ export class TelegramRepository {
         manhwaId: sources.manhwaId,
         manhwaTitle: manhwa.title,
         url: sources.url,
+        telegramEntityId: sources.telegramEntityId,
+        telegramAccessHash: sources.telegramAccessHash,
+        telegramEntityType: sources.telegramEntityType,
       })
       .from(sources)
       .innerJoin(manhwa, eq(manhwa.id, sources.manhwaId))
@@ -24,6 +27,23 @@ export class TelegramRepository {
         eq(sources.type, 'telegram'),
         sql`${manhwa.status} NOT IN ('completed', 'dropped')`,
       ));
+  }
+
+  /**
+   * Persist the resolved entity id + accessHash + type so future watcher starts/remaps
+   * can reconstruct the exact InputPeer variant instead of re-calling
+   * contacts.ResolveUsername (which Telegram flood-limits hard — see .agents/brain/decisions.md).
+   */
+  async cacheTelegramEntity(
+    sourceId: number,
+    entityId: string,
+    accessHash: string | null,
+    entityType: 'channel' | 'chat' | 'user',
+  ) {
+    await db
+      .update(sources)
+      .set({ telegramEntityId: entityId, telegramAccessHash: accessHash, telegramEntityType: entityType })
+      .where(eq(sources.id, sourceId));
   }
 
   async getMaxChapterNum(manhwaId: number): Promise<number> {
@@ -102,5 +122,83 @@ export class TelegramRepository {
 
   async touchManhwaUpdatedAt(manhwaId: number) {
     await db.update(manhwa).set({ updatedAt: new Date() }).where(eq(manhwa.id, manhwaId));
+  }
+
+  /**
+   * Create a telegram source that already has entity info pre-resolved
+   * (e.g. from a forwarded message received by the alert bot).
+   * The url is set to "https://t.me/c/<entityId>" so there's a stable,
+   * unique URL for the (manhwaId, url) unique constraint.
+   * accessHash is initially NULL — the watcher fills it in on next remap
+   * via getDialogs() (see getSourcesMissingAccessHash below).
+   */
+  async addTelegramSourceWithEntity(
+    manhwaId: number,
+    entityId: string,
+    title: string,
+    entityType: 'channel' | 'chat' | 'user',
+  ) {
+    const url = `https://t.me/c/${entityId}`;
+
+    // CodeRabbit: Add collision check before inserting. 
+    // The same telegram channel cannot be linked to multiple manhwa simultaneously.
+    const [existingEntity] = await db
+      .select()
+      .from(sources)
+      .where(eq(sources.telegramEntityId, entityId))
+      .limit(1);
+
+    if (existingEntity && existingEntity.manhwaId !== manhwaId) {
+      // Collision detected. Return null to signal bot handlers.
+      return null;
+    }
+
+    const [source] = await db
+      .insert(sources)
+      .values({
+        manhwaId,
+        type: 'telegram',
+        url,
+        adapterKey: 'telegram',
+        telegramEntityId: entityId,
+        // accessHash left NULL — resolved by watcher on next remap
+        telegramEntityType: entityType,
+      })
+      .onConflictDoNothing()
+      .returning();
+
+    if (source) return source;
+
+    // Already existed on the SAME manhwa (which is fine) — return the existing row
+    const [existing] = await db
+      .select()
+      .from(sources)
+      .where(and(eq(sources.manhwaId, manhwaId), eq(sources.url, url)))
+      .limit(1);
+    return existing ?? null;
+  }
+
+  /**
+   * Returns active telegram sources that have a cached entity ID but are
+   * still missing the accessHash (e.g. just added via the bot).
+   * The watcher resolves these via client.getDialogs() on next remap.
+   */
+  async getSourcesMissingAccessHash() {
+    return await db
+      .select({
+        sourceId: sources.id,
+        manhwaId: sources.manhwaId,
+        telegramEntityId: sources.telegramEntityId,
+        telegramEntityType: sources.telegramEntityType,
+        url: sources.url,
+      })
+      .from(sources)
+      .where(and(
+        eq(sources.isActive, true),
+        eq(sources.type, 'telegram'),
+        sql`${sources.telegramEntityId} IS NOT NULL`,
+        sql`${sources.telegramAccessHash} IS NULL`,
+        sql`${sources.telegramEntityType} = 'channel'`,
+      ));
   }
 }

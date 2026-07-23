@@ -34,6 +34,17 @@ export const sources = pgTable('sources', {
   priority: integer('priority').notNull().default(10),
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  // Telegram entity cache — avoids re-calling contacts.ResolveUsername (tightly
+  // flood-limited) on every watcher restart / remap cycle. Populated once on
+  // first successful resolution, then reused via getInputEntity() forever.
+  // Stored as text: GramJS ids/access hashes are int64 (bigint), too large
+  // to round-trip safely through the pg `integer` type.
+  telegramEntityId: text('telegram_entity_id').unique(),
+  telegramAccessHash: text('telegram_access_hash'),
+  // 'channel' | 'chat' | 'user' — which Api.InputPeer* variant to reconstruct.
+  // Basic groups (Api.Chat) have no accessHash at all, unlike channels/users,
+  // so this can't be inferred from the other two columns alone.
+  telegramEntityType: varchar('telegram_entity_type', { length: 20 }),
 }, (table) => ({
   manhwaUrlUnique: unique().on(table.manhwaId, table.url),
 }));

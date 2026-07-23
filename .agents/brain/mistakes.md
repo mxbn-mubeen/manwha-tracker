@@ -226,3 +226,27 @@ Append-only log. Never delete entries.
 - Fix: Deleted the catch-up logic entirely. Reverted to a purely passive event-driven design (using `UpdateReadChannelInbox` and `NewMessageEvent`) which is intrinsically safer. Ran `fix-db.ts` to delete all recently inserted corrupted chapters from the database.
 - Status: Resolved
 - Date: 2026-07-22
+
+---
+
+- Problem: `buildChannelMap` crashed with `Cannot read properties of undefined (reading 'id')` for all telegram sources, spamming WATCHER_ALERT for every channel.
+- Cause: The fast path (cached `telegramEntityId`) was constructing an `InputPeerChannel`/`InputPeerChat`/`InputPeerUser` and then calling `client.getEntity(inputPeer)` — **just to get back `entity.id`**, which we already had stored as `source.telegramEntityId`. For private channels (`t.me/c/...`), GramJS's `getEntity(InputPeer)` returns `undefined` on a fresh session whose local entity cache is empty (it can't bootstrap private channel entities from nothing). First fix added a null guard (`if (!entity) continue`) which stopped the crash but still skipped every private-channel source. The real fix was recognising the `getEntity()` call in the fast path was entirely unnecessary.
+- Fix: Removed the `InputPeer` construction and `getEntity()` call from the fast path entirely. `entityId` is now set directly to `source.telegramEntityId` — no API call. This is correct because the channelMap key only needs to match `message.chatId.toString()` in the event handlers, and `telegramEntityId` is already that numeric ID.
+- Status: Resolved
+- Date: 2026-07-23
+
+---
+
+- Problem: `telegram-bot-service.ts` crashed on first update with `Bot API error in sendMessage: Bad Request: can't parse entities: Can't find end tag corresponding to start tag "b"`.
+- Cause: `sendMessage` applied `parse_mode: 'HTML'` globally to ALL outgoing messages. Any plain-text reply or message with dynamic content (channel titles, URLs) would be HTML-parsed by Telegram, and if the content contained `<` the parser would treat it as an HTML tag — potentially consuming the `</b>` of a surrounding tag and leaving `<b>` unclosed.
+- Fix: Replaced the single `sendMessage` function with two explicit functions: `sendText` (no parse_mode — safe for any content) and `sendHtml` (explicit HTML mode — only called when the entire string is a controlled template). All bot replies now use `sendText`. Also replaced `splitLong` (raw byte split that could cut HTML tags) with `splitSafe` (splits at newline boundaries only).
+- Status: Resolved
+- Date: 2026-07-23
+
+---
+
+- Problem: Bot service stored entity ID `1001510817922` but watcher received `chatId=1510817922` -> `matched=false`, channel never tracked.
+- Cause: Bot API encodes channel/supergroup IDs as `-100{mtproto_id}`. Code used `Math.abs(chat.id)` which gives `1001510817922` � the 100 prefix remains. GramJS/MTProto uses the raw ID without any prefix (`1510817922`). They never matched.
+- Fix: For channel/supergroup type chats, use `Math.abs(chat.id) - 1_000_000_000_000` to recover the real MTProto ID. Also ran fix-bot-entity-ids.ts to patch the one existing bad DB record (source 399, manhwa 179).
+- Status: Resolved
+- Date: 2026-07-23

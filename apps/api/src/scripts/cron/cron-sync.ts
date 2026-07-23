@@ -10,11 +10,11 @@
  * (a 30-min poll makes no sense for something event-driven, and this script
  * is a short-lived process that exits — it can't hold a live MTProto session).
  *
- * Exits non-zero on any per-source error so a failing run shows up red in
- * the GitHub Actions UI instead of silently succeeding.
+ * Per-source errors are logged but intentionally do NOT fail the run (see
+ * below) — only a fatal/unhandled error exits non-zero.
  */
-import '../env';
-import { SyncService } from '../modules/sync/sync.service';
+import '../../env';
+import { SyncService } from '../../modules/sync/sync.service';
 
 async function main() {
   const service = new SyncService();
@@ -22,7 +22,7 @@ async function main() {
 
   console.log(
     `[cron-sync] scanned=${result.scannedSources} newChapters=${result.newChapters} ` +
-      `updatedManhwa=${result.updatedManhwa} duration=${result.duration}ms`,
+    `updatedManhwa=${result.updatedManhwa} duration=${result.duration}ms`,
   );
 
   if (result.errors.length > 0) {

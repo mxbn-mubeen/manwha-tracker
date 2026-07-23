@@ -6,9 +6,9 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "watch:telegram": "tsx src/scripts/telegram-download-watcher.ts",
-    "cron:sync": "tsx src/scripts/cron-sync.ts",
-    "backfill:covers": "tsx src/scripts/backfill-covers.ts"
+    "watch:telegram": "tsx src/scripts/watcher/index.ts",
+    "bot:telegram": "tsx src/scripts/bot/index.ts",
+    "cron:sync": "tsx src/scripts/cron/cron-sync.ts"
   },
   "dependencies": {
     "@manhwa-tracker/database": "workspace:*",

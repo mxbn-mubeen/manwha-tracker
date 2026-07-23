@@ -6,7 +6,7 @@ import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import { appRouter } from './root';
 import { SyncService } from './modules/sync/sync.service';
 import { TriggerSyncSchema } from './modules/sync/sync.router';
-import { startWatcher } from './scripts/telegram-download-watcher';
+import { startWatcher } from './scripts/watcher';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -97,7 +97,7 @@ app.get('/health', (_req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 API server running on http://localhost:${PORT}`);
-  
+
   // Start the Telegram watcher in the background
   // This allows Render to host both the API and the Watcher in a single Free Web Service
   if (process.env.TELEGRAM_API_ID) {

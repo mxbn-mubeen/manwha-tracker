@@ -116,9 +116,8 @@ Driver: `drizzle-orm/neon-http` — **no relational queries, no transactions**
 No user_id — single user app.
 
 Relationships:
-- manhwa → sources (1:many)
-- manhwa → chapters (1:many)
-- manhwa → progress (1:1, enforced by UNIQUE constraint on manhwa_id)
+- manhwa  - `sources` → `chapters` (1:N)
+  - `manhwa` → `progress` (1:1), enforced by UNIQUE constraint on manhwa_id)
 - chapters → notifications (1:many)
 
 ## API Architecture (apps/api)
@@ -169,14 +168,17 @@ tRPC client configured in `lib/trpc.ts` with SuperJSON transformer, connected to
 
 ## Telegram Sync (apps/api/src/scripts/)
 
-- GramJS MTProto personal account (API_ID + API_HASH in root `.env`)
-- `telegram-download-watcher.ts` — the ONLY active Telegram script. Purely event-driven:
-  - `NewMessageEvent` → detects new chapters posted to tracked channels → inserts into `chapters` table → touches `manhwa.updatedAt`
-  - `UpdateReadChannelInbox` → detects when user reads messages → advances progress (`last_read_at`, `chapter_id`)
-  - **NO historical fetch / catch-up logic** — safe by design (cross-promotion ads would corrupt chapter numbers)
-- `backfill-covers.ts` — one-off script to backfill missing cover URLs
+- `bot/` (Telegram Alert Bot Service)
+  - `index.ts`: Entry point.
+  - `poll.ts`: Long-polling loop and update dispatcher.
+  - `handlers.ts`: Command and forward-message handlers.
+  - `api.ts`: Bot API HTTP helpers.
+- `watcher/` (Telegram Download Watcher)
+  - `index.ts`: Entry point, client setup, and event wiring.
+  - `session.ts`: Session management and death alerts.
+  - `channel-map.ts`: Channel mapping and access hash resolution.
+  - `handlers.ts`: New message and read update handlers.
 - `cron-sync.ts` — runs website adapter sync loop for all website sources
-- `fix-db.ts` — emergency cleanup script (deletes recently-added Telegram chapters, used after corruption events)
 
 ⚠️ Scripts that DO NOT EXIST (were in brain/roadmap but were never written): `telegram-scan.ts`, `telegram-import.ts`, `telegram-import-from-csv.ts`, `import-from-enriched-csv.ts`, `fix-progress.ts`
 
@@ -193,9 +195,9 @@ Implements the `WebsiteAdapter` interface from `libs/shared/src/types/adapter.ts
 | manhuaus.com | `manhuaus` | `manhuaus.ts` |
 | Generic (catch-all) | `generic` | `generic.ts` |
 
-All adapters share `chapter-extract.ts`, which does a markup-agnostic scan of every
-`<a>` tag on a page for text/href matching `chapter|ch|episode|ep <number>`, taking
-the highest number found as the latest chapter. This is deliberately robust-but-approximate:
+All adapters share- `extractChapterNumber(title/url)` — extracts the chapter number from strings (e.g. "Chapter 42" -> 42).
+  It includes robust filtering for slugs, removes common outliers (years, resolutions, dates), and caps
+  the extracted number at reasonable limits to prevent false positives from cross-promotion ads.r found as the latest chapter. This is deliberately robust-but-approximate:
 it works without knowing each site's exact CSS classes, at the cost of relying on
 the site including chapter numbers in visible link text or hrefs.
 
@@ -216,8 +218,7 @@ Added 2026-07-21 to replace the placeholder "Sync" button (previously a `setTime
 - `sync.service.ts` — `SyncService.run(scope: 'telegram' | 'websites' | 'all')`:
   - For each active **website** source: resolves the adapter via `getAdapter`, calls `latestChapter(url)`,
     compares against the manhwa's current max chapter, inserts a new `chapters` row if higher, touches `updatedAt`.
-  - For active **telegram** sources: not implemented yet — counted and surfaced as a skipped/error note
-    (needs the GramJS download-watcher, see roadmap).
+  - For active **telegram** sources: `sync.run` skips fetching chapters for Telegram. Telegram sync is handled separately and asynchronously by the standalone GramJS watcher process (`watcher/index.ts`), not by this synchronous API call.
   - Per-source failures are caught individually so one bad source doesn't abort the whole run.
 - `sync.router.ts` — `sync.run` tRPC mutation, input `{ scope }` (defaults `'all'`), no auth
   (single-user app; same trust model as the rest of the API).

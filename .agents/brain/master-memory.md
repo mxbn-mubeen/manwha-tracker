@@ -1,7 +1,7 @@
 # Manhwa Tracker — Master Memory
 
 project_root: D:\manwha-tracker
-last_brain_review: 2026-07-22
+last_brain_review: 2026-07-23
 
 ## What This Project Does
 
@@ -20,7 +20,7 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - Website adapters for: AsuraScans, Webtoon, ReaperScans, manhuaus.com (+ generic)
 - Telegram channel monitoring → auto-detects new chapters → download = last read (Phase 3)
 
-## Current State (as of 2026-07-22)
+## Current State (as of 2026-07-23)
 
 - **Architecture fully migrated from Next.js to Vite + Express** (Option 2 — decoupled)
 - Express tRPC API (`apps/api`) running on port 3001 ✅
@@ -33,7 +33,7 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - **ManhwaDetail refactored** into sub-components: ManhwaHeader, ManhwaPoster, ProgressCard, SourcesList, EditManhwaModal ✅
 - **ManhwaHeader now shows ID badge** (`ID #42`) below the title ✅
 - **214 manhwa imported** from enriched CSV into DB ✅
-- **Telegram watcher live and running** (`telegram-download-watcher.ts`) — event-driven, catches new chapters + read progress ✅
+- **Telegram watcher live and running** (`watcher/index.ts`) — event-driven, catches new chapters + read progress ✅
 - **`manhwa.repository.ts` split** into `manhwa.repository.ts` (writes) + `manhwa.read.repository.ts` (reads) ✅
 - **Per-source chapter status** in SourcesList: each source card shows its own latest chapter, ★ Leading/✓ Synced/⚠ Behind status badge, and "Last discovered X ago" ✅
 - **Library “Unread” filter** added (shows manhwa where latestChapter > lastChapter) ✅
@@ -62,9 +62,11 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 | `getTelegramCount` | query | Count of active Telegram sources |
 
 ### Phase 3 Scripts (in `apps/api/src/scripts/`)
+- `bot/` — Telegram Alert Bot Service (handles alerts and private channel registration via forwards) ✅
+- `watcher/` — Telegram Download Watcher (GramJS event-driven: NewMessage + ReadInbox) ✅
+- `cron/cron-sync.ts` — runs the website sync loop ✅
 - `backfill-covers.ts` — backfills cover URLs for manhwa missing them via MangaDex/scraping ✅
-- `cron-sync.ts` — runs the website sync loop ✅
-- `telegram-download-watcher.ts` — watches Telegram channels, event-driven (NewMessage + ReadInbox) ✅
+- `fix-bot-entity-ids.ts` — one-off script fixing Bot API entity ID bug ✅
 - `fix-db.ts` — emergency cleanup script for corrupted chapters ✅
 - `telegram-login.ts` — handles MTProto authentication ✅
 
@@ -88,20 +90,20 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - Zod (tRPC input validation)
 - Superjson (tRPC transformer — must be on `createClient`, NOT inside `httpBatchLink`)
 - PNPM Workspaces + TurboRepo
-- GramJS (Telegram MTProto — telegram-download-watcher.ts)
+- GramJS (Telegram MTProto — watcher/index.ts)
 - Cheerio (HTML scraping — in `libs/parser`)
 
 ## Personal Info / Credentials
 
-- Telegram: Personal MTProto account (API_ID + API_HASH + PHONE already configured in D:\telbot\.env)
-- Database: Neon PostgreSQL — URL in `D:\manwha-tracker\.env` and `apps/api/.env`
+- Telegram: Personal MTProto account (API_ID + API_HASH + PHONE already configured in root `.env`)
+- Database: Neon PostgreSQL — URL in root `.env`
 - Single user — no auth system, no user_id in schema
 
 ## Env Setup
 
-- Root `.env` — shared (DATABASE_URL + Telegram API_ID/API_HASH/PHONE/SESSION)
+- Root `.env` — Authoritative shared file (DATABASE_URL + Telegram API_ID/API_HASH/PHONE/SESSION)
 - `apps/api/src/env.ts` — loads root `.env` explicitly via `dotenv.config({ path: resolve(__dirname, '../../../.env') })`
-- `apps/api/.env` — copy of root `.env` (kept as fallback)
+- `apps/api/.env` — copy of root `.env` (kept as fallback but edits should go to root)
 - Frontend uses `VITE_API_URL` env var (defaults to `http://localhost:3001`)
 
 ## Roadmap Phases

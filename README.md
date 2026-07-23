@@ -49,11 +49,11 @@ manhwa-tracker/
 │           │   ├── manhwa/   # manhwa router/service/repository
 │           │   ├── sync/     # website sync router/service/repository
 │           │   ├── settings/ # settings router
-│           │   └── telegram/ # telegram repository/service (used by watcher)
 │           └── scripts/
-│               ├── telegram-download-watcher.ts  # GramJS event-driven watcher
-│               ├── cron-sync.ts                  # website sync runner
-│               └── backfill-covers.ts            # one-off cover backfill
+│               ├── watcher/            # GramJS event-driven watcher
+│               ├── bot/                # Telegram alert bot service
+│               ├── cron/               # Website sync runner
+│               └── backfill-covers.ts  # One-off cover backfill
 ├── libs/
 │   ├── database/         # Drizzle schema + Neon client singleton
 │   ├── parser/           # Website adapters (AsuraScans, Webtoon, Reaper, manhuaus, generic)
@@ -103,16 +103,12 @@ Copy `.env.example` to `.env` at the workspace root and fill in:
 | `TELEGRAM_PHONE` | Your Telegram phone number |
 | `VITE_API_URL` | Frontend API URL (default: `http://localhost:3001`) |
 
-### Running the Telegram Watcher
+### Running the Telegram Services
 
-The watcher is a long-running background script that monitors your Telegram channels:
+The bot and the watcher are long-running background scripts:
 
-```bash
-cd apps/api
-npx tsx src/scripts/telegram-download-watcher.ts
-```
 
-How it works:
+How the Watcher works:
 - **New chapter posted** in a tracked channel → automatically added to the database
 - **You read messages** in a tracked channel → your last-read chapter updates automatically
 - Purely event-driven — no historical scanning (safe from cross-promotion false positives)
@@ -128,6 +124,12 @@ How it works:
 | `settings` | Key-value app settings |
 
 > Uses `drizzle-orm/neon-http` driver — **no transactions, no relational query API**. All queries use plain `select/insert/update/delete` with manual joins.
+
+### Updating the Database Schema
+If you make changes to `libs/database/src/schema/index.ts`, you must push them to Neon:
+```bash
+pnpm run db:push
+```
 
 ## Website Adapters
 

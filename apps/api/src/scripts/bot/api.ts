@@ -1,0 +1,78 @@
+/**
+ * Bot API HTTP helpers.
+ * All outbound Telegram messages go through sendText (plain, safe for any
+ * content) or sendHtml (HTML parse_mode, caller must escapeHtml all dynamic parts).
+ */
+
+const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+if (!TOKEN) {
+  console.error('[bot] TELEGRAM_BOT_TOKEN is not set. Exiting.');
+  process.exit(1);
+}
+
+export const API = `https://api.telegram.org/bot${TOKEN}`;
+
+export async function apiCall<T = any>(method: string, body?: Record<string, unknown>): Promise<T> {
+  const res = await fetch(`${API}/${method}`, {
+    method: body ? 'POST' : 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const json = (await res.json()) as { ok: boolean; result: T; description?: string };
+  if (!json.ok) throw new Error(`Bot API error in ${method}: ${json.description}`);
+  return json.result;
+}
+
+/** Plain text — no parse_mode. Safe for any content including user-provided strings. */
+export async function sendText(chatId: number | string, text: string) {
+  return apiCall('sendMessage', {
+    chat_id: chatId,
+    text,
+    link_preview_options: { is_disabled: true },
+  });
+}
+
+/**
+ * HTML-formatted message. Only call with strings whose dynamic parts have
+ * been passed through escapeHtml() — caller is responsible.
+ */
+export async function sendHtml(chatId: number | string, html: string) {
+  return apiCall('sendMessage', {
+    chat_id: chatId,
+    text: html,
+    parse_mode: 'HTML',
+    link_preview_options: { is_disabled: true },
+  });
+}
+
+/** Escape user-provided content for insertion into HTML messages. */
+export function escapeHtml(s: string): string {
+  if (s == null) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** Split at line boundaries — never in the middle of a word or HTML tag. */
+export function splitSafe(text: string, maxLen: number): string[] {
+  if (text.length <= maxLen) return [text];
+  const chunks: string[] = [];
+  const lines = text.split('\n');
+  let current = '';
+  for (const line of lines) {
+    const candidate = current ? current + '\n' + line : line;
+    if (candidate.length > maxLen) {
+      if (current) chunks.push(current);
+      current = '';
+      for (let i = 0; i < line.length; i += maxLen) {
+        chunks.push(line.slice(i, i + maxLen));
+      }
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks.length > 0 ? chunks : [text];
+}
+
+export function sleep(ms: number) {
+  return new Promise<void>((r) => setTimeout(r, ms));
+}
