@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { createTRPCRouter, publicProcedure } from '../../trpc';
 import { SyncService } from './sync.service';
+import { toSafeError } from '../../utils/trpc-error';
 
 const service = new SyncService();
 
@@ -15,6 +16,13 @@ export const syncRouter = createTRPCRouter({
   run: publicProcedure
     .input(TriggerSyncSchema.optional())
     .mutation(async ({ input }) => {
-      return await service.run(input?.scope ?? 'all');
+      try {
+        return await service.run(input?.scope ?? 'all');
+      } catch (err) {
+        // Per-source failures are already caught inside SyncService and sanitized
+        // into result.errors — reaching here means something broke outside that
+        // loop (e.g. the initial getActiveSources DB call).
+        throw toSafeError(err, 'sync.run');
+      }
     }),
 });

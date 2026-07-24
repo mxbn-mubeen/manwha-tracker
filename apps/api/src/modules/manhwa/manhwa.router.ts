@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { createTRPCRouter, publicProcedure } from '../../trpc';
 import { ManhwaService } from './manhwa.service';
+import { toSafeError } from '../../utils/trpc-error';
+
 
 const service = new ManhwaService();
 
@@ -12,7 +14,11 @@ export const manhwaRouter = createTRPCRouter({
   addFromUrl: publicProcedure
     .input(z.object({ url: z.string().url() }))
     .mutation(async ({ input }) => {
-      return await service.addFromUrl(input.url);
+      try {
+        return await service.addFromUrl(input.url);
+      } catch (err) {
+        throw toSafeError(err, 'manhwa.addFromUrl');
+      }
     }),
 
   create: publicProcedure
@@ -26,7 +32,11 @@ export const manhwaRouter = createTRPCRouter({
       latestChapter: z.number().optional(),
     }))
     .mutation(async ({ input }) => {
-      return await service.create(input);
+      try {
+        return await service.create(input);
+      } catch (err) {
+        throw toSafeError(err, 'manhwa.create');
+      }
     }),
 
   update: publicProcedure
@@ -39,7 +49,11 @@ export const manhwaRouter = createTRPCRouter({
     }))
     .mutation(async ({ input }) => {
       const { id, ...data } = input;
-      return await service.update(id, data);
+      try {
+        return await service.update(id, data);
+      } catch (err) {
+        throw toSafeError(err, 'manhwa.update');
+      }
     }),
 
   updateStatus: publicProcedure
@@ -48,7 +62,11 @@ export const manhwaRouter = createTRPCRouter({
       status: z.enum(['ongoing', 'completed', 'hiatus', 'dropped']),
     }))
     .mutation(async ({ input }) => {
-      return await service.updateStatus(input.id, input.status);
+      try {
+        return await service.updateStatus(input.id, input.status);
+      } catch (err) {
+        throw toSafeError(err, 'manhwa.updateStatus');
+      }
     }),
 
   updateLatestChapter: publicProcedure
@@ -57,7 +75,11 @@ export const manhwaRouter = createTRPCRouter({
       chapterNum: z.number().positive(),
     }))
     .mutation(async ({ input }) => {
-      return await service.setLatestChapter(input.id, input.chapterNum);
+      try {
+        return await service.setLatestChapter(input.id, input.chapterNum);
+      } catch (err) {
+        throw toSafeError(err, 'manhwa.updateLatestChapter');
+      }
     }),
 
   getById: publicProcedure
@@ -72,13 +94,21 @@ export const manhwaRouter = createTRPCRouter({
       chapter: z.number()
     }))
     .mutation(async ({ input }) => {
-      return await service.updateProgress(input.manhwaId, input.chapter);
+      try {
+        return await service.updateProgress(input.manhwaId, input.chapter);
+      } catch (err) {
+        throw toSafeError(err, 'manhwa.updateProgress');
+      }
     }),
 
   delete: publicProcedure
     .input(z.coerce.number().int().positive())
     .mutation(async ({ input }) => {
-      return await service.delete(input);
+      try {
+        return await service.delete(input);
+      } catch (err) {
+        throw toSafeError(err, 'manhwa.delete');
+      }
     }),
 
   addSource: publicProcedure
@@ -99,7 +129,11 @@ export const manhwaRouter = createTRPCRouter({
       }
     }))
     .mutation(async ({ input }) => {
-      return await service.addSource(input.manhwaId, input.url, input.type);
+      try {
+        return await service.addSource(input.manhwaId, input.url, input.type);
+      } catch (err) {
+        throw toSafeError(err, 'manhwa.addSource');
+      }
     }),
 
   removeSource: publicProcedure
@@ -108,7 +142,11 @@ export const manhwaRouter = createTRPCRouter({
       url: z.string().min(1),
     }))
     .mutation(async ({ input }) => {
-      return await service.removeSource(input.manhwaId, input.url);
+      try {
+        return await service.removeSource(input.manhwaId, input.url);
+      } catch (err) {
+        throw toSafeError(err, 'manhwa.removeSource');
+      }
     }),
 
   getTelegramCount: publicProcedure.query(async () => {

@@ -178,6 +178,35 @@ export class TelegramRepository {
     return existing ?? null;
   }
 
+  /** The existing telegram source (if any) already linked to this manhwa, regardless of entityId. */
+  async findTelegramSourceByManhwaId(manhwaId: number) {
+    const [row] = await db
+      .select()
+      .from(sources)
+      .where(and(eq(sources.manhwaId, manhwaId), eq(sources.type, 'telegram')))
+      .limit(1);
+    return row ?? null;
+  }
+
+  /**
+   * Re-point an existing source at a new Telegram entity (the "replace" branch of the
+   * bot's already-exists conflict flow). accessHash is reset to NULL since it belongs
+   * to the old entity — the watcher re-resolves it via getDialogs() on next remap.
+   */
+  async updateTelegramSourceEntity(
+    sourceId: number,
+    entityId: string,
+    entityType: 'channel' | 'chat' | 'user',
+  ) {
+    const url = `https://t.me/c/${entityId}`;
+    const [updated] = await db
+      .update(sources)
+      .set({ telegramEntityId: entityId, telegramAccessHash: null, telegramEntityType: entityType, url })
+      .where(eq(sources.id, sourceId))
+      .returning();
+    return updated ?? null;
+  }
+
   /**
    * Returns active telegram sources that have a cached entity ID but are
    * still missing the accessHash (e.g. just added via the bot).

@@ -20,6 +20,19 @@ export type PendingChannel = {
 };
 export const pendingChannels = new Map<number, PendingChannel>();
 
+// Pending conflict per user chat_id: the manhwa they picked already has a telegram
+// source, waiting for a "replace" / "cancel" reply.
+export type PendingConflict = {
+  manhwaId: number;
+  manhwaTitle: string;
+  entityId: string;
+  title: string;
+  entityType: 'channel' | 'chat' | 'user';
+  existingSourceId: number;
+  existingChatId: string;
+};
+export const pendingConflicts = new Map<number, PendingConflict>();
+
 // ── Message templates ─────────────────────────────────────────────────────────
 
 export const WELCOME = `👋 Manhwa Tracker Alert Bot
@@ -52,7 +65,10 @@ export async function handleHelp(chatId: number) {
 }
 
 export async function handleCancel(chatId: number) {
-  if (pendingChannels.has(chatId)) {
+  if (pendingConflicts.has(chatId)) {
+    pendingConflicts.delete(chatId);
+    await sendText(chatId, '❌ Kept the existing mapping. No changes made.');
+  } else if (pendingChannels.has(chatId)) {
     pendingChannels.delete(chatId);
     await sendText(chatId, '❌ Pending channel registration cancelled.');
   } else {
@@ -107,12 +123,13 @@ export async function handleForwardedChannel(
 
   await sendText(
     chatId,
-    `📨 Forwarded channel detected\n\n` +
-    `Title: ${title}\n` +
-    `Entity ID: ${entityId}\n` +
-    `Type: ${entityType}\n\n` +
-    `Reply with the manhwa ID number to link this channel as a source.\n` +
-    `(Send /list to see IDs, or /cancel to abort.)`,
+    `📥 Telegram Channel Detected\n\n` +
+    `📚 Title    : ${title}\n` +
+    `🆔 Chat ID  : ${entityId}\n` +
+    `📡 Type     : ${entityType}\n\n` +
+    `Reply with the Manhwa ID to link this source.\n` +
+    `(Send /list to see IDs, or /cancel to abort.)\n\n` +
+    `Example:\n577`,
   );
 }
 
@@ -138,6 +155,34 @@ export async function handleManhwaIdReply(chatId: number, text: string): Promise
     return true;
   }
 
+  // This manhwa already has a telegram source (possibly pointing at a different
+  // chat) — don't silently overwrite or silently no-op it. Ask the user.
+  const existingForManhwa = await repo.findTelegramSourceByManhwaId(manhwaId);
+  if (existingForManhwa) {
+    pendingChannels.delete(chatId);
+    pendingConflicts.set(chatId, {
+      manhwaId,
+      manhwaTitle: row.title,
+      entityId: pending.entityId,
+      title: pending.title,
+      entityType: pending.entityType,
+      existingSourceId: existingForManhwa.id,
+      existingChatId: existingForManhwa.telegramEntityId ?? 'unknown',
+    });
+
+    await sendText(
+      chatId,
+      `⚠️ Source Already Exists\n\n` +
+      `📚 Manhwa  : ${row.title}\n` +
+      `🆔 ID      : ${manhwaId}\n` +
+      `📡 Chat ID : ${existingForManhwa.telegramEntityId ?? 'unknown'}\n\n` +
+      `Reply:\n` +
+      `• /replace → Update the existing Chat ID\n` +
+      `• /cancel  → Keep the current mapping`,
+    );
+    return true;
+  }
+
   const source = await repo.addTelegramSourceWithEntity(
     manhwaId,
     pending.entityId,
@@ -148,24 +193,66 @@ export async function handleManhwaIdReply(chatId: number, text: string): Promise
   pendingChannels.delete(chatId);
 
   if (!source) {
-    // A null source either means a collision or another issue.
-    // We added collision check to addTelegramSourceWithEntity, which returns null if linked to a different manhwa.
+    // Collision: this exact Telegram entity is already linked to a *different* manhwa.
     await sendText(
       chatId,
-      `❌ Could not add source. This channel is likely already linked to a different manhwa.`
+      `❌ Could not add source. This channel is already linked to a different manhwa.`
     );
     return true;
   }
 
-  // To check if it was newly inserted vs just already existed on this exact same manhwa,
-  // we would need more data from repo, but the repo returns the existing one if it's the same manhwa.
-  // We can just say source added.
   await sendText(
     chatId,
-    `✅ Source added for "${row.title}"!\n\n` +
-    `Channel: ${pending.title} (${pending.entityId})\n\n` +
-    `The watcher will resolve the access hash on next remap (within 5 min) — no restart needed.`,
+    `✅ Source Linked\n\n` +
+    `📚 Manhwa : ${row.title}\n` +
+    `🆔 ID      : ${manhwaId}\n` +
+    `📡 Chat ID : ${pending.entityId}\n\n` +
+    `⏳ The watcher will refresh within ~5 minutes.`,
   );
 
+  return true;
+}
+
+/**
+ * User replied "replace" / "cancel" while a conflict (manhwa already has a
+ * telegram source) is pending. Returns false if there's nothing pending,
+ * so the caller can fall through to other handlers.
+ */
+export async function handleConflictReply(chatId: number, text: string): Promise<boolean> {
+  const conflict = pendingConflicts.get(chatId);
+  if (!conflict) return false;
+
+  const reply = text.trim().toLowerCase();
+
+  if (reply === 'cancel' || reply === '/cancel') {
+    pendingConflicts.delete(chatId);
+    await sendText(chatId, '❌ Kept the existing mapping. No changes made.');
+    return true;
+  }
+
+  if (reply === 'replace' || reply === '/replace') {
+    const updated = await repo.updateTelegramSourceEntity(
+      conflict.existingSourceId,
+      conflict.entityId,
+      conflict.entityType,
+    );
+    pendingConflicts.delete(chatId);
+
+    if (!updated) {
+      await sendText(chatId, '❌ Could not update the source. Please try again.');
+      return true;
+    }
+
+    await sendText(
+      chatId,
+      `🔄 Source Updated\n\n` +
+      `Old Chat ID : ${conflict.existingChatId}\n` +
+      `New Chat ID : ${conflict.entityId}\n\n` +
+      `✅ The watcher will use the new Chat ID after the next refresh.`,
+    );
+    return true;
+  }
+
+  await sendText(chatId, 'Reply /replace to update the Chat ID, or /cancel to keep the current mapping.');
   return true;
 }

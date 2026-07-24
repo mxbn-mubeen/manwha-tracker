@@ -6,6 +6,7 @@ import {
   handleList,
   handleForwardedChannel,
   handleManhwaIdReply,
+  handleConflictReply,
   settingsRepo,
 } from './handlers';
 import { setBotAlertChatId } from '../../utils/bot-alert';
@@ -21,9 +22,9 @@ async function handleUpdate(update: any) {
 
   // Commands
   if (text.startsWith('/start')) { await handleStart(chatId); return; }
-  if (text.startsWith('/help'))  { await handleHelp(chatId); return; }
+  if (text.startsWith('/help')) { await handleHelp(chatId); return; }
   if (text.startsWith('/cancel')) { await handleCancel(chatId); return; }
-  if (text.startsWith('/list'))  { await handleList(chatId); return; }
+  if (text.startsWith('/list')) { await handleList(chatId); return; }
 
   // Forwarded channel message
   const fwdOrigin = msg.forward_origin;
@@ -42,7 +43,7 @@ async function handleUpdate(update: any) {
       const title: string = chat.title ?? chat.username ?? 'Unknown';
       const entityType: 'channel' | 'chat' | 'user' =
         chat.type === 'channel' ? 'channel' :
-        chat.type === 'supergroup' || chat.type === 'group' ? 'chat' : 'channel';
+          chat.type === 'supergroup' || chat.type === 'group' ? 'chat' : 'channel';
       await handleForwardedChannel(chatId, entityId, title, entityType);
       return;
     }
@@ -62,8 +63,11 @@ async function handleUpdate(update: any) {
     return;
   }
 
-  // Text reply — check if we're waiting for a manhwa ID
+  // Text reply — check if we're waiting for a replace/cancel decision, then a manhwa ID
   if (text && !text.startsWith('/')) {
+    const conflictHandled = await handleConflictReply(chatId, text);
+    if (conflictHandled) return;
+
     const handled = await handleManhwaIdReply(chatId, text);
     if (!handled) {
       await sendText(chatId,
@@ -92,7 +96,7 @@ export async function poll() {
   console.log(`[bot] Connected as @${me.username} (${me.first_name})`);
   console.log('[bot] Polling for updates...');
 
-  for (;;) {
+  for (; ;) {
     let updates: any[] = [];
     try {
       updates = await apiCall<any[]>('getUpdates', {

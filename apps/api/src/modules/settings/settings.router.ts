@@ -4,6 +4,8 @@ import { SettingsRepository } from './settings.repository';
 import { TelegramClient, Api } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 import { randomUUID } from 'crypto';
+import { TRPCError } from '@trpc/server';
+import { toSafeTelegramError } from '../../utils/trpc-error';
 
 const repo = new SettingsRepository();
 
@@ -24,7 +26,12 @@ function makeTempId() {
 function getApiCreds() {
   const apiId = parseInt(process.env.TELEGRAM_API_ID || '0');
   const apiHash = process.env.TELEGRAM_API_HASH || '';
-  if (!apiId || !apiHash) throw new Error('TELEGRAM_API_ID / TELEGRAM_API_HASH not configured on server.');
+  if (!apiId || !apiHash) {
+    throw new TRPCError({
+      code: 'PRECONDITION_FAILED',
+      message: 'Telegram isn\'t configured on the server yet (missing TELEGRAM_API_ID / TELEGRAM_API_HASH).',
+    });
+  }
   return { apiId, apiHash };
 }
 
@@ -35,7 +42,7 @@ export const settingsRouter = createTRPCRouter({
   get: publicProcedure
     .input(z.string().min(1))
     .query(async ({ input: key }) => {
-      if (SENSITIVE_KEYS.has(key)) throw new Error('Forbidden');
+      if (SENSITIVE_KEYS.has(key)) throw new TRPCError({ code: 'FORBIDDEN', message: 'Forbidden' });
       return await repo.get(key);
     }),
 
@@ -43,7 +50,7 @@ export const settingsRouter = createTRPCRouter({
   set: publicProcedure
     .input(z.object({ key: z.string().min(1), value: z.string() }))
     .mutation(async ({ input }) => {
-      if (SENSITIVE_KEYS.has(input.key)) throw new Error('Forbidden');
+      if (SENSITIVE_KEYS.has(input.key)) throw new TRPCError({ code: 'FORBIDDEN', message: 'Forbidden' });
       await repo.set(input.key, input.value);
       return { ok: true };
     }),
@@ -52,7 +59,7 @@ export const settingsRouter = createTRPCRouter({
   delete: publicProcedure
     .input(z.string().min(1))
     .mutation(async ({ input: key }) => {
-      if (SENSITIVE_KEYS.has(key)) throw new Error('Forbidden');
+      if (SENSITIVE_KEYS.has(key)) throw new TRPCError({ code: 'FORBIDDEN', message: 'Forbidden' });
       await repo.delete(key);
       return { ok: true };
     }),
@@ -71,7 +78,11 @@ export const settingsRouter = createTRPCRouter({
       const client = new TelegramClient(new StringSession(''), apiId, apiHash, {
         connectionRetries: 3,
       });
-      await client.connect();
+      try {
+        await client.connect();
+      } catch (err) {
+        throw toSafeTelegramError(err, 'settings.startTelegramLogin.connect');
+      }
 
       let result;
       try {
@@ -84,8 +95,8 @@ export const settingsRouter = createTRPCRouter({
           }),
         );
       } catch (err) {
-        await client.disconnect().catch(() => {});
-        throw err;
+        await client.disconnect().catch(() => { });
+        throw toSafeTelegramError(err, 'settings.startTelegramLogin');
       }
 
       const tempId = makeTempId();
@@ -99,7 +110,7 @@ export const settingsRouter = createTRPCRouter({
       setTimeout(() => {
         const p = pendingLogins.get(tempId);
         if (p) {
-          p.client.disconnect().catch(() => {});
+          p.client.disconnect().catch(() => { });
           pendingLogins.delete(tempId);
         }
       }, 5 * 60 * 1000);
@@ -126,7 +137,10 @@ export const settingsRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const pending = pendingLogins.get(input.tempId);
       if (!pending) {
-        throw new Error('Login session expired or not found. Please start again.');
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Login session expired or not found. Please start again.',
+        });
       }
 
       // Try signing in with the OTP
@@ -158,15 +172,15 @@ export const settingsRouter = createTRPCRouter({
             );
             await pending.client.invoke(new Api.auth.CheckPassword({ password: srp }));
           } catch (pwErr) {
-            await pending.client.disconnect().catch(() => {});
+            await pending.client.disconnect().catch(() => { });
             pendingLogins.delete(input.tempId);
-            throw pwErr;
+            throw toSafeTelegramError(pwErr, 'settings.verifyTelegramCode.2fa');
           }
         } else {
           // Wrong code or other hard error — clean up and surface
-          await pending.client.disconnect().catch(() => {});
+          await pending.client.disconnect().catch(() => { });
           pendingLogins.delete(input.tempId);
-          throw err;
+          throw toSafeTelegramError(err, 'settings.verifyTelegramCode.signIn');
         }
       }
 
@@ -174,7 +188,7 @@ export const settingsRouter = createTRPCRouter({
       const session = pending.client.session.save() as unknown as string;
       await repo.set('telegram_session', session);
 
-      await pending.client.disconnect().catch(() => {});
+      await pending.client.disconnect().catch(() => { });
       pendingLogins.delete(input.tempId);
 
       return { ok: true, needs2FA: false };
@@ -210,7 +224,7 @@ export const settingsRouter = createTRPCRouter({
         const phone = (me as { phone?: string }).phone ?? null;
         return { source, connected: true, phone };
       } finally {
-        await client.disconnect().catch(() => {});
+        await client.disconnect().catch(() => { });
       }
     } catch {
       return { source, connected: false, phone: null };

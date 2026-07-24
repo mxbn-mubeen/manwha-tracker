@@ -2,6 +2,15 @@ import { TelegramClient } from 'telegram';
 import { TelegramRepository } from '../../modules/telegram/telegram.repository';
 import { isSessionDeathError, handleSessionDeath, alertUnresolvable } from './session';
 
+export function normalizeEntityId(id: string): string;
+export function normalizeEntityId(id: string | null): string | null;
+export function normalizeEntityId(id: string | null): string | null {
+  if (!id) return null;
+  if (id.startsWith('-100')) return id.slice(4);
+  if (id.startsWith('-')) return id.slice(1);
+  return id;
+}
+
 export const repo = new TelegramRepository();
 
 // entity id (channel/chat id, as a string) -> { manhwaId, sourceId, manhwaTitle, accessHash, entityType }
@@ -41,6 +50,32 @@ export async function buildChannelMap(client: TelegramClient) {
   // don't wipe + fully re-resolve everything every 5 minutes.
   const activeSourceIds = new Set(telegramSources.map((s) => s.sourceId));
 
+  // A source's telegramEntityId can change without its row changing identity —
+  // e.g. the bot's "replace" flow (wrong cached Chat ID corrected) updates the
+  // existing row in place rather than inserting a new one. If we only ever add
+  // new entityId keys, the OLD key sticks around in channelMap forever (nothing
+  // else would ever delete it — the loop at the bottom only prunes by sourceId
+  // absence, and this sourceId is still very much active). That leaves both the
+  // stale and the corrected Chat ID mapped to the same manhwa at once, which is
+  // exactly the duplicate-mapping failure mode the replace flow exists to avoid —
+  // just living in this process's memory instead of the database.
+  const currentEntityIdBySourceId = new Map(
+    telegramSources.filter((s) => s.telegramEntityId).map((s) => [s.sourceId, normalizeEntityId(s.telegramEntityId as string)]),
+  );
+  for (const [entityId, mapped] of channelMap.entries()) {
+    const current = currentEntityIdBySourceId.get(mapped.sourceId);
+    if (current && current !== entityId) {
+      console.log(
+        `🔄 Telegram Source Updated\n\n` +
+        `📚 ${mapped.manhwaTitle}\n\n` +
+        `Old Chat ID\n${entityId}\n\n` +
+        `New Chat ID\n${current}\n\n` +
+        `✅ Removed stale mapping from watcher`,
+      );
+      channelMap.delete(entityId);
+    }
+  }
+
   for (const source of telegramSources) {
     const now = Date.now();
     const blockedUntil = floodBlockedUntil.get(source.sourceId);
@@ -63,7 +98,7 @@ export async function buildChannelMap(client: TelegramClient) {
         // The channelMap key is the numeric channel/chat ID as a string — which is
         // exactly what message.chatId.toString() produces in the event handlers, so
         // matching works correctly without a round-trip through Telegram.
-        entityId = source.telegramEntityId;
+        entityId = normalizeEntityId(source.telegramEntityId);
         accessHash = source.telegramAccessHash ?? null;
         entityType = (source.telegramEntityType as 'channel' | 'chat' | 'user') ?? null;
       } else {
@@ -181,25 +216,26 @@ export async function resolveAccessHashViaDialogs(client: TelegramClient) {
 
   for (const src of missing) {
     if (!src.telegramEntityId) continue;
-    const hash = hashByEntityId.get(src.telegramEntityId);
+    const normalizedId = normalizeEntityId(src.telegramEntityId);
+    const hash = hashByEntityId.get(normalizedId);
     if (hash) {
       await repo.cacheTelegramEntity(
         src.sourceId,
-        src.telegramEntityId,
+        normalizedId,
         hash,
         (src.telegramEntityType as 'channel' | 'chat' | 'user') ?? 'channel',
       );
       // Also add it to the channelMap so we don’t need to wait for the next remap cycle.
-      channelMap.set(src.telegramEntityId, {
+      channelMap.set(normalizedId, {
         manhwaId: src.manhwaId,
         sourceId: src.sourceId,
         manhwaTitle: '',  // title not needed for event matching
         accessHash: hash,
         entityType: (src.telegramEntityType as 'channel' | 'chat' | 'user') ?? 'channel',
       });
-      console.log(`[watcher] Resolved accessHash for entity ${src.telegramEntityId} via dialogs.`);
+      console.log(`[watcher] Resolved accessHash for entity ${normalizedId} via dialogs.`);
     } else {
-      console.warn(`[watcher] Entity ${src.telegramEntityId} not found in dialogs (not a member, or dialog list too short).`);
+      console.warn(`[watcher] Entity ${normalizedId} not found in dialogs (not a member, or dialog list too short).`);
     }
   }
 }

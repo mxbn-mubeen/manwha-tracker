@@ -1,7 +1,7 @@
-# Manhwa Tracker — Master Memory
+﻿# Manhwa Tracker — Master Memory
 
 project_root: D:\manwha-tracker
-last_brain_review: 2026-07-23
+last_brain_review: 2026-07-24
 
 ## What This Project Does
 
@@ -20,24 +20,30 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - Website adapters for: AsuraScans, Webtoon, ReaperScans, manhuaus.com (+ generic)
 - Telegram channel monitoring → auto-detects new chapters → download = last read (Phase 3)
 
-## Current State (as of 2026-07-23)
+## Current State (as of 2026-07-24)
 
 - **Architecture fully migrated from Next.js to Vite + Express** (Option 2 — decoupled)
-- Express tRPC API (`apps/api`) running on port 3001 ✅
-- Vite React frontend (`apps/web`) running on port 3000 ✅
-- Neon PostgreSQL connected via `@manhwa-tracker/database` lib ✅
-- `packages/` renamed to `libs/` for clarity ✅
-- UI rebuilt with Tailwind v4 + shadcn/ui dark manhwa theme ✅
-- Dashboard, Library, AddManhwa, ManhwaDetail, Settings pages all working ✅
-- **Web src reorganized from `pages/` to `features/`** (feature-based folder structure) ✅
-- **ManhwaDetail refactored** into sub-components: ManhwaHeader, ManhwaPoster, ProgressCard, SourcesList, EditManhwaModal ✅
-- **ManhwaHeader now shows ID badge** (`ID #42`) below the title ✅
-- **214 manhwa imported** from enriched CSV into DB ✅
-- **Telegram watcher live and running** (`watcher/index.ts`) — event-driven, catches new chapters + read progress ✅
-- **`manhwa.repository.ts` split** into `manhwa.repository.ts` (writes) + `manhwa.read.repository.ts` (reads) ✅
-- **Per-source chapter status** in SourcesList: each source card shows its own latest chapter, ★ Leading/✓ Synced/⚠ Behind status badge, and "Last discovered X ago" ✅
-- **Library “Unread” filter** added (shows manhwa where latestChapter > lastChapter) ✅
-
+- Express tRPC API (apps/api) running on port 3001 OK
+- Vite React frontend (apps/web) running on port 3000 OK
+- Neon PostgreSQL connected via @manhwa-tracker/database lib OK
+- packages/ renamed to libs/ for clarity OK
+- UI rebuilt with Tailwind v4 + shadcn/ui dark manhwa theme OK
+- Dashboard, Library, AddManhwa, ManhwaDetail, Settings pages all working OK
+- Web src reorganized from pages/ to features/ (feature-based folder structure) OK
+- ManhwaDetail refactored into sub-components: ManhwaHeader, ManhwaPoster, ProgressCard, SourcesList, EditManhwaModal OK
+- ManhwaHeader now shows ID badge (ID #42) below the title OK
+- 214 manhwa imported from enriched CSV into DB OK
+- Telegram watcher live and running (watcher/index.ts) — event-driven, catches new chapters + read progress OK
+- manhwa.repository.ts split into manhwa.repository.ts (writes) + manhwa.read.repository.ts (reads) OK
+- Per-source chapter status in SourcesList: Leading/Synced/Behind badge and Last discovered X ago OK
+- Library Unread filter added (shows manhwa where latestChapter > lastChapter) OK
+- Session death graceful shutdown (2026-07-24): handleSessionDeath accepts optional onShutdown callback. When embedded in API server, watcher stops cleanly without calling process.exit(1) — API stays alive OK
+- Watcher interval tracking: startWatcher stores all setInterval handles and clears them on shutdown OK
+- Channel-map stale ID fix: buildChannelMap detects when telegramEntityId changed (bot replace flow) and removes stale key before inserting corrected one OK
+- Telegram phone auto-fill: TelegramSection.tsx initialises phone from localStorage (defaults to user number) and saves on each send OK
+- Bot commands clickable: /replace and /cancel use slash prefix so Telegram renders them as tappable blue links OK
+- Log readability: session death log reformatted into multi-line emoji blocks matching Source Updated style OK
+- Toast consistency: all toast.error/toast.success in TelegramSection use single-string format matching rest of project OK
 ### DB Driver Constraints (CRITICAL)
 - Driver: `drizzle-orm/neon-http` — **Neon HTTP serverless**
 - ❌ `db.query.*` relational API is NOT supported (throws `referencedTable` or hangs silently)
@@ -111,3 +117,4 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - Phase 1: Monorepo scaffold, DB schema, Dashboard, Library, Reading Progress ✅
 - Phase 2: Architecture migration (Next.js → Vite + Express) ✅
 - Phase 3: Telegram sync, Website adapters expanded, Render & Vercel deployment
+

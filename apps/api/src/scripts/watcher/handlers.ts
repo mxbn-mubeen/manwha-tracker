@@ -110,7 +110,7 @@ export async function handleNewMessage(event: NewMessageEvent) {
 
   if (inserted) {
     await repo.touchManhwaUpdatedAt(mapped.manhwaId);
-    console.log(`[watcher] New chapter catalogued: ${mapped.manhwaTitle} #${chapterNum}`);
+    console.log(`📨 ${mapped.manhwaTitle} | Ch.${chapterNum} | chat=${chatId} | msg=${message.id} | 💾 Saved`);
   }
 }
 
@@ -145,7 +145,10 @@ export async function handleReadUpdate(client: TelegramClient, chatId: string, m
       }
     }
 
-    if (chapterNum === null || !targetMessage) return;
+    if (chapterNum === null || !targetMessage) {
+      console.log(`📖 ${mapped.manhwaTitle} | chat=${chatId} | msg≤${maxId} | ⚠️ No chapter number found, progress unchanged`);
+      return;
+    }
 
     let chapterRow = await repo.findChapter(mapped.manhwaId, chapterNum);
     if (!chapterRow) {
@@ -162,9 +165,12 @@ export async function handleReadUpdate(client: TelegramClient, chatId: string, m
     if (!chapterRow) return;
 
     const advanced = await repo.markAsReadIfNewer(mapped.manhwaId, chapterRow.id, chapterNum);
-    if (advanced) {
-      console.log(`[watcher] Progress advanced: ${mapped.manhwaTitle} -> last read #${chapterNum}`);
-    }
+
+    // Structured, single-line log — easy to grep/scan in Railway/Vercel logs.
+    console.log(
+      `📖 ${mapped.manhwaTitle} | Ch.${chapterNum} | chat=${chatId} | msg=${targetMessage.id} | ` +
+      (advanced ? '✅ Matched' : '⏭️ Not newer, skipped'),
+    );
   } catch (err) {
     const deathMarker = isSessionDeathError(err);
     if (deathMarker) {

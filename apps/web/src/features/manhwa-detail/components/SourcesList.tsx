@@ -108,7 +108,7 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
       setNewSourceUrl('');
       utils.manhwa.getById.invalidate(manhwaId);
     },
-    onError: () => toast.error('Failed to add source'),
+    onError: (err) => toast.error(err.message || 'Failed to add source'),
   });
 
   const removeSourceMutation = trpc.manhwa.removeSource.useMutation({
@@ -149,16 +149,15 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
                 <Card className="bg-[#161719] border-border/30 p-4 rounded-xl group-hover/source:border-amber-500/30 transition-colors pr-14">
                   <div className="flex items-start gap-4">
                     {/* Icon */}
-                    <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-                      isTelegram ? 'bg-blue-500/10 text-blue-400' : 'bg-emerald-500/10 text-emerald-400'
-                    }`}>
+                    <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isTelegram ? 'bg-blue-500/10 text-blue-400' : 'bg-emerald-500/10 text-emerald-400'
+                      }`}>
                       {isTelegram ? (
                         <Send size={18} className="-ml-0.5" />
                       ) : (
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                          <path d="M2 12H22" stroke="currentColor" strokeWidth="2"/>
-                          <path d="M12 2C15.3137 2 18 6.47715 18 12C18 17.5228 15.3137 22 12 22C8.68629 22 6 17.5228 6 12C6 6.47715 8.68629 2 12 2Z" stroke="currentColor" strokeWidth="2"/>
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+                          <path d="M2 12H22" stroke="currentColor" strokeWidth="2" />
+                          <path d="M12 2C15.3137 2 18 6.47715 18 12C18 17.5228 15.3137 22 12 22C8.68629 22 6 17.5228 6 12C6 6.47715 8.68629 2 12 2Z" stroke="currentColor" strokeWidth="2" />
                         </svg>
                       )}
                     </div>

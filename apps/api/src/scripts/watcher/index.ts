@@ -53,12 +53,21 @@ export async function startWatcher() {
     connectionRetries: 5,
   });
 
+  // Track intervals so we can clear them on graceful shutdown
+  const intervals: ReturnType<typeof setInterval>[] = [];
+
+  const shutdown = () => {
+    for (const id of intervals) clearInterval(id);
+    client.disconnect().catch(() => { /* best-effort */ });
+    console.log('[watcher] Watcher stopped. API server keeps running.');
+  };
+
   try {
     await client.connect();
   } catch (err) {
     const deathMarker = isSessionDeathError(err);
     if (deathMarker) {
-      handleSessionDeath(deathMarker); // exits the process
+      handleSessionDeath(deathMarker, shutdown);
       return;
     }
     throw err; // genuine connectivity issue (network, DC unreachable) — not a session death, let the caller's catch handle it
@@ -74,44 +83,49 @@ export async function startWatcher() {
   }
 
   await buildChannelMap(client);
+
+  const me = await client.getMe().catch(() => null) as { username?: string; firstName?: string } | null;
+  const identity = me ? (me.username ? `@${me.username}` : me.firstName ?? 'unknown') : 'unknown';
+  console.log(
+    `🚀 Telegram Watcher Started\n\n` +
+    `📦 Sources Loaded : ${channelMap.size}\n` +
+    `👤 Session        : ${identity}`,
+  );
+
   // Re-map every 5 minutes so newly-added sources (via the web UI) get picked up
   // without restarting the process.
-  setInterval(() => buildChannelMap(client).catch((e) => console.error('[watcher] remap failed:', e)), 5 * 60 * 1000);
+  intervals.push(setInterval(() => buildChannelMap(client).catch((e) => console.error('[watcher] remap failed:', e)), 5 * 60 * 1000));
 
   // Proactive session health check, independent of channel activity — a dead
   // session with no tracked channels posting anything would otherwise sit
   // silently until the next remap's getEntity call happens to fail.
-  setInterval(async () => {
+  intervals.push(setInterval(async () => {
     try {
       await client.getMe();
     } catch (err) {
       const deathMarker = isSessionDeathError(err);
-      if (deathMarker) handleSessionDeath(deathMarker);
+      if (deathMarker) handleSessionDeath(deathMarker, shutdown);
     }
-  }, 5 * 60 * 1000);
+  }, 5 * 60 * 1000));
 
   client.addEventHandler(handleNewMessage, new NewMessage({}));
 
   client.addEventHandler((update: Api.TypeUpdate) => {
     if (update instanceof Api.UpdateReadChannelInbox) {
       const chatId = update.channelId.toString();
-      const matched = channelMap.has(chatId);
-      console.log(`[watcher] UpdateReadChannelInbox chatId=${chatId} maxId=${update.maxId} matched=${matched}`);
-      if (matched) {
+      if (channelMap.has(chatId)) {
+        // The rich, per-chapter log line is emitted inside handleReadUpdate
+        // once it knows the manhwa/chapter — logging here too would just be noise.
         handleReadUpdate(client, chatId, update.maxId).catch((e) =>
           console.error('[watcher] handleReadUpdate error:', e),
         );
       }
     } else if (update instanceof Api.UpdateReadHistoryInbox) {
       const chatId = (update.peer as any)?.channelId?.toString() ?? (update.peer as any)?.chatId?.toString();
-      if (chatId) {
-        const matched = channelMap.has(chatId);
-        console.log(`[watcher] UpdateReadHistoryInbox chatId=${chatId} maxId=${update.maxId} matched=${matched}`);
-        if (matched) {
-          handleReadUpdate(client, chatId, update.maxId).catch((e) =>
-            console.error('[watcher] handleReadUpdate error:', e),
-          );
-        }
+      if (chatId && channelMap.has(chatId)) {
+        handleReadUpdate(client, chatId, update.maxId).catch((e) =>
+          console.error('[watcher] handleReadUpdate error:', e),
+        );
       }
     }
   }, new Raw({}));

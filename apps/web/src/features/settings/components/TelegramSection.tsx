@@ -45,7 +45,12 @@ export function TelegramSection() {
 
   // Login wizard state
   const [step, setStep] = useState<LoginStep>('idle');
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('telegram_phone') || '+919629206199';
+    }
+    return '+919629206199';
+  });
   const [tempId, setTempId] = useState('');
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
@@ -61,9 +66,9 @@ export function TelegramSection() {
     onSuccess: (data) => {
       setTempId(data.tempId);
       setStep('code');
-      toast.success('OTP sent!', { description: `Check your Telegram for the verification code.` });
+      toast.success('OTP sent! Check your Telegram for the verification code.');
     },
-    onError: (err) => toast.error('Failed to send code', { description: err.message }),
+    onError: (err) => toast.error(err.message || 'Failed to send code'),
   });
 
   // Step 2 — verify OTP (+ optional 2FA)
@@ -82,7 +87,7 @@ export function TelegramSection() {
       toast.success('Connected! Session saved to database.');
     },
     onError: (err) => {
-      toast.error('Verification failed', { description: err.message });
+      toast.error(err.message || 'Verification failed');
       // Reset to phone step so user can retry
       setStep('phone');
       setCode(''); setTempId('');
@@ -96,12 +101,15 @@ export function TelegramSection() {
       setStep('idle');
       toast.success('Session removed from database.');
     },
-    onError: (err) => toast.error('Failed to remove session', { description: err.message }),
+    onError: (err) => toast.error(err.message || 'Failed to remove session'),
   });
 
   const handleSendCode = () => {
     const trimmed = phone.trim();
     if (!trimmed) return;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('telegram_phone', trimmed);
+    }
     startLogin.mutate({ phone: trimmed });
   };
 

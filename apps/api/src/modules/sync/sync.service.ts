@@ -11,6 +11,28 @@ export interface SyncResult {
   duration: number;
 }
 
+/**
+ * Per-source sync failures come straight from the site adapter (fetch/cheerio) —
+ * `result.errors[0]` is shown verbatim in the navbar Sync button's toast
+ * (see AppShell.tsx), so a raw "Cannot read properties of null (reading
+ * 'textContent')" or an axios stack should never end up in there.
+ */
+function describeSourceError(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+
+  if (/timed? ?out|ETIMEDOUT/i.test(message)) return 'Site took too long to respond.';
+  if (/ENOTFOUND|ECONNREFUSED|fetch failed/i.test(message)) return 'Could not reach the site.';
+  if (/403|forbidden/i.test(message)) return 'Site blocked the request (403).';
+  if (/404|not found/i.test(message)) return 'Page no longer exists (404).';
+  if (/cannot read propert|undefined is not|null is not/i.test(message)) {
+    return "Site layout changed — couldn't find chapters.";
+  }
+
+  // Unknown shape — still useful to know *something* broke, but don't forward
+  // raw stack/driver text into a toast description.
+  return 'Failed to check for updates.';
+}
+
 export class SyncService {
   private repo: SyncRepository;
 
@@ -55,7 +77,7 @@ export class SyncService {
 
           const existingNums = await this.repo.getExistingChapterNums(source.manhwaId);
           const newChapters = chapters.filter(c => !existingNums.has(c.chapterNum));
-          
+
           if (newChapters.length === 0) continue;
 
           const chaptersToInsert = newChapters.map(chapter => ({
@@ -67,7 +89,7 @@ export class SyncService {
           }));
 
           const insertedCount = await this.repo.insertChaptersBulk(chaptersToInsert);
-          
+
           if (insertedCount > 0) {
             result.newChapters += insertedCount;
             if (!updatedManhwaIds.has(source.manhwaId)) {
@@ -76,8 +98,8 @@ export class SyncService {
             }
           }
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          result.errors.push(`${source.manhwaTitle}: ${message}`);
+          console.error(`[sync] source failed: ${source.manhwaTitle} (${source.url})`, err);
+          result.errors.push(`${source.manhwaTitle}: ${describeSourceError(err)}`);
         }
       }
 

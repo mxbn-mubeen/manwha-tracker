@@ -122,3 +122,27 @@ Append-only log. Never delete entries.
 - Affected modules: libs/database/, package.json, README.md
 - Date: 2026-07-23
 
+
+---
+
+- Decision: handleSessionDeath uses an optional onShutdown callback instead of hardcoded process.exit(1)
+- Reason: The watcher is embedded in the same process as the API server. Calling process.exit(1) on any session error killed the entire API, making the app completely unusable. The callback pattern lets each caller decide the correct shutdown behaviour (graceful watcher stop vs full process exit for standalone script).
+- Alternatives considered: Keeping process.exit(1) and restarting the whole server on death (rejected — unnecessary, the API should keep serving while the user generates a new session); Moving watcher to a separate process (valid long-term option but adds operational complexity for a single-user personal app)
+- Affected modules: apps/api/src/scripts/watcher/session.ts, apps/api/src/scripts/watcher/index.ts
+- Date: 2026-07-24
+
+---
+
+- Decision: Bot conflict resolution commands use /replace and /cancel (slash-prefixed) in all reply text
+- Reason: Telegram renders any /command as a clickable blue link. Plain words "replace" and "cancel" required manual typing. Slash format is zero-cost and removes friction.
+- Alternatives considered: Inline keyboard buttons (cleaner UX but requires restructuring the bot to use callback queries, higher complexity for a personal tool)
+- Affected modules: apps/api/src/scripts/bot/handlers.ts
+- Date: 2026-07-24
+
+---
+
+- Decision: TelegramSection phone input defaults to user's number from localStorage
+- Reason: The Telegram login flow requires entering the phone number every time a new session is needed. Since this is a single-user personal app, defaulting to the stored number saves repeated typing.
+- Alternatives considered: Hardcoded constant (fragile if number changes); server-side setting (overkill for a UI convenience)
+- Affected modules: apps/web/src/features/settings/components/TelegramSection.tsx
+- Date: 2026-07-24

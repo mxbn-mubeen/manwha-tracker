@@ -268,3 +268,19 @@ Append-only log. Never delete entries.
 - Status: Resolved
 - Date: 2026-07-23
 
+
+---
+
+- Problem: AUTH_KEY_DUPLICATED session death called process.exit(1) which killed the entire API server (Express on port 3001), not just the watcher. Frontend showed "Failed to fetch" on every request after any session error.
+- Cause: handleSessionDeath in session.ts had a hardcoded process.exit(1). The watcher is embedded in the same Node process as the API server (server.ts starts both), so killing the process killed everything.
+- Fix: handleSessionDeath now accepts an optional onShutdown callback. startWatcher passes a graceful shutdown function that only clears its own intervals and disconnects the GramJS client. process.exit is only called when running as a standalone script (require.main === module).
+- Status: Resolved
+- Date: 2026-07-24
+
+---
+
+- Problem: Telegram bot conflict messages showed "replace" and "cancel" as plain text. Users had to type them manually; they were not clickable in Telegram.
+- Cause: The bot reply text used bullet points with plain words "replace" / "cancel" instead of slash-command format.
+- Fix: Changed to "/replace" and "/cancel" in all bot reply strings. Telegram automatically renders slash commands as tappable blue links. Updated handleConflictReply to accept both "replace" and "/replace" (and "cancel" / "/cancel") to avoid breaking existing plain-text replies.
+- Status: Resolved
+- Date: 2026-07-24

@@ -54,24 +54,41 @@ export function isSessionDeathError(err: any): string | null {
 }
 
 let sessionDeathAlertSent = false;
-export function handleSessionDeath(marker: string) {
+
+/**
+ * Call when the MTProto session is confirmed dead.
+ *
+ * @param marker   - The error code, e.g. AUTH_KEY_DUPLICATED
+ * @param onShutdown - Optional callback to run after the alert is sent.
+ *   When running as a standalone script pass `() => process.exit(1)`.
+ *   When embedded in the API server, pass a callback that only stops
+ *   the watcher (disconnect the client, clear intervals) — do NOT pass
+ *   process.exit because that would kill the whole API server.
+ */
+export function handleSessionDeath(marker: string, onShutdown?: () => void) {
   if (sessionDeathAlertSent) return; // fire once, not on every subsequent call that hits the same dead session
   sessionDeathAlertSent = true;
 
   const msg =
-    `🔴 <b>Watcher session dead (${marker})</b>\n\n` +
-    `The session can no longer read any tracked channel.\n` +
-    `Go to <b>Settings → Telegram</b> or run <code>npm run login:telegram</code> to generate a fresh session, then restart the watcher.`;
+    `🔴 <b>Telegram Session Terminated</b>\n\n` +
+    `📛 <b>Error</b>\n${marker}\n\n` +
+    `⚠️ The session can no longer read any tracked channel.\n\n` +
+    `✅ Go to <b>Settings → Telegram</b> or run <code>npm run login:telegram</code> to generate a fresh session, then restart the watcher.`;
 
+  const embedded = !onShutdown; // running inside API server — don't exit the process
   console.error(
-    `[watcher] WATCHER_ALERT Telegram session terminated (${marker}). It can no longer read any tracked channel. ` +
-    'Generate a fresh session (Settings → Telegram, or `npm run login:telegram`) and restart the watcher. ' +
-    'The process will now exit so your process manager doesn\'t spin retrying a session that cannot recover itself.',
+    `\n🔴 Telegram Session Terminated\n\n` +
+    `📛 Error\n${marker}\n\n` +
+    `⚠️ The session can no longer read any tracked channel.\n\n` +
+    `✅ Generate a fresh session (Settings → Telegram, or \`npm run login:telegram\`) and restart the watcher.\n` +
+    (embedded
+      ? `   The watcher will stop. The API server keeps running.\n`
+      : `   The process will now exit to prevent infinite retry loops.\n`),
   );
-  console.error(`[watcher] FATAL: session dead (${marker}). Exiting.`);
 
-  // Fire-and-forget: send the alert then exit. Use Promise.allSettled so we
-  // don't hang forever if the Bot API is unreachable.
+  // Fire-and-forget: send the alert then invoke the shutdown callback.
   const timeout = new Promise<void>((r) => setTimeout(r, 10_000));
-  Promise.race([Promise.allSettled([sendBotAlert(msg)]), timeout]).finally(() => process.exit(1));
+  Promise.race([Promise.allSettled([sendBotAlert(msg)]), timeout]).finally(() => {
+    onShutdown?.();
+  });
 }

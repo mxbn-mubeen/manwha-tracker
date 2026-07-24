@@ -25,7 +25,7 @@ export function ManhwaHeader({ id, title, status, genres, description, latestCha
 
   const updateStatusMutation = trpc.manhwa.updateStatus.useMutation({
     onSuccess: () => utils.manhwa.getById.invalidate(id),
-    onError: () => toast.error('Failed to update status'),
+    onError: (err) => toast.error(err.message || 'Failed to update status'),
   });
 
   const updateLatestChapterMutation = trpc.manhwa.updateLatestChapter.useMutation({
@@ -34,7 +34,7 @@ export function ManhwaHeader({ id, title, status, genres, description, latestCha
       utils.manhwa.getAll.invalidate();
       setIsEditingChapter(false);
     },
-    onError: () => toast.error('Failed to update latest chapter'),
+    onError: (err) => toast.error(err.message || 'Failed to update latest chapter'),
   });
 
   const [isEditingChapter, setIsEditingChapter] = useState(false);
