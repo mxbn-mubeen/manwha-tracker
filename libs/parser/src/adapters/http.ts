@@ -15,23 +15,28 @@ const DEFAULT_HEADERS = {
 };
 
 /**
- * Fetch a page's HTML with browser-like headers.
- * Throws with a readable message on non-2xx responses so callers can surface
- * per-source sync errors instead of crashing the whole sync run.
+ * Fetch a page's HTML using got-scraping for basic TLS spoofing.
+ * Throws with a readable message on non-2xx responses.
  */
 export async function fetchHtml(url: string): Promise<string> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15_000);
-  let response: Response;
+  // Use a Function trick to prevent TypeScript from transpiling the dynamic import to a require() call.
+  // This is necessary because got-scraping is an pure ESM package, and the project is compiled to CommonJS.
+  const dynamicImport = new Function('modulePath', 'return import(modulePath)');
+  const { gotScraping } = await dynamicImport('got-scraping');
+
   try {
-    response = await fetch(url, { headers: DEFAULT_HEADERS, signal: controller.signal });
-  } finally {
-    clearTimeout(timeout);
+    const response = await gotScraping({
+      url,
+      headers: DEFAULT_HEADERS,
+      timeout: { request: 15_000 },
+      retry: { limit: 1 },
+    });
+    
+    return response.body;
+  } catch (err: any) {
+    const status = err?.response?.statusCode || 'Unknown Status';
+    const message = err?.response?.statusMessage || err.message;
+    throw new Error(`Failed to fetch ${url}: ${status} ${message}`);
   }
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
-  }
-
-  return await response.text();
 }
+

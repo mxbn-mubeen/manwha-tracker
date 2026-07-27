@@ -154,3 +154,11 @@ Append-only log. Never delete entries.
 - Alternatives considered: Using `node-fetch` or `axios` (adds unnecessary dependency weight since native `https` works fine for this simple loop).
 - Affected modules: apps/api/package.json, apps/api/src/scripts/bot/api.ts
 - Date: 2026-07-27
+
+---
+
+- Decision: Use `got-scraping` via dynamic import instead of native `fetch` or `Puppeteer` for HTML parsing.
+- Reason: The native `fetch` adapter was consistently blocked with 403 Forbidden by Cloudflare on GitHub Actions and Render IPs. Puppeteer was considered as a fallback but was deemed too heavy for Render's 512MB free tier memory limit. `got-scraping` provides TLS fingerprint spoofing and browser-like headers with almost zero memory overhead. The dynamic `import()` via `Function` trick is used to bypass TypeScript transpiling ESM imports to `require()` in CommonJS projects.
+- Alternatives considered: Puppeteer (too much memory), native `fetch` with headers (failed on Cloudflare).
+- Affected modules: libs/parser/src/adapters/http.ts, libs/parser/package.json
+- Date: 2026-07-27

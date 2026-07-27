@@ -292,3 +292,11 @@ Append-only log. Never delete entries.
 - Fix: Rewrote Bot API long-polling to use Node's native `https.request` instead of `fetch`. Appended `--max-old-space-size=256` to the `npm start` script. Disabled GramJS internal logging (`client.setLogLevel('none')`) to reduce idle memory bloat.
 - Status: Resolved
 - Date: 2026-07-27
+
+---
+
+- Problem: `cron:sync` and manual sync returned 403 Forbidden for sites like `comix.to` and `manhuaus.com` when run on Render or GitHub Actions.
+- Cause: Cloudflare aggressively blocks the default Node `fetch` due to its obvious TLS fingerprint.
+- Fix: Swapped `fetch` with `got-scraping` (using dynamic `import()` to bypass TS transpilation issues) which spoofs TLS signatures and browser headers to bypass basic Cloudflare checks.
+- Status: Resolved
+- Date: 2026-07-27
