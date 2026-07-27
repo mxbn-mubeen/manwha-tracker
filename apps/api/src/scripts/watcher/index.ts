@@ -52,6 +52,10 @@ export async function startWatcher() {
   const client = new TelegramClient(new StringSession(SESSION), API_ID, API_HASH, {
     connectionRetries: 5,
   });
+  
+  // Disable internal logging to prevent memory leaks over long idling periods
+  // @ts-expect-error: GramJS log level types are restrictive but 'none' is supported at runtime
+  client.setLogLevel('none');
 
   // Track intervals so we can clear them on graceful shutdown
   const intervals: ReturnType<typeof setInterval>[] = [];

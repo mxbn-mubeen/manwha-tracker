@@ -12,15 +12,51 @@ if (!TOKEN) {
 
 export const API = `https://api.telegram.org/bot${TOKEN}`;
 
+import https from 'https';
+
 export async function apiCall<T = any>(method: string, body?: Record<string, unknown>): Promise<T> {
-  const res = await fetch(`${API}/${method}`, {
-    method: body ? 'POST' : 'GET',
-    headers: { 'Content-Type': 'application/json' },
-    ...(body ? { body: JSON.stringify(body) } : {}),
+  return new Promise((resolve, reject) => {
+    const data = body ? JSON.stringify(body) : '';
+    const url = new URL(`${API}/${method}`);
+    
+    const req = https.request(url, {
+      method: body ? 'POST' : 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(body ? { 'Content-Length': Buffer.byteLength(data) } : {}),
+      },
+    }, (res) => {
+      let chunks = '';
+      res.on('data', (chunk) => { chunks += chunk; });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(chunks) as { ok: boolean; result: T; description?: string };
+          if (!json.ok) {
+            reject(new Error(`Bot API error in ${method}: ${json.description}`));
+          } else {
+            resolve(json.result);
+          }
+        } catch (err) {
+          reject(new Error(`Failed to parse response in ${method}: ${err instanceof Error ? err.message : String(err)}`));
+        }
+      });
+    });
+
+    req.on('error', (err) => {
+      reject(new Error(`Network error in ${method}: ${err.message}`));
+    });
+
+    // 35s timeout on the socket itself (Bot API long-polling uses 30s)
+    req.setTimeout(35000, () => {
+      req.destroy();
+      reject(new Error(`Timeout in ${method}`));
+    });
+
+    if (body) {
+      req.write(data);
+    }
+    req.end();
   });
-  const json = (await res.json()) as { ok: boolean; result: T; description?: string };
-  if (!json.ok) throw new Error(`Bot API error in ${method}: ${json.description}`);
-  return json.result;
 }
 
 /** Plain text — no parse_mode. Safe for any content including user-provided strings. */

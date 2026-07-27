@@ -146,3 +146,11 @@ Append-only log. Never delete entries.
 - Alternatives considered: Hardcoded constant (fragile if number changes); server-side setting (overkill for a UI convenience)
 - Affected modules: apps/web/src/features/settings/components/TelegramSection.tsx
 - Date: 2026-07-24
+
+---
+
+- Decision: Replaced Node's global `fetch` with `https.request` in Bot API long-polling loop and enforced `--max-old-space-size=256` limit on the Node server.
+- Reason: The Bot API heavily uses 30-second long-polling, and Node's built-in `fetch` (powered by `undici`) has documented memory leaks/segfault bugs when dealing with aborted/sustained idle connections in Node 18/20. Running on Render Free Tier (512MB limit) without V8 limits exacerbated this, causing Status 139 segfault crashes after a few hours. Native `https.request` bypasses `undici` entirely, and V8 limits force GC before hitting OS hard limits.
+- Alternatives considered: Using `node-fetch` or `axios` (adds unnecessary dependency weight since native `https` works fine for this simple loop).
+- Affected modules: apps/api/package.json, apps/api/src/scripts/bot/api.ts
+- Date: 2026-07-27
