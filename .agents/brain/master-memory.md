@@ -1,7 +1,7 @@
-﻿# Manhwa Tracker — Master Memory
+# Manhwa Tracker — Master Memory
 
 project_root: D:\manwha-tracker
-last_brain_review: 2026-07-24
+last_brain_review: 2026-07-27
 
 ## What This Project Does
 
@@ -44,6 +44,8 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - Bot commands clickable: /replace and /cancel use slash prefix so Telegram renders them as tappable blue links OK
 - Log readability: session death log reformatted into multi-line emoji blocks matching Source Updated style OK
 - Toast consistency: all toast.error/toast.success in TelegramSection use single-string format matching rest of project OK
+- Telegram bot commands extended: added `/create`, `/latest`, `/read` allowing full manhwa and progress management directly from Telegram without the web UI OK
+
 ### DB Driver Constraints (CRITICAL)
 - Driver: `drizzle-orm/neon-http` — **Neon HTTP serverless**
 - ❌ `db.query.*` relational API is NOT supported (throws `referencedTable` or hangs silently)

@@ -6,11 +6,13 @@ import { db, manhwa, sources } from '@manhwa-tracker/database';
 import { eq, and } from 'drizzle-orm';
 import { TelegramRepository } from '../../modules/telegram/telegram.repository';
 import { SettingsRepository } from '../../modules/settings/settings.repository';
+import { ManhwaService } from '../../modules/manhwa/manhwa.service';
 import { setBotAlertChatId } from '../../utils/bot-alert';
 import { sendText, splitSafe } from './api';
 
 export const repo = new TelegramRepository();
 export const settingsRepo = new SettingsRepository();
+export const manhwaService = new ManhwaService();
 
 // Pending forwarded channel per user chat_id: waiting for manhwa ID reply.
 export type PendingChannel = {
@@ -40,6 +42,9 @@ export const WELCOME = `👋 Manhwa Tracker Alert Bot
 Your chat ID has been saved — session-death and FloodWait alerts will be sent here.
 
 Commands:
+• /create <Title> — create a new manhwa
+• /latest <id> <chapter> — set latest chapter
+• /read <id> <chapter> — set last read chapter
 • /list — list active Telegram sources
 • /help — show this message
 • /cancel — cancel a pending channel registration
@@ -255,4 +260,68 @@ export async function handleConflictReply(chatId: number, text: string): Promise
 
   await sendText(chatId, 'Reply /replace to update the Chat ID, or /cancel to keep the current mapping.');
   return true;
+}
+
+export async function handleCreateCommand(chatId: number, text: string) {
+  const title = text.replace(/^\/create\s*/i, '').trim();
+  if (!title) {
+    await sendText(chatId, '❌ Please provide a title. Example: /create Solo Leveling');
+    return;
+  }
+  
+  try {
+    const created = await manhwaService.create({ title });
+    await sendText(chatId, `✅ Created Manhwa '${created.title}'\n🆔 ID: ${created.id}\n\nYou can now forward a channel message and reply with this ID to link it.`);
+  } catch (err) {
+    console.error('[bot] handleCreate error:', err);
+    await sendText(chatId, '❌ Failed to create manhwa.');
+  }
+}
+
+export async function handleLatestCommand(chatId: number, text: string) {
+  const parts = text.trim().split(/\s+/);
+  if (parts.length < 3) {
+    await sendText(chatId, '❌ Usage: /latest <manhwaId> <chapterNumber>');
+    return;
+  }
+  
+  const manhwaId = parseInt(parts[1]!, 10);
+  const chapterNum = parseFloat(parts[2]!);
+  
+  if (isNaN(manhwaId) || isNaN(chapterNum)) {
+    await sendText(chatId, '❌ Invalid ID or chapter number.');
+    return;
+  }
+  
+  try {
+    await manhwaService.setLatestChapter(manhwaId, chapterNum);
+    await sendText(chatId, `✅ Latest chapter set to ${chapterNum} for Manhwa ID ${manhwaId}.`);
+  } catch (err) {
+    console.error('[bot] handleLatest error:', err);
+    await sendText(chatId, '❌ Failed to set latest chapter.');
+  }
+}
+
+export async function handleReadCommand(chatId: number, text: string) {
+  const parts = text.trim().split(/\s+/);
+  if (parts.length < 3) {
+    await sendText(chatId, '❌ Usage: /read <manhwaId> <chapterNumber>');
+    return;
+  }
+  
+  const manhwaId = parseInt(parts[1]!, 10);
+  const chapterNum = parseFloat(parts[2]!);
+  
+  if (isNaN(manhwaId) || isNaN(chapterNum)) {
+    await sendText(chatId, '❌ Invalid ID or chapter number.');
+    return;
+  }
+  
+  try {
+    await manhwaService.updateProgress(manhwaId, chapterNum);
+    await sendText(chatId, `✅ Last read chapter set to ${chapterNum} for Manhwa ID ${manhwaId}.`);
+  } catch (err) {
+    console.error('[bot] handleRead error:', err);
+    await sendText(chatId, '❌ Failed to set last read chapter.');
+  }
 }

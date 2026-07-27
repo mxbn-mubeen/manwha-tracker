@@ -7,6 +7,9 @@ import {
   handleForwardedChannel,
   handleManhwaIdReply,
   handleConflictReply,
+  handleCreateCommand,
+  handleLatestCommand,
+  handleReadCommand,
   settingsRepo,
 } from './handlers';
 import { setBotAlertChatId } from '../../utils/bot-alert';
@@ -25,6 +28,9 @@ async function handleUpdate(update: any) {
   if (text.startsWith('/help')) { await handleHelp(chatId); return; }
   if (text.startsWith('/cancel')) { await handleCancel(chatId); return; }
   if (text.startsWith('/list')) { await handleList(chatId); return; }
+  if (text.startsWith('/create')) { await handleCreateCommand(chatId, text); return; }
+  if (text.startsWith('/latest')) { await handleLatestCommand(chatId, text); return; }
+  if (text.startsWith('/read')) { await handleReadCommand(chatId, text); return; }
 
   // Forwarded channel message
   const fwdOrigin = msg.forward_origin;
