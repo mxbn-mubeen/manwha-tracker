@@ -1,4 +1,4 @@
-export const CHAPTER_REGEX = /\b(?:chapter|chap\.?|ch\.?|episode|ep\.?)\s*#?\s*(\d+(?:\.\d+)?)/i;
+export const CHAPTER_REGEX = /\b(?:chapter|chap\.?|ch\.?|episode|ep\.?)[\s#-]*(\d+(?:\.\d+)?)/i;
 
 /**
  * Extract a single chapter number from free text — a message caption,

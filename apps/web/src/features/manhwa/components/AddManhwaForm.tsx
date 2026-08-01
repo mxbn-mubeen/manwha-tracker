@@ -10,7 +10,6 @@ export function AddManhwaForm() {
   const utils = trpc.useUtils();
   
   const [title, setTitle] = useState('');
-  const [author, setAuthor] = useState('');
   const [tags, setTags] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
   const [status, setStatus] = useState<'ongoing' | 'completed' | 'hiatus' | 'dropped'>('ongoing');
@@ -64,25 +63,14 @@ export function AddManhwaForm() {
         />
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-white">Author</label>
-          <Input 
-            placeholder="TurtleMe" 
-            value={author}
-            onChange={(e) => setAuthor(e.target.value)}
-            className="bg-[#0e0f11] border-border/50 text-white h-11"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-white">Tags (comma separated)</label>
-          <Input 
-            placeholder="Fantasy, Action" 
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-            className="bg-[#0e0f11] border-border/50 text-white h-11"
-          />
-        </div>
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-white">Tags (comma separated)</label>
+        <Input
+          placeholder="Fantasy, Action"
+          value={tags}
+          onChange={(e) => setTags(e.target.value)}
+          className="bg-[#0e0f11] border-border/50 text-white h-11"
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

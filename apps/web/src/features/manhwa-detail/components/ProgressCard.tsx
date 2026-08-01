@@ -25,8 +25,9 @@ export function ProgressCard({
   );
 
   const hideStepper =
-    localChapter >= latestChapter &&
-    ['completed', 'hiatus', 'dropped'].includes(status);
+    latestChapter <= 0 ||
+    (localChapter >= latestChapter &&
+      ['completed', 'hiatus', 'dropped'].includes(status));
 
   return (
     <Card className="bg-[#161719] border-border/30 p-6 rounded-2xl shadow-lg">

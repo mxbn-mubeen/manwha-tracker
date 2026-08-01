@@ -18,6 +18,20 @@ export interface ChapterExtractDebugInfo {
   found: Map<number, ChapterInfo>;
 }
 
+/**
+ * Sites like AsuraScans sell "early access" — a chapter is posted and visible
+ * in the list well before it's actually free to read, shown with a badge like
+ * "EARLY ACCESS" / "Unlocks in 2h 10m" / a lock icon. Treating that chapter as
+ * "latest" the instant it appears would tell you to go read something you
+ * can't actually open yet. Deliberately not trying to calculate an exact
+ * unlock timestamp from relative text like "2h 10m" — that drifts depending
+ * on when the scrape happens and is fragile to parse reliably. Simpler and
+ * more robust: skip it while the badge is present; the site removes the badge
+ * on its own once the timer expires, and the next scheduled sync picks it up
+ * as newly available then — same effect, without guessing at a timestamp.
+ */
+const LOCKED_CHAPTER_INDICATOR = /early access|premium|unlocks? in|\bpaid\b|\blocked\b/i;
+
 function scanAndFilterChapters(html: string, baseUrl: string): ChapterExtractDebugInfo {
   const $ = cheerio.load(html);
   const slug = deriveSlug(baseUrl);
@@ -28,6 +42,7 @@ function scanAndFilterChapters(html: string, baseUrl: string): ChapterExtractDeb
       const href = $(el).attr("href") ?? "";
       const htmlContent = $(el).html() || "";
       const text = htmlContent.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() || $(el).text().trim();
+      if (LOCKED_CHAPTER_INDICATOR.test(text)) return; // still paywalled — don't count it yet
       const match = `${text} ${href}`.match(CHAPTER_REGEX);
       if (!match || !match[1]) return;
       const num = parseFloat(match[1]);

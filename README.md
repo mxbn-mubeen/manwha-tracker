@@ -72,22 +72,36 @@ manhwa-tracker/
 - Neon PostgreSQL account
 - Telegram API ID, API Hash, and phone number (for Telegram sync)
 
-### Setup
+### Setup on a New Machine
 
-```bash
-# 1. Install dependencies
-pnpm install
+When pulling this repository on another laptop, **all commands must be run from the monorepo root directory** (`manhwa-tracker/`), unless specified otherwise. Turborepo and pnpm workspaces will automatically route commands to the correct apps (`web` or `api`).
 
-# 2. Copy and fill in environment variables
-cp .env.example .env
-# Edit .env with your DATABASE_URL and Telegram credentials
+1. **Install dependencies**
+   ```bash
+   pnpm install
+   ```
 
-# 3. Push database schema
-pnpm run db:push
+2. **Setup Environment Variables**
+   ```bash
+   # Copy the root .env.example
+   cp .env.example .env
+   # Copy the web app's .env.example 
+   cp apps/web/.env.example apps/web/.env
+   ```
 
-# 4. Start both apps in dev mode
-pnpm dev
-```
+3. **Fill in your secrets:**
+   - Open the root `.env` file and provide your `DATABASE_URL` (Neon PostgreSQL), Telegram credentials, and a randomly generated `APP_SECRET` (e.g. `openssl rand -hex 32`).
+   - Open `apps/web/.env` and ensure `VITE_APP_SECRET` is set to the exact same value as your `APP_SECRET`.
+
+4. **Sync the Database Schema**
+   ```bash
+   pnpm run db:push
+   ```
+
+5. **Start the Application**
+   ```bash
+   pnpm dev
+   ```
 
 Frontend runs at **http://localhost:3000**, API at **http://localhost:3001**.
 

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -11,6 +12,11 @@ interface ManhwaPosterProps {
 }
 
 export function ManhwaPoster({ coverUrl, title, localChapter, latestChapter, onContinueReading, onEdit }: ManhwaPosterProps) {
+  const [imgFailed, setImgFailed] = useState(false);
+
+  useEffect(() => {
+    setImgFailed(false);
+  }, [coverUrl]);
   // Once the reader has caught up to whatever chapters we actually know about,
   // there is nothing to "continue" to — clicking used to push localChapter past
   // latestChapter (e.g. 31/30), which then looked like a phantom unread chapter
@@ -20,8 +26,13 @@ export function ManhwaPoster({ coverUrl, title, localChapter, latestChapter, onC
   return (
     <div className="shrink-0 mx-auto md:mx-0 w-64 flex flex-col gap-3">
       <div className="aspect-[3/4] rounded-xl overflow-hidden bg-[#161719] border border-border/30 shadow-2xl relative">
-        {coverUrl ? (
-          <img src={coverUrl} alt={title} className="absolute inset-0 w-full h-full object-cover" />
+        {coverUrl && !imgFailed ? (
+          <img
+            src={coverUrl}
+            alt={title}
+            onError={() => setImgFailed(true)}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-zinc-600 font-medium">NO COVER</div>
         )}

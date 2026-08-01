@@ -3,13 +3,26 @@ import { Search } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ManhwaCard } from '@/features/manhwa/components/ManhwaCard';
+
+type FilterValue = 'All' | 'Reading' | 'Unread' | 'Completed' | 'Hiatus' | 'Dropped';
+const FILTER_VALUES: readonly FilterValue[] = ['All', 'Reading', 'Unread', 'Completed', 'Hiatus', 'Dropped'];
 
 export function LibraryPage() {
   const { data: manhwas, isLoading } = trpc.manhwa.getAll.useQuery();
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'All' | 'Reading' | 'Unread' | 'Completed' | 'Hiatus' | 'Dropped'>('All');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const filterParam = searchParams.get('filter');
+  const filter: FilterValue = FILTER_VALUES.includes(filterParam as FilterValue)
+    ? (filterParam as FilterValue)
+    : 'All';
+
+  const applyFilter = (f: FilterValue) => {
+    setSearchParams(f === 'All' ? {} : { filter: f });
+  };
+
   const filtered = manhwas?.filter((m) => {
     const matchesSearch = m.title.toLowerCase().includes(search.toLowerCase());
 
@@ -56,7 +69,7 @@ export function LibraryPage() {
               key={f}
               variant={filter === f ? 'default' : 'secondary'}
               size="sm"
-              onClick={() => setFilter(f)}
+              onClick={() => applyFilter(f)}
               className={filter === f ? 'bg-amber-500 text-amber-950 hover:bg-amber-500/90' : 'bg-card hover:bg-card/80'}
             >
               {f}
@@ -82,9 +95,13 @@ export function LibraryPage() {
           </div>
           <h3 className="text-lg font-medium mb-1">No manhwa found</h3>
           <p className="text-muted-foreground max-w-sm mb-6">
-            {search ? `We couldn't find anything matching "${search}".` : "Your library is empty. Start by adding a manhwa."}
+            {search
+              ? `We couldn't find anything matching "${search}".`
+              : filter !== 'All'
+              ? `No manhwa match the "${filter}" filter.`
+              : "Your library is empty. Start by adding a manhwa."}
           </p>
-          {!search && (
+          {!search && filter === 'All' && (
             <Button asChild className="bg-amber-500 text-amber-950 hover:bg-amber-500/90">
               <Link to="/add">Add Manhwa</Link>
             </Button>

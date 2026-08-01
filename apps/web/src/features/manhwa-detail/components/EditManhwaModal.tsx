@@ -49,7 +49,8 @@ export function EditManhwaModal({ manhwaId, initialTitle, initialDescription, in
       toast.success('Manhwa removed');
       utils.manhwa.getAll.invalidate();
       navigate('/library');
-    }
+    },
+    onError: (err) => toast.error(err.message || 'Failed to delete manhwa'),
   });
 
   const handleUpdate = () => {
@@ -159,6 +160,7 @@ export function EditManhwaModal({ manhwaId, initialTitle, initialDescription, in
           <Button
             variant="ghost"
             className="text-red-500 hover:text-red-400 hover:bg-red-500/10 px-3 h-9"
+            disabled={deleteMutation.isPending}
             onClick={() => {
               if (confirm('Are you sure you want to remove this manhwa?')) {
                 deleteMutation.mutate(manhwaId);

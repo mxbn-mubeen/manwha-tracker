@@ -230,4 +230,15 @@ export const settingsRouter = createTRPCRouter({
       return { source, connected: false, phone: null };
     }
   }),
+
+  /**
+   * The one legitimate way to remove the saved Telegram session.
+   * settings.delete deliberately can't touch this key (SENSITIVE_KEYS) so a
+   * stranger can't wipe it via the generic endpoint — this is the dedicated,
+   * intentional removal path the Settings UI actually calls.
+   */
+  disconnectTelegram: publicProcedure.mutation(async () => {
+    await repo.delete('telegram_session');
+    return { ok: true };
+  }),
 });

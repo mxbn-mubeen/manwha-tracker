@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Send,
   CheckCircle2,
@@ -45,12 +45,7 @@ export function TelegramSection() {
 
   // Login wizard state
   const [step, setStep] = useState<LoginStep>('idle');
-  const [phone, setPhone] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('telegram_phone') || '+919629206199';
-    }
-    return '+919629206199';
-  });
+  const [phone, setPhone] = useState('');
   const [tempId, setTempId] = useState('');
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
@@ -60,6 +55,21 @@ export function TelegramSection() {
       retry: false,
       refetchOnWindowFocus: false,
     });
+
+  // Remembered phone number, persisted server-side (not localStorage) so it
+  // follows you across any browser or device — it's not a secret (it's not
+  // in SENSITIVE_KEYS, and is already shown back in the status card once
+  // connected), it's just a convenience so you don't retype it every time.
+  const { data: rememberedPhone } = trpc.settings.get.useQuery('telegram_phone_hint');
+  const rememberPhone = trpc.settings.set.useMutation({
+    onSuccess: () => {
+      utils.settings.get.invalidate('telegram_phone_hint');
+    },
+  });
+
+  useEffect(() => {
+    if (rememberedPhone && !phone) setPhone(rememberedPhone);
+  }, [rememberedPhone, phone]);
 
   // Step 1 — send OTP
   const startLogin = trpc.settings.startTelegramLogin.useMutation({
@@ -94,7 +104,7 @@ export function TelegramSection() {
     },
   });
 
-  const deleteMutation = trpc.settings.delete.useMutation({
+  const deleteMutation = trpc.settings.disconnectTelegram.useMutation({
     onSuccess: async () => {
       await utils.settings.telegramStatus.invalidate();
       await refetchStatus();
@@ -107,9 +117,7 @@ export function TelegramSection() {
   const handleSendCode = () => {
     const trimmed = phone.trim();
     if (!trimmed) return;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('telegram_phone', trimmed);
-    }
+    rememberPhone.mutate({ key: 'telegram_phone_hint', value: trimmed });
     startLogin.mutate({ phone: trimmed });
   };
 
@@ -177,7 +185,7 @@ export function TelegramSection() {
               variant="ghost"
               size="sm"
               className="text-red-400 hover:text-red-300 hover:bg-red-500/10 gap-2"
-              onClick={() => deleteMutation.mutate('telegram_session')}
+              onClick={() => deleteMutation.mutate()}
               disabled={deleteMutation.isPending}
             >
               <Trash2 size={14} />

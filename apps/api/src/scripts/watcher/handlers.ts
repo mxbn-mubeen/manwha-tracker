@@ -36,11 +36,37 @@ export function buildInputPeer(chatId: string, mapped: ChannelMapEntry): Api.Typ
   return new Api.InputPeerChannel({ channelId: id, accessHash: hash });
 }
 
+/**
+ * Some shows have a number baked into their own title/aliases (e.g. this
+ * app tracks one literally titled "...3077" across every alias — not a
+ * chapter count, just part of the name, the same way "86 Eighty-Six" or
+ * "9-1-1" have numbers with nothing to do with episode counts). If an
+ * uploader names their file after the show itself, the fallback matcher
+ * below has no way to tell "a number from the title" apart from "the
+ * actual chapter" — so strip any 2+-digit run that's part of the known
+ * title before guessing. (2+ digits only, so a real single-digit early
+ * chapter like "5" can't be accidentally swallowed by an incidental digit
+ * somewhere in the title.)
+ */
+function stripKnownTitleNumbers(text: string, title: string | undefined): string {
+  if (!title) return text;
+  const titleNumbers = title.match(/\d{2,}/g);
+  if (!titleNumbers) return text;
+  let result = text;
+  for (const n of new Set(titleNumbers)) {
+    // \b alone doesn't work here — underscore counts as a word character in
+    // JS regex, so "_3077_" has no \b between "_" and "3". Match the same
+    // set of delimiters extractFallbackChapter itself treats as boundaries.
+    result = result.replace(new RegExp(`(?:^|\\b|_|-|#)${n}(?:\\b|_|-|\\.|$)`, 'g'), ' ');
+  }
+  return result;
+}
+
 export function extractFallbackChapter(text: string): number | null {
   const cleaned = text
     .replace(/\b(19\d\d|20\d\d)\b/g, '') // remove years
     .replace(/\b(720|1080|1440|2160|480|360)[pi]?\b/gi, '') // remove resolutions
-    .replace(/\b\d+(?:kb|mb|gb)\b/gi, '') // remove sizes
+    .replace(/\b\d+(?:\.\d+)?\s*(?:kb|mb|gb)\b/gi, '') // remove sizes (Telegram's own captions use "4074 KB", with a space)
     .replace(/\b(66666|10000|4000|100|99|1st|2nd|3rd|\d+th)\b/gi, ''); // remove common title numbers
 
   const matches = cleaned.match(/(?:^|\b|_|-|#)(\d+(?:\.\d+)?)(?:\b|_|-|\.|$)/g);
@@ -55,31 +81,44 @@ export function extractFallbackChapter(text: string): number | null {
   return Number.isNaN(num) ? null : num;
 }
 
+/**
+ * Every tracked channel posts chapters exclusively as .pdf (confirmed, not
+ * assumed) — so requiring a .pdf attachment before extracting anything at
+ * all is a safe, hard gate here, not a risky one. It rules out an entire
+ * category of false positives in one place: promotional text posts, cover
+ * images, non-chapter documents, and channel-info messages can no longer
+ * produce a chapter number no matter what digits happen to appear in them.
+ */
+function getPdfFilename(message: Api.Message): string | undefined {
+  const doc = message.media && 'document' in message.media ? (message.media as any).document : null;
+  const filenameAttr = doc?.attributes?.find((a: any) => a.fileName)?.fileName as string | undefined;
+  return filenameAttr?.toLowerCase().endsWith('.pdf') ? filenameAttr : undefined;
+}
+
 /** Best-effort chapter number extraction from a Telegram message: caption text, then filename. */
-export function extractChapterFromMessage(message: Api.Message): number | null {
+export function extractChapterFromMessage(message: Api.Message, manhwaTitle?: string): number | null {
+  const filenameAttr = getPdfFilename(message);
+  if (!filenameAttr) return null; // no .pdf attached — never guess from caption/text alone
+
+  const fromFilename = extractChapterNumber(filenameAttr);
+  if (fromFilename !== null) return fromFilename;
+
   if (message.message) {
     const fromCaption = extractChapterNumber(message.message);
     if (fromCaption !== null) return fromCaption;
   }
-  const doc = message.media && 'document' in message.media ? (message.media as any).document : null;
-  const filenameAttr = doc?.attributes?.find((a: any) => a.fileName)?.fileName as string | undefined;
-  if (filenameAttr) {
-    const fromFilename = extractChapterNumber(filenameAttr);
-    if (fromFilename !== null) return fromFilename;
-  }
 
   // Telegram-specific fallback: look for numbers that look like chapters in the text
-  // Many channels post things like "Murim Psycho 82" or "082.cbz" without the word "Chapter"
-  // BUT only apply this aggressive fallback if the message actually has a file (document) attached,
-  // or if it has a photo + link. If it's a pure text/photo ad without a file, aggressive fallback
-  // will parse random numbers like "18+" into chapter 18.
-  if (doc) {
+  // Many channels post things like "Murim Psycho 82" without the word "Chapter".
+  // Safe to always attempt here — reaching this point already guarantees a
+  // .pdf is attached (gated above), so this can't misfire on a pure text/photo ad.
+  {
     if (message.message) {
-      const fallback = extractFallbackChapter(message.message);
+      const fallback = extractFallbackChapter(stripKnownTitleNumbers(message.message, manhwaTitle));
       if (fallback !== null) return fallback;
     }
     if (filenameAttr) {
-      const fallback = extractFallbackChapter(filenameAttr);
+      const fallback = extractFallbackChapter(stripKnownTitleNumbers(filenameAttr, manhwaTitle));
       if (fallback !== null) return fallback;
     }
   }
@@ -96,7 +135,7 @@ export async function handleNewMessage(event: NewMessageEvent) {
   const mapped = channelMap.get(chatId);
   if (!mapped) return; // not a tracked channel
 
-  const chapterNum = extractChapterFromMessage(message);
+  const chapterNum = extractChapterFromMessage(message, mapped.manhwaTitle);
   if (chapterNum === null) return;
 
   const inserted = await repo.insertChapter({
@@ -137,7 +176,7 @@ export async function handleReadUpdate(client: TelegramClient, chatId: string, m
     let targetMessage: Api.Message | null = null;
 
     for (const msg of messages) {
-      const num = extractChapterFromMessage(msg as Api.Message);
+      const num = extractChapterFromMessage(msg as Api.Message, mapped.manhwaTitle);
       if (num !== null) {
         chapterNum = num;
         targetMessage = msg as Api.Message;

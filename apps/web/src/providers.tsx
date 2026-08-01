@@ -6,6 +6,7 @@ import { trpc } from '@/lib/trpc';
 import { Toaster } from 'sonner';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const APP_SECRET = import.meta.env.VITE_APP_SECRET || '';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -20,6 +21,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         httpBatchLink({
           url: `${API_URL}/trpc`,
           transformer: superjson,
+          headers: () => ({ 'x-app-secret': APP_SECRET }),
         }),
       ],
     })

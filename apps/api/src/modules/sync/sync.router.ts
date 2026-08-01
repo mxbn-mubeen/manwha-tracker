@@ -12,7 +12,8 @@ export const TriggerSyncSchema = z.object({
 });
 
 export const syncRouter = createTRPCRouter({
-  /** Triggered by the "Sync" button in the navbar. Single-user app — no auth needed. */
+  /** Triggered by the "Sync" button in the navbar. Protected by the
+   *  APP_SECRET middleware applied to all publicProcedures — see trpc.ts. */
   run: publicProcedure
     .input(TriggerSyncSchema.optional())
     .mutation(async ({ input }) => {

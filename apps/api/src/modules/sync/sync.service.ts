@@ -73,7 +73,11 @@ export class SyncService {
         try {
           const adapter = getAdapter(source.adapterKey, source.url);
           const chapters = await adapter.chapterList(source.url);
-          if (chapters.length === 0) continue;
+          if (chapters.length === 0) {
+            console.warn(`[sync] source returned 0 chapters (possible block/interstitial): ${source.manhwaTitle} (${source.url})`);
+            result.errors.push(`${source.manhwaTitle}: Got a response but found no chapters — site may be blocking the request.`);
+            continue;
+          }
 
           const existingNums = await this.repo.getExistingChapterNums(source.manhwaId);
           const newChapters = chapters.filter(c => !existingNums.has(c.chapterNum));

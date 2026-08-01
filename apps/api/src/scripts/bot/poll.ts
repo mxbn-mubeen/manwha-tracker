@@ -23,6 +23,14 @@ async function handleUpdate(update: any) {
   const chatId: number = msg.chat.id;
   const text: string = msg.text ?? '';
 
+  // Fail closed: if ALLOWED_CHAT_ID isn't configured, ignore everyone rather
+  // than silently accepting commands from any Telegram user who DMs the bot.
+  const allowedChatId = process.env.ALLOWED_CHAT_ID;
+  if (!allowedChatId || String(chatId) !== allowedChatId) {
+    console.warn(`[bot] Ignored message from unauthorized chat ${chatId}`);
+    return;
+  }
+
   // Commands
   if (text.startsWith('/start')) { await handleStart(chatId); return; }
   if (text.startsWith('/help')) { await handleHelp(chatId); return; }
@@ -31,6 +39,11 @@ async function handleUpdate(update: any) {
   if (text.startsWith('/create')) { await handleCreateCommand(chatId, text); return; }
   if (text.startsWith('/latest')) { await handleLatestCommand(chatId, text); return; }
   if (text.startsWith('/read')) { await handleReadCommand(chatId, text); return; }
+  if (text.startsWith('/replace')) {
+    const handled = await handleConflictReply(chatId, text);
+    if (!handled) await sendText(chatId, 'Nothing pending to replace.');
+    return;
+  }
 
   // Forwarded channel message
   const fwdOrigin = msg.forward_origin;

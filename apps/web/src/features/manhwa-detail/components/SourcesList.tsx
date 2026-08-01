@@ -235,7 +235,11 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
               type="text"
               value={newSourceUrl}
               onChange={(e) => setNewSourceUrl(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddSource()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newSourceUrl.trim() && !addSourceMutation.isPending) {
+                  handleAddSource();
+                }
+              }}
               placeholder={newSourceType === 'telegram' ? '@channel_name or t.me/...' : 'https://example.com/...'}
               className="bg-[#161719] border border-border/50 text-white text-sm rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-amber-500 placeholder:text-muted-foreground"
             />

@@ -71,14 +71,14 @@ export function DashboardPage() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard icon={<BookOpen size={18} />} label="In Library" value={totalManhwa} />
-        <StatCard icon={<Bell size={18} className="text-amber-500" />} label="Unread Chapters" value={unreadCount} valueClassName="text-amber-500" />
-        <StatCard icon={<TrendingUp size={18} />} label="Ongoing" value={ongoingCount} />
-        <StatCard icon={<Send size={18} />} label="Telegram Sources" value={telegramSources} />
+        <StatCard icon={<BookOpen size={18} />} label="In Library" value={totalManhwa} to="/library" />
+        <StatCard icon={<Bell size={18} className="text-amber-500" />} label="Unread Chapters" value={unreadCount} valueClassName="text-amber-500" to="/library?filter=Unread" />
+        <StatCard icon={<TrendingUp size={18} />} label="Ongoing" value={ongoingCount} to="/library?filter=Reading" />
+        <StatCard icon={<Send size={18} />} label="Telegram Sources" value={telegramSources} to="/settings" />
       </div>
 
       {/* Continue Reading */}
-      <ContinueReading manhwas={continueReading} />
+      <ContinueReading manhwas={continueReading} hasLibrary={totalManhwa > 0} />
 
       {/* Recent Activity */}
       <RecentActivity manhwas={recentActivity} />

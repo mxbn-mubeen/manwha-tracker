@@ -11,6 +11,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
+      '@manhwa-tracker/utils': resolve(__dirname, '../../libs/utils/src/index.ts'),
     },
   },
   server: {

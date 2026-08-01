@@ -1,5 +1,5 @@
 import { db, manhwa, progress, chapters } from '@manhwa-tracker/database';
-import { eq, sql, and } from 'drizzle-orm';
+import { eq, sql, and, gt, isNull, inArray } from 'drizzle-orm';
 
 // Re-export so existing imports of ManhwaRepository still resolve.
 // Read operations (getAll, getById) live in manhwa.read.repository.ts.
@@ -113,19 +113,63 @@ export class ManhwaRepository {
   }
 
   /**
-   * Manually set/bump the latest known chapter number, e.g. when a source missed one.
-   * "Latest chapter" is derived elsewhere as MAX(chapter_num), so this just makes sure
-   * a chapter row exists for the given number (no-op if it's already there). Entering
-   * a number lower than the current max has no visible effect, since a higher real
-   * chapter row still exists.
+   * Manually set/bump the latest known chapter number, e.g. when a source missed one,
+   * or to correct a previous typo (e.g. accidentally entered 266 instead of 265).
+   * "Latest chapter" is derived elsewhere as MAX(chapter_num), so a stray higher row
+   * left over from a mistake would otherwise keep winning forever no matter what
+   * lower number gets entered afterward — this was a real bug reported directly.
+   *
+   * Fix: if the new value is lower than an existing MANUAL entry (sourceId IS NULL),
+   * that manual entry was almost certainly the mistake being corrected right now, so
+   * remove it. Genuinely scraped/Telegram-sourced chapters (sourceId NOT NULL) are
+   * never touched here — only ever-manual entries can be walked back down, since a
+   * real chapter someone actually posted shouldn't silently disappear just because
+   * someone later typed a lower number for an unrelated reason.
    */
   async setLatestChapter(manhwaId: number, chapterNum: number) {
-    await db.insert(chapters).values({
+    const chaptersToDelete = await db
+      .select({ id: chapters.id })
+      .from(chapters)
+      .where(
+        and(
+          eq(chapters.manhwaId, manhwaId),
+          isNull(chapters.sourceId),
+          gt(chapters.chapterNum, chapterNum),
+        )
+      );
+
+    const chapterIdsToDelete = chaptersToDelete.map((c) => c.id);
+
+    const [inserted] = await db.insert(chapters).values({
       manhwaId,
       chapterNum,
       title: `Chapter ${chapterNum}`,
       url: '',
-    }).onConflictDoNothing();
+    }).onConflictDoNothing().returning({ id: chapters.id });
+
+    let newChapterId = inserted?.id;
+    if (!newChapterId) {
+      const [existing] = await db.select({ id: chapters.id }).from(chapters).where(
+        and(eq(chapters.manhwaId, manhwaId), eq(chapters.chapterNum, chapterNum))
+      ).limit(1);
+      newChapterId = existing?.id;
+    }
+
+    if (chapterIdsToDelete.length > 0) {
+      if (newChapterId) {
+        await db.update(progress)
+          .set({ chapterId: newChapterId })
+          .where(inArray(progress.chapterId, chapterIdsToDelete));
+      }
+      await db.delete(chapters).where(inArray(chapters.id, chapterIdsToDelete));
+    }
+
+    // Keep this in sync with the scraper path (sync.service.ts touches
+    // updatedAt on every genuinely new chapter) so manually-set chapters
+    // via the bot/API also surface in "recently updated" views.
+    if (inserted || chapterIdsToDelete.length > 0) {
+      await db.update(manhwa).set({ updatedAt: new Date() }).where(eq(manhwa.id, manhwaId));
+    }
 
     const [row] = await db
       .select({ max: sql<number>`MAX(${chapters.chapterNum})` })

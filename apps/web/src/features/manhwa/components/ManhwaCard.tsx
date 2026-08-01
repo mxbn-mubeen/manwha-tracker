@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import type { RouterOutputs } from '@/lib/trpc';
@@ -5,6 +6,11 @@ import type { RouterOutputs } from '@/lib/trpc';
 type Manhwa = RouterOutputs['manhwa']['getAll'][number];
 
 export function ManhwaCard({ manhwa }: { manhwa: Manhwa }) {
+  const [imgFailed, setImgFailed] = useState(false);
+
+  useEffect(() => {
+    setImgFailed(false);
+  }, [manhwa.coverUrl]);
   const unread = (manhwa.progress?.latestChapter ?? 0) - (manhwa.progress?.lastChapter ?? 0);
   const progressPercent = Math.min(
     100,
@@ -19,10 +25,12 @@ export function ManhwaCard({ manhwa }: { manhwa: Manhwa }) {
       to={`/manhwa/${manhwa.id}`}
       className="group relative rounded-xl overflow-hidden aspect-[3/4] bg-zinc-900 border border-border/50 transition-all hover:border-amber-500/50 hover:glow block"
     >
-      {manhwa.coverUrl ? (
+      {manhwa.coverUrl && !imgFailed ? (
         <img
           src={manhwa.coverUrl}
           alt={manhwa.title}
+          loading="lazy"
+          onError={() => setImgFailed(true)}
           className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
       ) : (
