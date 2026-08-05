@@ -167,7 +167,22 @@ export async function handleNewMessage(event: NewMessageEvent) {
   const mapped = channelMap.get(chatId);
   if (!mapped) return; // not a tracked channel
 
-  await catalogueMessage(mapped, chatId, message);
+  // Unlike handleReadUpdate's call sites (which are always wrapped in
+  // .catch() by the caller), this function is registered directly as a
+  // GramJS event handler with no wrapper around it. A single failed DB
+  // write here (Neon hiccup, pool exhaustion, etc.) becomes an unhandled
+  // promise rejection, and Node's default since v15 is to crash the whole
+  // process on that — taking the Express server, bot poller, and every
+  // other tracked channel down with it over one bad message. Catch and log
+  // instead so a transient failure on one message can't kill the watcher.
+  try {
+    await catalogueMessage(mapped, chatId, message);
+  } catch (err) {
+    console.error(
+      `[watcher] catalogueMessage failed for ${mapped.manhwaTitle} (chat=${chatId}, msg=${message.id}):`,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
 }
 
 /** Step 2: the user's read-pointer moved in a tracked channel -> advance progress. */
