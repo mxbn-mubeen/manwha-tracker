@@ -3,6 +3,21 @@ import { SettingsRepository } from '../../modules/settings/settings.repository';
 
 const settingsRepo = new SettingsRepository();
 
+/**
+ * Thrown by resolveSession() when no session is configured yet. Distinct
+ * from a generic Error so callers can tell "not logged in yet" (recoverable —
+ * keep the API server up so Settings → Telegram can be used to fix it) apart
+ * from a genuine unexpected failure.
+ */
+export class NoSessionError extends Error {
+  constructor() {
+    super(
+      'No Telegram session found. Go to Settings → Telegram in the app and log in with your phone number.',
+    );
+    this.name = 'NoSessionError';
+  }
+}
+
 export async function resolveSession(): Promise<string> {
   const dbSession = await settingsRepo.get('telegram_session');
   if (dbSession) {
@@ -14,11 +29,13 @@ export async function resolveSession(): Promise<string> {
     console.log('[watcher] Using Telegram session from TELEGRAM_SESSION env.');
     return envSession;
   }
-  console.error(
-    '[watcher] No Telegram session found. Go to Settings → Telegram and paste a session string, ' +
-    'or run `npm run login:telegram` to generate one.',
-  );
-  process.exit(1);
+  // IMPORTANT: never process.exit() here. This module can run embedded inside
+  // the main API server process (see server.ts) — exiting the process over a
+  // merely-not-logged-in-yet condition would kill the API server and the bot
+  // along with the watcher, taking down the very Settings → Telegram page
+  // needed to fix it. Throw instead and let the caller decide what "not
+  // running yet" looks like for its context.
+  throw new NoSessionError();
 }
 
 /**
