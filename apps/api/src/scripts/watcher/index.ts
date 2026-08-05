@@ -62,6 +62,7 @@ import {
   resolveSession,
   handleSessionDeath,
   isSessionDeathError,
+  NoSessionError,
 } from "./session";
 import { buildChannelMap, channelMap } from "./channel-map";
 import { handleNewMessage, handleReadUpdate } from "./handlers";
@@ -103,6 +104,12 @@ const RESTART_BACKOFF_MAX_MS = 5 * 60 * 1000;
 // trustworthy — this bounds the worst case.
 const SCHEDULED_RESTART_INTERVAL_MS = 3 * 60 * 60 * 1000; // 3 hours
 
+// How often to re-check for a session when none is configured yet (e.g. a
+// fresh deploy before anyone has logged in via Settings → Telegram). Cheap —
+// just a DB read — so a short interval is fine and means the watcher starts
+// itself within a minute of login, no redeploy needed.
+const NO_SESSION_POLL_INTERVAL_MS = 60 * 1000;
+
 // Bumped on every rebuild so stale intervals/callbacks from a torn-down
 // client generation can recognize they're obsolete and no-op instead of
 // touching a client that's already been disconnected.
@@ -112,7 +119,29 @@ async function runWatcherGeneration(attempt = 0): Promise<void> {
   const generation = ++currentGeneration;
   const isCurrent = () => generation === currentGeneration;
 
-  const SESSION = await resolveSession();
+  let SESSION: string;
+  try {
+    SESSION = await resolveSession();
+  } catch (err) {
+    if (err instanceof NoSessionError) {
+      // Not an error state worth alerting on or backing off aggressively for —
+      // this is the normal condition on a fresh deploy before anyone has
+      // logged in yet. Log once per attempt at a low volume and just check
+      // again shortly; as soon as Settings → Telegram saves a session, the
+      // very next poll picks it up and starts the watcher with no redeploy.
+      console.log(
+        `[watcher] ${err.message} Rechecking in ${NO_SESSION_POLL_INTERVAL_MS / 1000}s...`,
+      );
+      setTimeout(() => {
+        if (generation !== currentGeneration) return; // superseded
+        runWatcherGeneration(attempt).catch((e) =>
+          console.error("[watcher] Retry after NoSessionError failed:", e),
+        );
+      }, NO_SESSION_POLL_INTERVAL_MS);
+      return;
+    }
+    throw err; // genuine unexpected failure — let it surface normally
+  }
   const client = new TelegramClient(
     new StringSession(SESSION),
     API_ID,
