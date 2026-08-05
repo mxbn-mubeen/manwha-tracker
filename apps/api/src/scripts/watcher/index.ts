@@ -68,7 +68,7 @@ export async function startWatcher() {
       retryDelay: 2000,
       // Default is 10s, which is tight for a container with inconsistent egress —
       // bumping it cuts down on false-positive TIMEOUTs from normal latency spikes.
-      timeout: 30,
+      timeout: 60,
       // GramJS doesn't support a `catchUp` constructor option on this package
       // version, so rely on the separate reconcile pass to backfill missed updates.
     },

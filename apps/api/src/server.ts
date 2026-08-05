@@ -1,13 +1,13 @@
-import './env';
-import { timingSafeEqual } from 'crypto';
-import express from 'express';
-import cors from 'cors';
-import { createExpressMiddleware } from '@trpc/server/adapters/express';
-import { appRouter } from './root';
-import { SyncService } from './modules/sync/sync.service';
-import { TriggerSyncSchema } from './modules/sync/sync.router';
-import { startWatcher } from './scripts/watcher';
-import { poll as startBot } from './scripts/bot/poll';
+import "./env";
+import { timingSafeEqual } from "crypto";
+import express from "express";
+import cors from "cors";
+import { createExpressMiddleware } from "@trpc/server/adapters/express";
+import { appRouter } from "./root";
+import { SyncService } from "./modules/sync/sync.service";
+import { TriggerSyncSchema } from "./modules/sync/sync.router";
+import { startWatcher } from "./scripts/watcher";
+import { poll as startBot } from "./scripts/bot/poll";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -16,25 +16,25 @@ const PORT = process.env.PORT || 3001;
 app.use(
   cors({
     origin: [
-      'http://localhost:3000',
-      'http://localhost:5173',
+      "http://localhost:3000",
+      "http://localhost:5173",
       // Set FRONTEND_URL to your Vercel domain in Cloud Run env vars
       // e.g. https://manwha-tracker.vercel.app
-      process.env.FRONTEND_URL || '',
+      process.env.FRONTEND_URL || "",
     ].filter(Boolean),
     credentials: true,
-  })
+  }),
 );
 
 app.use(express.json());
 
 // Mount tRPC on /trpc
 app.use(
-  '/trpc',
+  "/trpc",
   createExpressMiddleware({
     router: appRouter,
     createContext: ({ req }) => ({ req }),
-  })
+  }),
 );
 
 /**
@@ -52,31 +52,44 @@ app.use(
 const syncService = new SyncService();
 let syncInProgress = false;
 
-app.post('/api/sync', async (req, res) => {
+function parseEnvFlag(name: string, defaultValue: boolean) {
+  const raw = process.env[name];
+  if (raw == null) return defaultValue;
+  return !["0", "false", "no"].includes(raw.trim().toLowerCase());
+}
+
+app.post("/api/sync", async (req, res) => {
   const configuredSecret = process.env.SYNC_SECRET;
   if (!configuredSecret) {
-    res.status(503).json({ error: 'SYNC_SECRET is not configured on this server — route disabled.' });
+    res
+      .status(503)
+      .json({
+        error: "SYNC_SECRET is not configured on this server — route disabled.",
+      });
     return;
   }
 
-  const providedSecret = req.header('x-sync-secret');
+  const providedSecret = req.header("x-sync-secret");
   const expected = Buffer.from(configuredSecret);
-  const provided = Buffer.from(providedSecret ?? '');
-  const isAuthorized = expected.length === provided.length && timingSafeEqual(expected, provided);
+  const provided = Buffer.from(providedSecret ?? "");
+  const isAuthorized =
+    expected.length === provided.length && timingSafeEqual(expected, provided);
 
   if (!isAuthorized) {
-    res.status(401).json({ error: 'Unauthorized' });
+    res.status(401).json({ error: "Unauthorized" });
     return;
   }
 
   if (syncInProgress) {
-    res.status(409).json({ error: 'A sync is already running.' });
+    res.status(409).json({ error: "A sync is already running." });
     return;
   }
 
   const parsed = TriggerSyncSchema.safeParse(req.body ?? {});
   if (!parsed.success) {
-    res.status(400).json({ error: 'Invalid body', details: parsed.error.flatten() });
+    res
+      .status(400)
+      .json({ error: "Invalid body", details: parsed.error.flatten() });
     return;
   }
 
@@ -92,31 +105,45 @@ app.post('/api/sync', async (req, res) => {
   }
 });
 
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 app.listen(PORT, () => {
   console.log(`🚀 API server running on http://localhost:${PORT}`);
 
+  const enableTelegramWatcher =
+    Boolean(process.env.TELEGRAM_API_ID) &&
+    parseEnvFlag("START_TELEGRAM_WATCHER", true);
+  const enableTelegramBot =
+    Boolean(process.env.TELEGRAM_BOT_TOKEN) &&
+    parseEnvFlag("START_TELEGRAM_BOT", true);
+
   // Start the Telegram watcher in the background
-  // This allows Render to host both the API and the Watcher in a single Free Web Service
-  if (process.env.TELEGRAM_API_ID) {
-    console.log('🔄 Starting Telegram watcher...');
-    startWatcher().catch(err => {
-      console.error('❌ Failed to start Telegram watcher:', err);
+  if (enableTelegramWatcher) {
+    console.log("🔄 Starting Telegram watcher...");
+    startWatcher().catch((err) => {
+      console.error("❌ Failed to start Telegram watcher:", err);
     });
+  } else if (process.env.TELEGRAM_API_ID) {
+    console.log(
+      "⚠️ Skipping Telegram watcher because START_TELEGRAM_WATCHER is disabled.",
+    );
   } else {
-    console.log('⚠️ Skipping Telegram watcher (TELEGRAM_API_ID not set)');
+    console.log("⚠️ Skipping Telegram watcher (TELEGRAM_API_ID not set)");
   }
 
   // Start the Telegram bot in the background
-  if (process.env.TELEGRAM_BOT_TOKEN) {
-    console.log('🤖 Starting Telegram bot...');
-    startBot().catch(err => {
-      console.error('❌ Failed to start Telegram bot:', err);
+  if (enableTelegramBot) {
+    console.log("🤖 Starting Telegram bot...");
+    startBot().catch((err) => {
+      console.error("❌ Failed to start Telegram bot:", err);
     });
+  } else if (process.env.TELEGRAM_BOT_TOKEN) {
+    console.log(
+      "⚠️ Skipping Telegram bot because START_TELEGRAM_BOT is disabled.",
+    );
   } else {
-    console.log('⚠️ Skipping Telegram bot (TELEGRAM_BOT_TOKEN not set)');
+    console.log("⚠️ Skipping Telegram bot (TELEGRAM_BOT_TOKEN not set)");
   }
 });
