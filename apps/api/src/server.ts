@@ -2,12 +2,27 @@ import "./env";
 import { timingSafeEqual } from "crypto";
 import express from "express";
 import cors from "cors";
+
+// Log-and-continue instead of Node's default (silently crash the whole
+// process) for anything that slips through — a diagnostic safety net so a
+// future unguarded async handler shows up as a log line instead of a gap
+// in the logs with no explanation, the way today's watcher crash likely did.
+process.on("unhandledRejection", (reason) => {
+  console.error(
+    "[server] Unhandled rejection (process kept alive):",
+    reason instanceof Error ? reason.stack || reason.message : reason,
+  );
+});
+process.on("uncaughtException", (err) => {
+  console.error("[server] Uncaught exception (process kept alive):", err.stack || err.message);
+});
+
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "./root";
 import { SyncService } from "./modules/sync/sync.service";
 import { TriggerSyncSchema } from "./modules/sync/sync.router";
 import { startWatcher } from "./scripts/watcher";
-import { poll as startBot } from "./scripts/bot/poll";
+import { poll as startBot, stopPolling } from "./scripts/bot/poll";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -109,7 +124,20 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-app.listen(PORT, () => {
+// Friendly landing page for the bare root — this is an API-only service with
+// no UI of its own, so without this route, visiting the domain directly just
+// shows Express's default "Cannot GET /" (which is harmless, but confusing).
+app.get("/", (_req, res) => {
+  res.json({
+    service: "manwha-tracker-api",
+    status: "ok",
+    message: "This is the backend API — there's no browsable page here. Use the web app instead.",
+    frontend: process.env.FRONTEND_URL || undefined,
+    health: "/health",
+  });
+});
+
+const server = app.listen(PORT, () => {
   console.log(`🚀 API server running on http://localhost:${PORT}`);
 
   const enableTelegramWatcher =
@@ -147,3 +175,25 @@ app.listen(PORT, () => {
     console.log("⚠️ Skipping Telegram bot (TELEGRAM_BOT_TOKEN not set)");
   }
 });
+
+// Render (and other rolling-deploy hosts) send SIGTERM to the outgoing
+// instance once the new one is healthy. Without this, the old process's
+// getUpdates long-poll can stay open up to 30s, during which both instances
+// poll Telegram at once and every call fails with a getUpdates Conflict.
+// Stopping the poll loop immediately shrinks that overlap to ~instant.
+let shuttingDown = false;
+function shutdown(signal: string) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[server] ${signal} received, shutting down...`);
+  stopPolling();
+  server.close(() => {
+    console.log("[server] HTTP server closed.");
+    process.exit(0);
+  });
+  // Safety net in case something (e.g. an open DB connection) hangs close().
+  setTimeout(() => process.exit(0), 5000).unref();
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
