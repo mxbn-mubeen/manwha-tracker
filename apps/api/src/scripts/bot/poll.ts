@@ -112,6 +112,16 @@ export async function poll() {
   }
 
   const me = await apiCall<any>('getMe');
+  // Ensure no webhook is set for this bot token — an active webhook will
+  // cause getUpdates to fail with a "Conflict" error. Delete silently on
+  // startup so users who accidentally set a webhook won't break polling.
+  try {
+    await apiCall('deleteWebhook');
+    console.log('[bot] Ensured no webhook is set (deleteWebhook called)');
+  } catch (err) {
+    // Non-fatal — we'll continue and let getUpdates show any remaining error.
+    console.warn('[bot] deleteWebhook failed:', err instanceof Error ? err.message : String(err));
+  }
   console.log(`[bot] Connected as @${me.username} (${me.first_name})`);
   console.log('[bot] Polling for updates...');
 
