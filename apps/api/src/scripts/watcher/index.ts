@@ -26,22 +26,29 @@
  * This has not been run against a live Telegram session — verify against
  * your actual channels before trusting it unattended.
  */
-import '../../env';
-import { TelegramClient, Api } from 'telegram';
-import { StringSession } from 'telegram/sessions';
-import { NewMessage } from 'telegram/events';
-import { Raw } from 'telegram/events/Raw';
-import { SettingsRepository } from '../../modules/settings/settings.repository';
-import { setBotAlertChatId } from '../../utils/bot-alert';
-import { resolveSession, handleSessionDeath, isSessionDeathError } from './session';
-import { buildChannelMap, channelMap } from './channel-map';
-import { handleNewMessage, handleReadUpdate } from './handlers';
+import "../../env";
+import { TelegramClient, Api } from "telegram";
+import { StringSession } from "telegram/sessions";
+import { NewMessage } from "telegram/events";
+import { Raw } from "telegram/events/Raw";
+import { SettingsRepository } from "../../modules/settings/settings.repository";
+import { setBotAlertChatId } from "../../utils/bot-alert";
+import {
+  resolveSession,
+  handleSessionDeath,
+  isSessionDeathError,
+} from "./session";
+import { buildChannelMap, channelMap } from "./channel-map";
+import { handleNewMessage, handleReadUpdate } from "./handlers";
+import { reconcileAll } from "./reconcile";
 
 const API_ID = Number(process.env.TELEGRAM_API_ID);
-const API_HASH = process.env.TELEGRAM_API_HASH ?? '';
+const API_HASH = process.env.TELEGRAM_API_HASH ?? "";
 
 if (!API_ID || !API_HASH) {
-  console.error('[watcher] Missing TELEGRAM_API_ID / TELEGRAM_API_HASH in env. Aborting.');
+  console.error(
+    "[watcher] Missing TELEGRAM_API_ID / TELEGRAM_API_HASH in env. Aborting.",
+  );
   process.exit(1);
 }
 
@@ -49,21 +56,37 @@ const settingsRepo = new SettingsRepository();
 
 export async function startWatcher() {
   const SESSION = await resolveSession();
-  const client = new TelegramClient(new StringSession(SESSION), API_ID, API_HASH, {
-    connectionRetries: 5,
-  });
-  
+  const client = new TelegramClient(
+    new StringSession(SESSION),
+    API_ID,
+    API_HASH,
+    {
+      // -1 = retry forever. The default (5) means a rough network patch (like the
+      // TIMEOUT storms seen in prod logs) can exhaust all retries and kill the
+      // whole watcher process instead of just reconnecting.
+      connectionRetries: -1,
+      retryDelay: 2000,
+      // Default is 10s, which is tight for a container with inconsistent egress —
+      // bumping it cuts down on false-positive TIMEOUTs from normal latency spikes.
+      timeout: 30,
+      // GramJS doesn't support a `catchUp` constructor option on this package
+      // version, so rely on the separate reconcile pass to backfill missed updates.
+    },
+  );
+
   // Disable internal logging to prevent memory leaks over long idling periods
   // @ts-expect-error: GramJS log level types are restrictive but 'none' is supported at runtime
-  client.setLogLevel('none');
+  client.setLogLevel("none");
 
   // Track intervals so we can clear them on graceful shutdown
   const intervals: ReturnType<typeof setInterval>[] = [];
 
   const shutdown = () => {
     for (const id of intervals) clearInterval(id);
-    client.disconnect().catch(() => { /* best-effort */ });
-    console.log('[watcher] Watcher stopped. API server keeps running.');
+    client.disconnect().catch(() => {
+      /* best-effort */
+    });
+    console.log("[watcher] Watcher stopped. API server keeps running.");
   };
 
   try {
@@ -76,41 +99,82 @@ export async function startWatcher() {
     }
     throw err; // genuine connectivity issue (network, DC unreachable) — not a session death, let the caller's catch handle it
   }
-  console.log('[watcher] Connected to Telegram.');
+  console.log("[watcher] Connected to Telegram.");
 
   // Warm the bot-alert chat ID from DB settings so session-death alerts can
   // be sent even if the bot service isn't running in this process.
-  const alertChatId = await settingsRepo.get('telegram_alert_chat_id');
+  const alertChatId = await settingsRepo.get("telegram_alert_chat_id");
   if (alertChatId) {
     setBotAlertChatId(alertChatId);
-    console.log('[watcher] Bot alert chat ID loaded from DB settings.');
+    console.log("[watcher] Bot alert chat ID loaded from DB settings.");
   }
 
   await buildChannelMap(client);
 
-  const me = await client.getMe().catch(() => null) as { username?: string; firstName?: string } | null;
-  const identity = me ? (me.username ? `@${me.username}` : me.firstName ?? 'unknown') : 'unknown';
+  const me = (await client.getMe().catch(() => null)) as {
+    username?: string;
+    firstName?: string;
+  } | null;
+  const identity = me
+    ? me.username
+      ? `@${me.username}`
+      : (me.firstName ?? "unknown")
+    : "unknown";
   console.log(
     `🚀 Telegram Watcher Started\n\n` +
-    `📦 Sources Loaded : ${channelMap.size}\n` +
-    `👤 Session        : ${identity}`,
+      `📦 Sources Loaded : ${channelMap.size}\n` +
+      `👤 Session        : ${identity}`,
   );
 
   // Re-map every 5 minutes so newly-added sources (via the web UI) get picked up
   // without restarting the process.
-  intervals.push(setInterval(() => buildChannelMap(client).catch((e) => console.error('[watcher] remap failed:', e)), 5 * 60 * 1000));
+  intervals.push(
+    setInterval(
+      () =>
+        buildChannelMap(client).catch((e) =>
+          console.error("[watcher] remap failed:", e),
+        ),
+      5 * 60 * 1000,
+    ),
+  );
 
   // Proactive session health check, independent of channel activity — a dead
   // session with no tracked channels posting anything would otherwise sit
   // silently until the next remap's getEntity call happens to fail.
-  intervals.push(setInterval(async () => {
-    try {
-      await client.getMe();
-    } catch (err) {
-      const deathMarker = isSessionDeathError(err);
-      if (deathMarker) handleSessionDeath(deathMarker, shutdown);
-    }
-  }, 5 * 60 * 1000));
+  intervals.push(
+    setInterval(
+      async () => {
+        try {
+          await client.getMe();
+        } catch (err) {
+          const deathMarker = isSessionDeathError(err);
+          if (deathMarker) handleSessionDeath(deathMarker, shutdown);
+        }
+      },
+      5 * 60 * 1000,
+    ),
+  );
+
+  // Second safety net independent of the live event stream — see reconcile.ts
+  // for why this exists on top of catchUp. Run once shortly after startup
+  // (covers whatever happened while the watcher was down/deploying), then on
+  // a fixed interval after that.
+  setTimeout(
+    () =>
+      reconcileAll(client).catch((e) =>
+        console.error("[watcher] initial reconcile failed:", e),
+      ),
+    30_000,
+  );
+  intervals.push(
+    setInterval(
+      () =>
+        reconcileAll(client).catch((e) =>
+          console.error("[watcher] reconcile failed:", e),
+        ),
+      15 * 60 * 1000,
+    ),
+  );
 
   client.addEventHandler(handleNewMessage, new NewMessage({}));
 
@@ -121,31 +185,35 @@ export async function startWatcher() {
         // The rich, per-chapter log line is emitted inside handleReadUpdate
         // once it knows the manhwa/chapter — logging here too would just be noise.
         handleReadUpdate(client, chatId, update.maxId).catch((e) =>
-          console.error('[watcher] handleReadUpdate error:', e),
+          console.error("[watcher] handleReadUpdate error:", e),
         );
       }
     } else if (update instanceof Api.UpdateReadHistoryInbox) {
-      const chatId = (update.peer as any)?.channelId?.toString() ?? (update.peer as any)?.chatId?.toString();
+      const chatId =
+        (update.peer as any)?.channelId?.toString() ??
+        (update.peer as any)?.chatId?.toString();
       if (chatId && channelMap.has(chatId)) {
         handleReadUpdate(client, chatId, update.maxId).catch((e) =>
-          console.error('[watcher] handleReadUpdate error:', e),
+          console.error("[watcher] handleReadUpdate error:", e),
         );
       }
     }
   }, new Raw({}));
 
-  console.log('[watcher] Listening for new chapters and read-events on tracked channels...');
+  console.log(
+    "[watcher] Listening for new chapters and read-events on tracked channels...",
+  );
 }
 
 // If running as a standalone script (e.g. npm run watch:telegram)
 if (require.main === module) {
   startWatcher().catch((err) => {
-    console.error('[watcher] Fatal error:', err);
+    console.error("[watcher] Fatal error:", err);
     process.exit(1);
   });
 
-  process.on('SIGINT', () => {
-    console.log('\n[watcher] Shutting down.');
+  process.on("SIGINT", () => {
+    console.log("\n[watcher] Shutting down.");
     process.exit(0);
   });
 }

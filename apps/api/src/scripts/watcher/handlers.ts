@@ -126,17 +126,20 @@ export function extractChapterFromMessage(message: Api.Message, manhwaTitle?: st
   return null;
 }
 
-/** Step 1: catalogue new chapters as they're posted (does not touch progress). */
-export async function handleNewMessage(event: NewMessageEvent) {
-  const message = event.message;
-  const chatId = message.chatId?.toString();
-  if (!chatId) return;
-
-  const mapped = channelMap.get(chatId);
-  if (!mapped) return; // not a tracked channel
-
+/**
+ * Catalogue a single Telegram message as a chapter, if it looks like one.
+ * Idempotent via insertChapter's onConflictDoNothing — safe to call for a
+ * message that's already been seen (e.g. from both the live NewMessage event
+ * and a later reconciliation scan covering the same window).
+ * Shared by handleNewMessage (live) and the reconciliation scan (backfill).
+ */
+export async function catalogueMessage(
+  mapped: ChannelMapEntry,
+  chatId: string,
+  message: Api.Message,
+): Promise<{ chapterNum: number; saved: boolean } | null> {
   const chapterNum = extractChapterFromMessage(message, mapped.manhwaTitle);
-  if (chapterNum === null) return;
+  if (chapterNum === null) return null;
 
   const inserted = await repo.insertChapter({
     manhwaId: mapped.manhwaId,
@@ -151,6 +154,20 @@ export async function handleNewMessage(event: NewMessageEvent) {
     await repo.touchManhwaUpdatedAt(mapped.manhwaId);
     console.log(`📨 ${mapped.manhwaTitle} | Ch.${chapterNum} | chat=${chatId} | msg=${message.id} | 💾 Saved`);
   }
+
+  return { chapterNum, saved: !!inserted };
+}
+
+/** Step 1: catalogue new chapters as they're posted (does not touch progress). */
+export async function handleNewMessage(event: NewMessageEvent) {
+  const message = event.message;
+  const chatId = message.chatId?.toString();
+  if (!chatId) return;
+
+  const mapped = channelMap.get(chatId);
+  if (!mapped) return; // not a tracked channel
+
+  await catalogueMessage(mapped, chatId, message);
 }
 
 /** Step 2: the user's read-pointer moved in a tracked channel -> advance progress. */

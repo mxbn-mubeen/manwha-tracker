@@ -1,5 +1,5 @@
 import { db, manhwa, progress, chapters } from '@manhwa-tracker/database';
-import { eq, sql, and, gt, isNull, inArray } from 'drizzle-orm';
+import { eq, sql, and, gt, isNull, inArray, desc } from 'drizzle-orm';
 
 // Re-export so existing imports of ManhwaRepository still resolve.
 // Read operations (getAll, getById) live in manhwa.read.repository.ts.
@@ -213,5 +213,28 @@ export class ManhwaRepository {
   async getById(id: number) {
     const { ManhwaReadRepository } = await import('./manhwa.read.repository');
     return new ManhwaReadRepository().getById(id);
+  }
+
+  /** List every chapter row for a manhwa, newest first — powers the "manage chapters" UI. */
+  async getChapters(manhwaId: number) {
+    return await db
+      .select()
+      .from(chapters)
+      .where(eq(chapters.manhwaId, manhwaId))
+      .orderBy(desc(chapters.chapterNum));
+  }
+
+  /**
+   * Remove a single bad chapter row (e.g. a false-positive from the Telegram
+   * watcher's fallback matcher). Deliberately does not touch progress here —
+   * unlike setLatestChapter's correction path, there is no "new" chapter to
+   * reassign a dangling progress.chapterId to, so the schema's own
+   * onDelete: 'set null' on progress.chapterId is exactly the right behavior:
+   * if someone's progress happened to point at the row being deleted, it
+   * correctly reverts to "no chapter" rather than pointing at a chapter that
+   * no longer exists.
+   */
+  async deleteChapter(chapterId: number) {
+    await db.delete(chapters).where(eq(chapters.id, chapterId));
   }
 }

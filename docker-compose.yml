@@ -1,0 +1,36 @@
+# For self-hosted/VPS/local use. This Compose file is a Docker Compose
+# deployment sample, not a Cloud Run service definition. Cloud Run can run
+# sidecars via an ingress container, but this repo's local deployment uses a
+# separate FlareSolverr service to keep the API and browser-solver components
+# decoupled. Do not publish FlareSolverr to all host interfaces.
+services:
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8191/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    environment:
+      - LOG_LEVEL=info
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: manhwa-tracker-api
+    ports:
+      - "3001:3001"
+    environment:
+      # Docker's internal DNS resolves 'flaresolverr' to the service above —
+      # no localhost/port-forwarding needed between the two containers.
+      - FLARESOLVERR_URL=http://flaresolverr:8191/v1
+    env_file:
+      - .env
+    depends_on:
+      flaresolverr:
+        condition: service_healthy
+    restart: unless-stopped

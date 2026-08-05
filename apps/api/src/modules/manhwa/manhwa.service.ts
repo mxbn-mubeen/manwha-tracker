@@ -95,5 +95,12 @@ export class ManhwaService {
   async getTelegramCount() {
     return await this.sourcesRepo.getTelegramCount();
   }
-}
 
+  async getChapters(manhwaId: number) {
+    return await this.repo.getChapters(manhwaId);
+  }
+
+  async deleteChapter(chapterId: number) {
+    return await this.repo.deleteChapter(chapterId);
+  }
+}

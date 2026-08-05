@@ -3,8 +3,11 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { AddManhwaForm } from '@/features/manhwa/components/AddManhwaForm';
+import { usePageTitle } from '@/lib/usePageTitle';
+
 
 export function AddManhwaPage() {
+  usePageTitle('Add Manhwa');
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-10 mt-6">
       <div className="mb-8">

@@ -3,8 +3,10 @@ import { trpc } from '@/lib/trpc';
 import { StatCard } from '@/features/dashboard/components/StatCard';
 import { ContinueReading } from '@/features/dashboard/components/ContinueReading';
 import { RecentActivity } from '@/features/dashboard/components/RecentActivity';
+import { usePageTitle } from '@/lib/usePageTitle';
 
 export function DashboardPage() {
+  usePageTitle('Dashboard');
   const { data: manhwas, isLoading, isError } = trpc.manhwa.getAll.useQuery();
   const { data: telegramSourcesCount } = trpc.manhwa.getTelegramCount.useQuery();
 

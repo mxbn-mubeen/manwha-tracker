@@ -9,6 +9,7 @@ import { ManhwaHeader } from '@/features/manhwa-detail/components/ManhwaHeader';
 import { ProgressCard } from '@/features/manhwa-detail/components/ProgressCard';
 import { SourcesList } from '@/features/manhwa-detail/components/SourcesList';
 import { EditManhwaModal } from '@/features/manhwa-detail/components/EditManhwaModal';
+import { usePageTitle } from '@/lib/usePageTitle';
 
 export function ManhwaDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -19,6 +20,8 @@ export function ManhwaDetailPage() {
   const { data: manhwa, isLoading } = trpc.manhwa.getById.useQuery(numericId, {
     enabled: !!id && !isNaN(numericId),
   });
+
+  usePageTitle(manhwa?.title);
 
   const [localChapter, setLocalChapter] = useState(0);
 

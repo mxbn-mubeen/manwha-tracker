@@ -1,6 +1,8 @@
 import { TelegramSection } from '@/features/settings/components/TelegramSection';
+import { usePageTitle } from '@/lib/usePageTitle';
 
 export function SettingsPage() {
+  usePageTitle('Settings');
   return (
     <div className="space-y-8 pb-10 max-w-2xl">
       <div>

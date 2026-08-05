@@ -46,6 +46,22 @@ FROM node:20-alpine AS runner
 
 RUN corepack enable && corepack prepare pnpm@9 --activate
 
+# Alpine's own chromium + the libs it needs, instead of Playwright's bundled
+# download — Playwright's own Chromium build targets glibc and doesn't
+# reliably run on Alpine's musl libc. NOT verified end-to-end in this
+# sandbox (no network path here to actually launch it) — test this build for
+# real before relying on it in production.
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    freetype-dev \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont
+
+ENV PLAYWRIGHT_CHROMIUM_PATH=/usr/bin/chromium-browser
+
 WORKDIR /app
 
 # Copy workspace manifests (needed for pnpm prod install)

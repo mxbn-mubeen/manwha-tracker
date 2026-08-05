@@ -152,4 +152,20 @@ export const manhwaRouter = createTRPCRouter({
   getTelegramCount: publicProcedure.query(async () => {
     return await service.getTelegramCount();
   }),
+
+  getChapters: publicProcedure
+    .input(z.coerce.number().int().positive())
+    .query(async ({ input }) => {
+      return await service.getChapters(input);
+    }),
+
+  deleteChapter: publicProcedure
+    .input(z.coerce.number().int().positive())
+    .mutation(async ({ input }) => {
+      try {
+        return await service.deleteChapter(input);
+      } catch (err) {
+        throw toSafeError(err, 'manhwa.deleteChapter');
+      }
+    }),
 });
