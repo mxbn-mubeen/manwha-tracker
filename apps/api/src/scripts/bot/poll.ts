@@ -127,6 +127,19 @@ async function handleUpdate(update: any) {
 
 // ── Long-polling loop ─────────────────────────────────────────────────────────
 
+// Render (and most rolling-deploy hosts) send SIGTERM to the old instance
+// only *after* the new one is already up and polling. If the old instance
+// keeps its getUpdates request open for the full 30s long-poll timeout, both
+// instances hit Telegram at once and you get "Conflict: terminated by other
+// getUpdates request" for as long as the old container lingers. Aborting the
+// in-flight request on shutdown closes that window down to ~instant instead
+// of up to 30s (and stops the retry loop from ever restarting it).
+const shutdownController = new AbortController();
+
+export function stopPolling() {
+  shutdownController.abort();
+}
+
 export async function poll() {
   let offset = 0;
 
@@ -158,15 +171,16 @@ export async function poll() {
   console.log(`[bot] Connected as @${me.username} (${me.first_name})`);
   console.log("[bot] Polling for updates...");
 
-  for (;;) {
+  while (!shutdownController.signal.aborted) {
     let updates: any[] = [];
     try {
-      updates = await apiCall<any[]>("getUpdates", {
-        offset,
-        timeout: 30,
-        allowed_updates: ["message"],
-      });
+      updates = await apiCall<any[]>(
+        "getUpdates",
+        { offset, timeout: 30, allowed_updates: ["message"] },
+        shutdownController.signal,
+      );
     } catch (err) {
+      if (shutdownController.signal.aborted) break;
       const message = err instanceof Error ? err.message : String(err);
       if (
         message.includes("Conflict") ||
@@ -195,4 +209,6 @@ export async function poll() {
       }
     }
   }
+
+  console.log("[bot] Polling stopped.");
 }
