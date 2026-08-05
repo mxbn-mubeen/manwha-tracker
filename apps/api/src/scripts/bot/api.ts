@@ -14,8 +14,18 @@ export const API = `https://api.telegram.org/bot${TOKEN}`;
 
 import https from 'https';
 
-export async function apiCall<T = any>(method: string, body?: Record<string, unknown>): Promise<T> {
+export async function apiCall<T = any>(
+  method: string,
+  body?: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<T> {
   return new Promise((resolve, reject) => {
+    // If we're already shutting down, don't even open the socket.
+    if (signal?.aborted) {
+      reject(new Error('Aborted'));
+      return;
+    }
+
     const data = body ? JSON.stringify(body) : '';
     const url = new URL(`${API}/${method}`);
     
@@ -51,6 +61,15 @@ export async function apiCall<T = any>(method: string, body?: Record<string, unk
       req.destroy();
       reject(new Error(`Timeout in ${method}`));
     });
+
+    // Let callers (e.g. the poll loop on SIGTERM) cut a long-poll getUpdates
+    // request short instead of waiting out the full 30s timeout.
+    const onAbort = () => {
+      req.destroy();
+      reject(new Error('Aborted'));
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+    req.on('close', () => signal?.removeEventListener('abort', onAbort));
 
     if (body) {
       req.write(data);
