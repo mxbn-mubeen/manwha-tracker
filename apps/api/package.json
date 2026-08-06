@@ -21,7 +21,7 @@
     "express": "^4.19.2",
     "input": "^1.0.1",
     "superjson": "^2.2.6",
-    "telegram": "^2.22.2",
+    "teleproto": "^1.228.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {

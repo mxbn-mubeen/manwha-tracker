@@ -1,4 +1,4 @@
-import { TelegramClient } from 'telegram';
+import { TelegramClient } from 'teleproto';
 import { TelegramRepository } from '../../modules/telegram/telegram.repository';
 import { isSessionDeathError, handleSessionDeath, alertUnresolvable } from './session';
 

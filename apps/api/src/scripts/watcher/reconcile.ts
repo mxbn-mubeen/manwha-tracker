@@ -13,7 +13,7 @@
  * Cheap and safe to run repeatedly: insertChapter no-ops on conflict,
  * markAsReadIfNewer only ever advances progress forward.
  */
-import { Api, TelegramClient } from "telegram";
+import { Api, TelegramClient } from "teleproto";
 import { channelMap, type ChannelMapEntry } from "./channel-map";
 import { buildInputPeer, catalogueMessage } from "./handlers";
 import { repo } from "./channel-map";

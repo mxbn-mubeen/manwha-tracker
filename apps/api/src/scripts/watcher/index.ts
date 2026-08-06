@@ -27,11 +27,19 @@
  * your actual channels before trusting it unattended.
  *
  * SELF-HEALING (see .agents/brain — "watcher stops processing after TIMEOUT storms"):
- * connectionRetries: -1 makes GramJS retry a broken connection forever, but it
- * retries the SAME connection — if the underlying MTProto sender gets wedged
+ * connectionRetries: -1 makes the client retry a broken connection forever, but
+ * it retries the SAME connection — if the underlying MTProto sender gets wedged
  * (the "Error: TIMEOUT" storms seen in prod logs), infinite retries on that one
  * connection never recovers it, and updates silently stop forever with no
  * crash and no alert. Two independent nets catch that now:
+ *
+ * UPDATE: the TIMEOUT storms below were traced to an unfixed upstream bug in
+ * GramJS's internal update loop (gram-js/gramjs#753 — the project is archived
+ * with no fix coming). We've since migrated off `telegram` (GramJS) onto
+ * `teleproto`, an actively-maintained fork that addresses this at the source.
+ * The layered defenses below are left in place regardless — they're generically
+ * useful against any wedged-connection failure mode, not just this specific
+ * one, and cost nothing when the connection is healthy.
  *   - The periodic getMe() health check counts CONSECUTIVE failures (not just
  *     auth-death markers). After a few in a row it tears down and rebuilds the
  *     client from scratch instead of trusting GramJS's internal retry loop.
@@ -52,10 +60,10 @@
  * so a real outage doesn't spin-loop reconnect attempts.
  */
 import "../../env";
-import { TelegramClient, Api } from "telegram";
-import { StringSession } from "telegram/sessions";
-import { NewMessage } from "telegram/events";
-import { Raw } from "telegram/events/Raw";
+import { TelegramClient, Api } from "teleproto";
+import { StringSession } from "teleproto/sessions";
+import { NewMessage } from "teleproto/events";
+import { Raw } from "teleproto/events/Raw";
 import { SettingsRepository } from "../../modules/settings/settings.repository";
 import { setBotAlertChatId, sendBotAlert } from "../../utils/bot-alert";
 import {
@@ -333,6 +341,17 @@ async function runWatcherGeneration(attempt = 0): Promise<void> {
   // for why this exists on top of catchUp. Run once shortly after startup
   // (covers whatever happened while the watcher was down/deploying), then on
   // a fixed interval after that.
+  //
+  // Interval tightened from 15min -> 5min: prod logs show the live push path
+  // (GramJS's _updateLoop) getting stuck in TIMEOUT retries for extended,
+  // uninterrupted stretches (unresolved upstream bug — gram-js/gramjs#753).
+  // While it's stuck, live events likely aren't reaching handleNewMessage /
+  // handleReadUpdate at all, so reconcile — which uses separate, direct RPCs
+  // that don't depend on that loop — is effectively the PRIMARY path right
+  // now, not just a backstop. 5 minutes is still comfortably above a full
+  // pass's actual runtime for ~200 channels (reconcileInFlight already
+  // no-ops an overlapping run if a pass ever takes longer than the interval),
+  // so this is safe to run this often.
   setTimeout(() => {
     if (!isCurrent()) return;
     // Not treated as "activity" either, for the same reason as getMe() above —
@@ -342,14 +361,14 @@ async function runWatcherGeneration(attempt = 0): Promise<void> {
     reconcileAll(client).catch((e) =>
       console.error("[watcher] initial reconcile failed:", e),
     );
-  }, 30_000);
+  }, 10_000);
   intervals.push(
     setInterval(() => {
       if (!isCurrent()) return;
       reconcileAll(client).catch((e) =>
         console.error("[watcher] reconcile failed:", e),
       );
-    }, 15 * 60 * 1000),
+    }, 5 * 60 * 1000),
   );
 
   // Unconditional backstop, independent of every detection mechanism above.

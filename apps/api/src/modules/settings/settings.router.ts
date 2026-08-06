@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { createTRPCRouter, publicProcedure } from '../../trpc';
 import { SettingsRepository } from './settings.repository';
-import { TelegramClient, Api } from 'telegram';
-import { StringSession } from 'telegram/sessions';
+import { TelegramClient, Api } from 'teleproto';
+import { StringSession } from 'teleproto/sessions';
 import { randomUUID } from 'crypto';
 import { TRPCError } from '@trpc/server';
 import { toSafeTelegramError } from '../../utils/trpc-error';
@@ -164,7 +164,7 @@ export const settingsRouter = createTRPCRouter({
 
           // User supplied the 2FA password — compute SRP check
           const passwordInfo = await pending.client.invoke(new Api.account.GetPassword());
-          const { computeCheck } = await import('telegram/Password');
+          const { computeCheck } = await import('teleproto/Password');
           try {
             const srp = await computeCheck(
               passwordInfo as Parameters<typeof computeCheck>[0],

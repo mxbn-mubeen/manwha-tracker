@@ -1,5 +1,5 @@
-import { Api, TelegramClient } from 'telegram';
-import { type NewMessageEvent } from 'telegram/events';
+import { Api, TelegramClient } from 'teleproto';
+import { type NewMessageEvent } from 'teleproto/events';
 import bigInt from 'big-integer';
 import { extractChapterNumber } from '@manhwa-tracker/parser';
 import { repo, channelMap, type ChannelMapEntry } from './channel-map';
