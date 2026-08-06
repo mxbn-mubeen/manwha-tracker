@@ -61,6 +61,7 @@
  */
 import "../../env";
 import { TelegramClient, Api } from "teleproto";
+import { ConnectionTCPObfuscated } from "teleproto/network";
 import { StringSession } from "teleproto/sessions";
 import { NewMessage } from "teleproto/events";
 import { Raw } from "teleproto/events/Raw";
@@ -164,6 +165,14 @@ async function runWatcherGeneration(attempt = 0): Promise<void> {
       // Default is 10s, which is tight for a container with inconsistent egress —
       // bumping it cuts down on false-positive TIMEOUTs from normal latency spikes.
       timeout: 60,
+      // Prod logs show repeated "Failed to connect to dc 5" on the plain TCPFull
+      // transport (port 80), while HTTPS traffic (bot API) from the same host
+      // works fine. Obfuscated transport wraps the same MTProto traffic so it
+      // doesn't look like recognizable Telegram TCP framing to anything on the
+      // path — the standard workaround for a network that's flaky specifically
+      // on plain MTProto. Safe to try even if that's not the actual cause; it's
+      // still valid, supported transport either way.
+      connection: ConnectionTCPObfuscated,
       // GramJS doesn't support a `catchUp` constructor option on this package
       // version, so rely on the separate reconcile pass to backfill missed updates.
     },
