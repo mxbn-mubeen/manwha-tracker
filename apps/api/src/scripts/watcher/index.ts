@@ -61,11 +61,10 @@
  */
 import "../../env";
 import { TelegramClient, Api } from "teleproto";
-import { ConnectionTCPObfuscated } from "teleproto/network";
-import { StringSession } from "teleproto/sessions";
 import { NewMessage } from "teleproto/events";
 import { Raw } from "teleproto/events/Raw";
 import { SettingsRepository } from "../../modules/settings/settings.repository";
+import { connectTelegramClient } from "../../utils/telegram-client";
 import { setBotAlertChatId, sendBotAlert } from "../../utils/bot-alert";
 import {
   resolveSession,
@@ -151,11 +150,11 @@ async function runWatcherGeneration(attempt = 0): Promise<void> {
     }
     throw err; // genuine unexpected failure — let it surface normally
   }
-  const client = new TelegramClient(
-    new StringSession(SESSION),
-    API_ID,
-    API_HASH,
-    {
+  const { client, transport } = await connectTelegramClient({
+    session: SESSION,
+    apiId: API_ID,
+    apiHash: API_HASH,
+    options: {
       // -1 = retry forever *at the transport level* for ordinary hiccups.
       // This is no longer our only line of defense against a wedged
       // connection — the health-check + watchdog below will tear the whole
@@ -165,18 +164,11 @@ async function runWatcherGeneration(attempt = 0): Promise<void> {
       // Default is 10s, which is tight for a container with inconsistent egress —
       // bumping it cuts down on false-positive TIMEOUTs from normal latency spikes.
       timeout: 60,
-      // Prod logs show repeated "Failed to connect to dc 5" on the plain TCPFull
-      // transport (port 80), while HTTPS traffic (bot API) from the same host
-      // works fine. Obfuscated transport wraps the same MTProto traffic so it
-      // doesn't look like recognizable Telegram TCP framing to anything on the
-      // path — the standard workaround for a network that's flaky specifically
-      // on plain MTProto. Safe to try even if that's not the actual cause; it's
-      // still valid, supported transport either way.
-      connection: ConnectionTCPObfuscated,
       // GramJS doesn't support a `catchUp` constructor option on this package
       // version, so rely on the separate reconcile pass to backfill missed updates.
     },
-  );
+  });
+  console.log(`[watcher] Connected to Telegram using ${transport} transport.`);
 
   // Disable internal logging to prevent memory leaks over long idling periods
   // @ts-expect-error: GramJS log level types are restrictive but 'none' is supported at runtime
@@ -278,12 +270,15 @@ async function runWatcherGeneration(attempt = 0): Promise<void> {
   // Re-map every 5 minutes so newly-added sources (via the web UI) get picked up
   // without restarting the process.
   intervals.push(
-    setInterval(() => {
-      if (!isCurrent()) return;
-      buildChannelMap(client).catch((e) =>
-        console.error("[watcher] remap failed:", e),
-      );
-    }, 5 * 60 * 1000),
+    setInterval(
+      () => {
+        if (!isCurrent()) return;
+        buildChannelMap(client).catch((e) =>
+          console.error("[watcher] remap failed:", e),
+        );
+      },
+      5 * 60 * 1000,
+    ),
   );
 
   // Proactive session health check, independent of channel activity — a dead
@@ -372,12 +367,15 @@ async function runWatcherGeneration(attempt = 0): Promise<void> {
     );
   }, 10_000);
   intervals.push(
-    setInterval(() => {
-      if (!isCurrent()) return;
-      reconcileAll(client).catch((e) =>
-        console.error("[watcher] reconcile failed:", e),
-      );
-    }, 5 * 60 * 1000),
+    setInterval(
+      () => {
+        if (!isCurrent()) return;
+        reconcileAll(client).catch((e) =>
+          console.error("[watcher] reconcile failed:", e),
+        );
+      },
+      5 * 60 * 1000,
+    ),
   );
 
   // Unconditional backstop, independent of every detection mechanism above.

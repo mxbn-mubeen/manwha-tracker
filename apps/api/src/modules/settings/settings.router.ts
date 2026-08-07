@@ -1,11 +1,11 @@
-import { z } from 'zod';
-import { createTRPCRouter, publicProcedure } from '../../trpc';
-import { SettingsRepository } from './settings.repository';
-import { TelegramClient, Api } from 'teleproto';
-import { StringSession } from 'teleproto/sessions';
-import { randomUUID } from 'crypto';
-import { TRPCError } from '@trpc/server';
-import { toSafeTelegramError } from '../../utils/trpc-error';
+import { z } from "zod";
+import { createTRPCRouter, publicProcedure } from "../../trpc";
+import { SettingsRepository } from "./settings.repository";
+import { TelegramClient, Api } from "teleproto";
+import { randomUUID } from "crypto";
+import { connectTelegramClient } from "../../utils/telegram-client";
+import { TRPCError } from "@trpc/server";
+import { toSafeTelegramError } from "../../utils/trpc-error";
 
 const repo = new SettingsRepository();
 
@@ -24,25 +24,27 @@ function makeTempId() {
 }
 
 function getApiCreds() {
-  const apiId = parseInt(process.env.TELEGRAM_API_ID || '0');
-  const apiHash = process.env.TELEGRAM_API_HASH || '';
+  const apiId = parseInt(process.env.TELEGRAM_API_ID || "0");
+  const apiHash = process.env.TELEGRAM_API_HASH || "";
   if (!apiId || !apiHash) {
     throw new TRPCError({
-      code: 'PRECONDITION_FAILED',
-      message: 'Telegram isn\'t configured on the server yet (missing TELEGRAM_API_ID / TELEGRAM_API_HASH).',
+      code: "PRECONDITION_FAILED",
+      message:
+        "Telegram isn't configured on the server yet (missing TELEGRAM_API_ID / TELEGRAM_API_HASH).",
     });
   }
   return { apiId, apiHash };
 }
 
-const SENSITIVE_KEYS = new Set(['telegram_session']);
+const SENSITIVE_KEYS = new Set(["telegram_session"]);
 
 export const settingsRouter = createTRPCRouter({
   /** Get a single setting value by key. Returns null if not set. */
   get: publicProcedure
     .input(z.string().min(1))
     .query(async ({ input: key }) => {
-      if (SENSITIVE_KEYS.has(key)) throw new TRPCError({ code: 'FORBIDDEN', message: 'Forbidden' });
+      if (SENSITIVE_KEYS.has(key))
+        throw new TRPCError({ code: "FORBIDDEN", message: "Forbidden" });
       return await repo.get(key);
     }),
 
@@ -50,7 +52,8 @@ export const settingsRouter = createTRPCRouter({
   set: publicProcedure
     .input(z.object({ key: z.string().min(1), value: z.string() }))
     .mutation(async ({ input }) => {
-      if (SENSITIVE_KEYS.has(input.key)) throw new TRPCError({ code: 'FORBIDDEN', message: 'Forbidden' });
+      if (SENSITIVE_KEYS.has(input.key))
+        throw new TRPCError({ code: "FORBIDDEN", message: "Forbidden" });
       await repo.set(input.key, input.value);
       return { ok: true };
     }),
@@ -59,7 +62,8 @@ export const settingsRouter = createTRPCRouter({
   delete: publicProcedure
     .input(z.string().min(1))
     .mutation(async ({ input: key }) => {
-      if (SENSITIVE_KEYS.has(key)) throw new TRPCError({ code: 'FORBIDDEN', message: 'Forbidden' });
+      if (SENSITIVE_KEYS.has(key))
+        throw new TRPCError({ code: "FORBIDDEN", message: "Forbidden" });
       await repo.delete(key);
       return { ok: true };
     }),
@@ -75,13 +79,18 @@ export const settingsRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const { apiId, apiHash } = getApiCreds();
 
-      const client = new TelegramClient(new StringSession(''), apiId, apiHash, {
-        connectionRetries: 3,
-      });
+      let client: TelegramClient;
       try {
-        await client.connect();
+        ({ client } = await connectTelegramClient({
+          session: "",
+          apiId,
+          apiHash,
+          options: {
+            connectionRetries: 3,
+          },
+        }));
       } catch (err) {
-        throw toSafeTelegramError(err, 'settings.startTelegramLogin.connect');
+        throw toSafeTelegramError(err, "settings.startTelegramLogin.connect");
       }
 
       let result;
@@ -95,8 +104,8 @@ export const settingsRouter = createTRPCRouter({
           }),
         );
       } catch (err) {
-        await client.disconnect().catch(() => { });
-        throw toSafeTelegramError(err, 'settings.startTelegramLogin');
+        await client.disconnect().catch(() => {});
+        throw toSafeTelegramError(err, "settings.startTelegramLogin");
       }
 
       const tempId = makeTempId();
@@ -107,13 +116,16 @@ export const settingsRouter = createTRPCRouter({
       });
 
       // Auto-cleanup after 5 minutes so stale clients don't linger
-      setTimeout(() => {
-        const p = pendingLogins.get(tempId);
-        if (p) {
-          p.client.disconnect().catch(() => { });
-          pendingLogins.delete(tempId);
-        }
-      }, 5 * 60 * 1000);
+      setTimeout(
+        () => {
+          const p = pendingLogins.get(tempId);
+          if (p) {
+            p.client.disconnect().catch(() => {});
+            pendingLogins.delete(tempId);
+          }
+        },
+        5 * 60 * 1000,
+      );
 
       return { tempId };
     }),
@@ -138,8 +150,8 @@ export const settingsRouter = createTRPCRouter({
       const pending = pendingLogins.get(input.tempId);
       if (!pending) {
         throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Login session expired or not found. Please start again.',
+          code: "BAD_REQUEST",
+          message: "Login session expired or not found. Please start again.",
         });
       }
 
@@ -153,9 +165,9 @@ export const settingsRouter = createTRPCRouter({
           }),
         );
       } catch (err: unknown) {
-        const errorMsg = (err as { errorMessage?: string }).errorMessage ?? '';
+        const errorMsg = (err as { errorMessage?: string }).errorMessage ?? "";
 
-        if (errorMsg === 'SESSION_PASSWORD_NEEDED') {
+        if (errorMsg === "SESSION_PASSWORD_NEEDED") {
           // 2FA required
           if (!input.password) {
             // Tell the client to ask for the password — keep tempId alive
@@ -163,32 +175,36 @@ export const settingsRouter = createTRPCRouter({
           }
 
           // User supplied the 2FA password — compute SRP check
-          const passwordInfo = await pending.client.invoke(new Api.account.GetPassword());
-          const { computeCheck } = await import('teleproto/Password');
+          const passwordInfo = await pending.client.invoke(
+            new Api.account.GetPassword(),
+          );
+          const { computeCheck } = await import("teleproto/Password");
           try {
             const srp = await computeCheck(
               passwordInfo as Parameters<typeof computeCheck>[0],
               input.password,
             );
-            await pending.client.invoke(new Api.auth.CheckPassword({ password: srp }));
+            await pending.client.invoke(
+              new Api.auth.CheckPassword({ password: srp }),
+            );
           } catch (pwErr) {
-            await pending.client.disconnect().catch(() => { });
+            await pending.client.disconnect().catch(() => {});
             pendingLogins.delete(input.tempId);
-            throw toSafeTelegramError(pwErr, 'settings.verifyTelegramCode.2fa');
+            throw toSafeTelegramError(pwErr, "settings.verifyTelegramCode.2fa");
           }
         } else {
           // Wrong code or other hard error — clean up and surface
-          await pending.client.disconnect().catch(() => { });
+          await pending.client.disconnect().catch(() => {});
           pendingLogins.delete(input.tempId);
-          throw toSafeTelegramError(err, 'settings.verifyTelegramCode.signIn');
+          throw toSafeTelegramError(err, "settings.verifyTelegramCode.signIn");
         }
       }
 
       // Signed in — persist session to DB
       const session = pending.client.session.save() as unknown as string;
-      await repo.set('telegram_session', session);
+      await repo.set("telegram_session", session);
 
-      await pending.client.disconnect().catch(() => { });
+      await pending.client.disconnect().catch(() => {});
       pendingLogins.delete(input.tempId);
 
       return { ok: true, needs2FA: false };
@@ -201,30 +217,34 @@ export const settingsRouter = createTRPCRouter({
    *   phone: string | null
    */
   telegramStatus: publicProcedure.query(async () => {
-    const apiId = parseInt(process.env.TELEGRAM_API_ID || '0');
-    const apiHash = process.env.TELEGRAM_API_HASH || '';
+    const apiId = parseInt(process.env.TELEGRAM_API_ID || "0");
+    const apiHash = process.env.TELEGRAM_API_HASH || "";
 
-    const dbSession = await repo.get('telegram_session');
-    const envSession = process.env.TELEGRAM_SESSION || '';
+    const dbSession = await repo.get("telegram_session");
+    const envSession = process.env.TELEGRAM_SESSION || "";
     const session = dbSession || envSession;
-    const source = dbSession ? 'database' : envSession ? 'env' : 'none';
+    const source = dbSession ? "database" : envSession ? "env" : "none";
 
     if (!session || !apiId || !apiHash) {
       return { source, connected: false, phone: null };
     }
 
     try {
-      const client = new TelegramClient(new StringSession(session), apiId, apiHash, {
-        connectionRetries: 1,
-        autoReconnect: false,
+      const { client } = await connectTelegramClient({
+        session,
+        apiId,
+        apiHash,
+        options: {
+          connectionRetries: 1,
+          autoReconnect: false,
+        },
       });
-      await client.connect();
       try {
         const me = await client.getMe();
         const phone = (me as { phone?: string }).phone ?? null;
         return { source, connected: true, phone };
       } finally {
-        await client.disconnect().catch(() => { });
+        await client.disconnect().catch(() => {});
       }
     } catch {
       return { source, connected: false, phone: null };
@@ -238,7 +258,7 @@ export const settingsRouter = createTRPCRouter({
    * intentional removal path the Settings UI actually calls.
    */
   disconnectTelegram: publicProcedure.mutation(async () => {
-    await repo.delete('telegram_session');
+    await repo.delete("telegram_session");
     return { ok: true };
   }),
 });
