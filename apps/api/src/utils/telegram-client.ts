@@ -16,6 +16,12 @@ type ConnectTelegramClientOptions = {
   useIPV6?: boolean;
 };
 
+type TransportCandidate = {
+  name: string;
+  connection: unknown;
+  useIPV6: boolean;
+};
+
 function getPreferredTransportOrder(): Array<{
   name: string;
   connection: unknown;
@@ -64,30 +70,35 @@ export async function connectTelegramClient({
   apiHash: string;
   options?: ConnectTelegramClientOptions;
 }): Promise<{ client: TelegramClient; transport: string }> {
-  const useIPV6 = options.useIPV6 ?? process.env.TELEGRAM_USE_IPV6 === "true";
   const transportOrder = getPreferredTransportOrder();
   let lastError: unknown;
 
+  const addressFamilies = [false, true];
   for (const candidate of transportOrder) {
-    const client = new TelegramClient(
-      new StringSession(session),
-      apiId,
-      apiHash,
-      {
-        ...options,
-        useIPV6,
-        connection: candidate.connection as any,
-      } as any,
-    );
+    for (const useIPV6 of addressFamilies) {
+      const client = new TelegramClient(
+        new StringSession(session),
+        apiId,
+        apiHash,
+        {
+          ...options,
+          useIPV6,
+          connection: candidate.connection as any,
+        } as any,
+      );
 
-    try {
-      await client.connect();
-      return { client, transport: candidate.name };
-    } catch (error) {
-      lastError = error;
-      await client.disconnect().catch(() => {
-        /* best-effort cleanup */
-      });
+      try {
+        await client.connect();
+        return {
+          client,
+          transport: `${candidate.name}${useIPV6 ? " (ipv6)" : " (ipv4)"}`,
+        };
+      } catch (error) {
+        lastError = error;
+        await client.disconnect().catch(() => {
+          /* best-effort cleanup */
+        });
+      }
     }
   }
 
