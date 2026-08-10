@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
+import { getProxiedImageUrl } from '../../../utils/image';
 import { Badge } from '@/components/ui/badge';
 import { Clock } from 'lucide-react';
 import { formatTimeAgo } from '@manhwa-tracker/utils';
@@ -19,7 +20,7 @@ function RecentActivityCover({ coverUrl, title }: { coverUrl: string | null; tit
   }
   return (
     <img
-      src={coverUrl}
+      src={getProxiedImageUrl(coverUrl) as string}
       alt={title}
       loading="lazy"
       onError={() => setFailed(true)}

@@ -120,6 +120,38 @@ app.post("/api/sync", async (req, res) => {
   }
 });
 
+app.get("/api/proxy-image", async (req, res) => {
+  const url = req.query.url as string;
+  if (!url) {
+    res.status(400).send("No url provided");
+    return;
+  }
+  try {
+    const dynamicImport = new Function('modulePath', 'return import(modulePath)');
+    const { gotScraping } = await dynamicImport('got-scraping');
+    
+    const stream = gotScraping.stream({
+      url,
+      headers: { referer: 'https://mangadex.org' },
+    });
+    
+    stream.on('response', (response: any) => {
+      res.set('Content-Type', response.headers['content-type']);
+      res.set('Cache-Control', 'public, max-age=31536000');
+    });
+    
+    stream.on('error', (err: Error) => {
+      console.error("[server] proxy-image error:", err.message);
+      if (!res.headersSent) res.status(502).send("Proxy error");
+    });
+
+    stream.pipe(res);
+  } catch (err) {
+    console.error("[server] proxy-image exception:", err);
+    res.status(500).send("Internal proxy error");
+  }
+});
+
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { getProxiedImageUrl } from "@/utils/image";
 
 interface EditManhwaModalProps {
   manhwaId: number;
@@ -181,10 +182,10 @@ export function EditManhwaModal({
             <label className="text-sm font-medium text-zinc-400">
               Cover URL or Image Upload
             </label>
-            {editCoverUrl && editCoverUrl.startsWith("data:image/") ? (
+            {editCoverUrl ? (
               <div className="mt-1 flex items-center gap-4 bg-[#0e0f11] p-3 rounded-lg border border-border/50">
                 <img
-                  src={editCoverUrl}
+                  src={getProxiedImageUrl(editCoverUrl)}
                   alt="Cover preview"
                   className="w-16 h-16 object-cover rounded shadow-md"
                 />

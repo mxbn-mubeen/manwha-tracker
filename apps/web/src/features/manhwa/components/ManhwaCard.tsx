@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { cn } from "@/lib/utils";
+import { getProxiedImageUrl } from "@/utils/image";
 import { Badge } from '@/components/ui/badge';
 import type { RouterOutputs } from '@/lib/trpc';
 
@@ -25,10 +27,10 @@ export function ManhwaCard({ manhwa }: { manhwa: Manhwa }) {
       to={`/manhwa/${manhwa.id}`}
       className="group relative rounded-xl overflow-hidden aspect-[3/4] bg-zinc-900 border border-border/50 transition-all hover:border-amber-500/50 hover:glow block"
     >
-      {manhwa.coverUrl && !imgFailed ? (
-        <img
-          src={manhwa.coverUrl}
-          alt={manhwa.title}
+        {manhwa.coverUrl && !imgFailed ? (
+          <img
+            src={getProxiedImageUrl(manhwa.coverUrl) as string}
+            alt={manhwa.title}
           loading="lazy"
           onError={() => setImgFailed(true)}
           className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"

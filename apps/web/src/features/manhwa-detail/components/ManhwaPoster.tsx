@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Edit } from 'lucide-react';
+import { Edit, ImageOff } from 'lucide-react';
+import { getProxiedImageUrl } from "../../../utils/image";
 import { Button } from '@/components/ui/button';
 
 interface ManhwaPosterProps {
@@ -28,7 +29,7 @@ export function ManhwaPoster({ coverUrl, title, localChapter, latestChapter, onC
       <div className="aspect-[3/4] rounded-xl overflow-hidden bg-[#161719] border border-border/30 shadow-2xl relative">
         {coverUrl && !imgFailed ? (
           <img
-            src={coverUrl}
+            src={getProxiedImageUrl(coverUrl) as string}
             alt={title}
             onError={() => setImgFailed(true)}
             className="absolute inset-0 w-full h-full object-cover"
