@@ -11,6 +11,47 @@ export interface SyncResult {
   duration: number;
 }
 
+type SourceOutcome = {
+  status: 'success' | 'blocked' | 'error';
+  chaptersFound: number;
+  newChapters: number;
+  reason: string | null; // toast-safe description; null on success
+};
+
+/** "https://comix.to/title/..." -> "Comix". Falls back to the raw hostname if it doesn't parse. */
+function humanizeSourceName(url: string): string {
+  try {
+    const host = new URL(url.startsWith('http') ? url : `https://${url}`).hostname;
+    const base = host.replace(/^www\./, '').split('.')[0] || host;
+    return base.charAt(0).toUpperCase() + base.slice(1);
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * Prints one source's outcome as a labeled block, matching the same
+ * Status/Last attempt/Chapters found/Reason shape shown on the source's
+ * card in the UI — so `docker logs` / server output is scannable at a
+ * glance instead of one dense line per source.
+ */
+function logSourceOutcome(source: { manhwaTitle: string; url: string }, outcome: SourceOutcome): void {
+  const lines = [
+    humanizeSourceName(source.url),
+    `Status: ${outcome.status.toUpperCase()}`,
+    `Last attempt: just now`,
+    `Chapters found: ${outcome.chaptersFound}`,
+  ];
+  if (outcome.status === 'success') {
+    lines.push(`New chapters: ${outcome.newChapters}`);
+  }
+  if (outcome.reason) {
+    lines.push(`Reason: ${outcome.reason}`);
+  }
+  const logFn = outcome.status === 'success' ? console.log : console.warn;
+  logFn(`[sync] ${source.manhwaTitle}\n${lines.map(l => `  ${l}`).join('\n')}`);
+}
+
 /**
  * Per-source sync failures come straight from the site adapter (fetch/cheerio) —
  * `result.errors[0]` is shown verbatim in the navbar Sync button's toast
@@ -19,6 +60,13 @@ export interface SyncResult {
  */
 function describeSourceError(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err);
+
+  if (err instanceof Error && err.name === 'CloudflareBlockedError') {
+    const reason = (err as { reason?: 'not-configured' | 'unsolved' }).reason;
+    return reason === 'not-configured'
+      ? 'Cloudflare challenge (FlareSolverr not configured)'
+      : 'Cloudflare challenge (FlareSolverr could not solve it)';
+  }
 
   if (/timed? ?out|ETIMEDOUT/i.test(message)) return 'Site took too long to respond.';
   if (/ENOTFOUND|ECONNREFUSED|fetch failed/i.test(message)) return 'Could not reach the site.';
@@ -70,40 +118,69 @@ export class SyncService {
       const updatedManhwaIds = new Set<number>();
 
       for (const source of webSources) {
+        let outcome: SourceOutcome;
+
         try {
           const adapter = getAdapter(source.adapterKey, source.url);
           const chapters = await adapter.chapterList(source.url);
+
           if (chapters.length === 0) {
-            console.warn(`[sync] source returned 0 chapters (possible block/interstitial): ${source.manhwaTitle} (${source.url})`);
-            result.errors.push(`${source.manhwaTitle}: Got a response but found no chapters — site may be blocking the request.`);
-            continue;
-          }
+            outcome = {
+              status: 'error',
+              chaptersFound: 0,
+              newChapters: 0,
+              reason: 'Got a response but found no chapters — site may be blocking the request.',
+            };
+          } else {
+            const existingNums = await this.repo.getExistingChapterNums(source.manhwaId);
+            const newChapters = chapters.filter(c => !existingNums.has(c.chapterNum));
 
-          const existingNums = await this.repo.getExistingChapterNums(source.manhwaId);
-          const newChapters = chapters.filter(c => !existingNums.has(c.chapterNum));
+            let insertedCount = 0;
+            if (newChapters.length > 0) {
+              const chaptersToInsert = newChapters.map(chapter => ({
+                manhwaId: source.manhwaId,
+                sourceId: source.sourceId,
+                chapterNum: chapter.chapterNum,
+                title: chapter.title,
+                url: chapter.url,
+              }));
+              insertedCount = await this.repo.insertChaptersBulk(chaptersToInsert);
 
-          if (newChapters.length === 0) continue;
-
-          const chaptersToInsert = newChapters.map(chapter => ({
-            manhwaId: source.manhwaId,
-            sourceId: source.sourceId,
-            chapterNum: chapter.chapterNum,
-            title: chapter.title,
-            url: chapter.url,
-          }));
-
-          const insertedCount = await this.repo.insertChaptersBulk(chaptersToInsert);
-
-          if (insertedCount > 0) {
-            result.newChapters += insertedCount;
-            if (!updatedManhwaIds.has(source.manhwaId)) {
-              updatedManhwaIds.add(source.manhwaId);
-              await this.repo.touchManhwaUpdatedAt(source.manhwaId);
+              if (insertedCount > 0) {
+                result.newChapters += insertedCount;
+                if (!updatedManhwaIds.has(source.manhwaId)) {
+                  updatedManhwaIds.add(source.manhwaId);
+                  await this.repo.touchManhwaUpdatedAt(source.manhwaId);
+                }
+              }
             }
+
+            outcome = {
+              status: 'success',
+              chaptersFound: chapters.length,
+              newChapters: insertedCount,
+              reason: null,
+            };
           }
         } catch (err) {
-          console.error(`[sync] source failed: ${source.manhwaTitle} (${source.url})`, err);
-          result.errors.push(`${source.manhwaTitle}: ${describeSourceError(err)}`);
+          const isBlocked = err instanceof Error && err.name === 'CloudflareBlockedError';
+          outcome = {
+            status: isBlocked ? 'blocked' : 'error',
+            chaptersFound: 0,
+            newChapters: 0,
+            reason: describeSourceError(err),
+          };
+          // Full stack still goes to the logs (just quieter than the status
+          // block above) — the classified `reason` is what's user-facing,
+          // but the raw error is what you actually need to debug an unknown one.
+          if (outcome.reason === 'Failed to check for updates.') {
+            console.debug(`[sync] raw error for ${source.manhwaTitle} (${source.url}):`, err);
+          }
+        }
+
+        logSourceOutcome(source, outcome);
+        if (outcome.status !== 'success') {
+          result.errors.push(`${source.manhwaTitle}: ${outcome.reason}`);
         }
       }
 

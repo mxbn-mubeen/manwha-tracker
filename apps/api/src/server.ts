@@ -127,6 +127,9 @@ app.get("/api/proxy-image", async (req, res) => {
     return;
   }
   try {
+    // Use a dynamic ESM import for `got-scraping`. Importing the bare
+    // specifier lets Node resolve the package via its ESM `exports` map
+    // (which `require.resolve` can fail on for ESM-only packages).
     const dynamicImport = new Function('modulePath', 'return import(modulePath)');
     const { gotScraping } = await dynamicImport('got-scraping');
     

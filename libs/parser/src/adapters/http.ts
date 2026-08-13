@@ -1,3 +1,6 @@
+import { importEsmPackage } from "./esm-interop";
+
+
 const DEFAULT_HEADERS = {
   "User-Agent":
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -27,6 +30,29 @@ function looksLikeCloudflareChallenge(html: string): boolean {
 }
 
 /**
+ * Thrown when a Cloudflare challenge page couldn't be bypassed — either
+ * because FlareSolverr isn't configured, or because it is configured but
+ * failed to solve the challenge. Kept distinct from a generic fetch failure
+ * so callers (sync.service.ts) can surface a specific, actionable message
+ * instead of a vague "found no chapters" toast.
+ */
+export class CloudflareBlockedError extends Error {
+  readonly reason: "not-configured" | "unsolved";
+
+  constructor(url: string, reason: "not-configured" | "unsolved") {
+    const detail =
+      reason === "not-configured"
+        ? "FlareSolverr is not configured (set FLARESOLVERR_URL)"
+        : "FlareSolverr could not solve the challenge";
+    super(`Cloudflare blocked ${url}: ${detail}`);
+    this.name = "CloudflareBlockedError";
+    this.reason = reason;
+  }
+}
+
+type FlareSolverrResult = { html: string; reason?: undefined } | { html: null; reason: "not-configured" | "unsolved" };
+
+/**
  * Ask a running FlareSolverr instance (https://github.com/FlareSolverr/FlareSolverr)
  * to solve the Cloudflare challenge for `url` and return the real HTML.
  * FlareSolverr drives a real browser, waits out the challenge, and hands back
@@ -34,12 +60,13 @@ function looksLikeCloudflareChallenge(html: string): boolean {
  * for every fetch, since it's only invoked when a challenge is detected.
  *
  * Configure via FLARESOLVERR_URL, e.g. http://localhost:8191/v1.
- * Returns null if FlareSolverr isn't configured or the request fails, so
- * callers can fall back to the original (challenge) body.
  */
-async function solveViaFlareSolverr(url: string): Promise<string | null> {
+async function solveViaFlareSolverr(url: string): Promise<FlareSolverrResult> {
   const endpoint = process.env.FLARESOLVERR_URL;
-  if (!endpoint) return null;
+  if (!endpoint) {
+    console.warn(`[http] FlareSolverr fallback skipped for ${url} — FLARESOLVERR_URL is not set`);
+    return { html: null, reason: "not-configured" };
+  }
 
   try {
     const res = await fetch(endpoint, {
@@ -55,19 +82,19 @@ async function solveViaFlareSolverr(url: string): Promise<string | null> {
 
     if (!res.ok) {
       console.warn(`[http] FlareSolverr responded ${res.status} for ${url}`);
-      return null;
+      return { html: null, reason: "unsolved" };
     }
 
     const data = await res.json() as any;
     if (data?.status !== "ok" || !data?.solution?.response) {
       console.warn(`[http] FlareSolverr couldn't solve challenge for ${url}: ${data?.message ?? "unknown error"}`);
-      return null;
+      return { html: null, reason: "unsolved" };
     }
 
-    return data.solution.response as string;
+    return { html: data.solution.response as string };
   } catch (err) {
     console.warn(`[http] FlareSolverr request failed for ${url}:`, err instanceof Error ? err.message : err);
-    return null;
+    return { html: null, reason: "unsolved" };
   }
 }
 
@@ -75,16 +102,18 @@ async function solveViaFlareSolverr(url: string): Promise<string | null> {
  * Fetch a page's HTML using got-scraping for basic TLS spoofing.
  * If the response turns out to be a Cloudflare challenge page rather than
  * the real content, transparently retries through FlareSolverr (if
- * configured) before giving up and returning the challenge body as-is —
- * callers (chapter-extract) will then correctly find 0 chapters, which
- * sync.service.ts now surfaces instead of silently swallowing.
+ * configured). If that doesn't produce real HTML either, throws
+ * CloudflareBlockedError with a specific reason rather than silently
+ * returning the challenge body — a challenge page has no chapters, so
+ * returning it just produces a misleading generic "found no chapters"
+ * downstream instead of a diagnosable error.
  * Throws with a readable message on non-2xx responses.
  */
 export async function fetchHtml(url: string): Promise<string> {
-  // Use a Function trick to prevent TypeScript from transpiling the dynamic import to a require() call.
-  // This is necessary because got-scraping is an pure ESM package, and the project is compiled to CommonJS.
-  const dynamicImport = new Function('modulePath', 'return import(modulePath)');
-  const { gotScraping } = await dynamicImport('got-scraping');
+  // got-scraping is pure ESM with no CJS/"require" export condition, so it
+  // can't be required() or even require.resolve()'d — see esm-interop.ts for
+  // why and how this works around it.
+  const { gotScraping } = await importEsmPackage<typeof import("got-scraping")>("got-scraping");
 
   let body: string;
   try {
@@ -104,8 +133,9 @@ export async function fetchHtml(url: string): Promise<string> {
 
   if (looksLikeCloudflareChallenge(body)) {
     console.warn(`[http] Cloudflare challenge detected for ${url}, attempting FlareSolverr fallback`);
-    const solved = await solveViaFlareSolverr(url);
-    if (solved) return solved;
+    const result = await solveViaFlareSolverr(url);
+    if (result.html) return result.html;
+    throw new CloudflareBlockedError(url, result.reason!);
   }
 
   return body;

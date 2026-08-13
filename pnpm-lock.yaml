@@ -53,6 +53,9 @@ importers:
       express:
         specifier: ^4.19.2
         version: 4.22.2
+      got-scraping:
+        specifier: ^4.2.1
+        version: 4.2.1
       input:
         specifier: ^1.0.1
         version: 1.0.1
