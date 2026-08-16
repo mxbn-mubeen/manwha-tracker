@@ -88,8 +88,11 @@ export function extractDeclaredChapterCount(html: string): number | null {
 
   // 2. Combined text node fallback.
   for (const { text } of leaves) {
-    const num = parseStatNumber(text);
-    if (num !== null) return num;
+    const match = text.match(DECLARED_COUNT_COMBINED_REGEX);
+    if (match && match[1]) {
+      const num = parseFloat(match[1]);
+      if (!Number.isNaN(num)) return match[0].toUpperCase().includes('K') ? num * 1000 : num;
+    }
   }
 
   return null;

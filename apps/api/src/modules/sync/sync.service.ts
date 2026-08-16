@@ -12,6 +12,9 @@ export interface SyncResult {
 }
 
 type SourceOutcome = {
+  manhwaId: number;
+  sourceUrl: string;
+  manhwaTitle: string;
   status: 'success' | 'blocked' | 'error';
   chaptersFound: number;
   newChapters: number;
@@ -35,9 +38,10 @@ function humanizeSourceName(url: string): string {
  * card in the UI — so `docker logs` / server output is scannable at a
  * glance instead of one dense line per source.
  */
-function logSourceOutcome(source: { manhwaTitle: string; url: string }, outcome: SourceOutcome): void {
+function logSourceOutcome(outcome: SourceOutcome): void {
   const lines = [
-    humanizeSourceName(source.url),
+    `${humanizeSourceName(outcome.sourceUrl)} (${outcome.sourceUrl})`,
+    `Manhwa ID: ${outcome.manhwaId}`,
     `Status: ${outcome.status.toUpperCase()}`,
     `Last attempt: just now`,
     `Chapters found: ${outcome.chaptersFound}`,
@@ -49,7 +53,7 @@ function logSourceOutcome(source: { manhwaTitle: string; url: string }, outcome:
     lines.push(`Reason: ${outcome.reason}`);
   }
   const logFn = outcome.status === 'success' ? console.log : console.warn;
-  logFn(`[sync] ${source.manhwaTitle}\n${lines.map(l => `  ${l}`).join('\n')}`);
+  logFn(`[sync] ${outcome.manhwaTitle}\n${lines.map(l => `  ${l}`).join('\n')}`);
 }
 
 /**
@@ -126,6 +130,9 @@ export class SyncService {
 
           if (chapters.length === 0) {
             outcome = {
+              manhwaId: source.manhwaId,
+              sourceUrl: source.url,
+              manhwaTitle: source.manhwaTitle,
               status: 'error',
               chaptersFound: 0,
               newChapters: 0,
@@ -156,6 +163,9 @@ export class SyncService {
             }
 
             outcome = {
+              manhwaId: source.manhwaId,
+              sourceUrl: source.url,
+              manhwaTitle: source.manhwaTitle,
               status: 'success',
               chaptersFound: chapters.length,
               newChapters: insertedCount,
@@ -165,6 +175,9 @@ export class SyncService {
         } catch (err) {
           const isBlocked = err instanceof Error && err.name === 'CloudflareBlockedError';
           outcome = {
+            manhwaId: source.manhwaId,
+            sourceUrl: source.url,
+            manhwaTitle: source.manhwaTitle,
             status: isBlocked ? 'blocked' : 'error',
             chaptersFound: 0,
             newChapters: 0,
@@ -178,7 +191,7 @@ export class SyncService {
           }
         }
 
-        logSourceOutcome(source, outcome);
+        logSourceOutcome(outcome);
         if (outcome.status !== 'success') {
           result.errors.push(`${source.manhwaTitle}: ${outcome.reason}`);
         }

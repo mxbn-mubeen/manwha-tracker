@@ -1,7 +1,7 @@
 # Manhwa Tracker — Master Memory
 
 project_root: D:\manwha-tracker
-last_brain_review: 2026-08-10
+last_brain_review: 2026-08-16
 
 ## What This Project Does
 
@@ -17,7 +17,7 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - Reading progress tracking (last read chapter per title)
 - Dashboard: stats (total, reading, completed), recently updated
 - Library: cover grid, search, add manhwa from URL
-- Website adapters for: AsuraScans, Webtoon, ReaperScans, manhuaus.com (+ generic)
+- Website adapters for: AsuraScans, Webtoon, ReaperScans, manhuaus.com, Thunder Scans, Arena Scans (+ generic)
 - Telegram channel monitoring → auto-detects new chapters → download = last read (Phase 3)
 
 ## Current State (as of 2026-07-24)

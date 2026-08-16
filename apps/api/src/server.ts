@@ -1,7 +1,14 @@
 import "./env";
-import { timingSafeEqual } from "crypto";
 import express from "express";
 import cors from "cors";
+
+import { createExpressMiddleware } from "@trpc/server/adapters/express";
+import { appRouter } from "./root";
+import { startWatcher } from "./scripts/watcher";
+import { poll as startBot, stopPolling } from "./scripts/bot/poll";
+import { syncRouter } from "./routes/sync";
+import { proxyRouter } from "./routes/proxy";
+import { healthRouter } from "./routes/health";
 
 // Log-and-continue instead of Node's default (silently crash the whole
 // process) for anything that slips through — a diagnostic safety net so a
@@ -16,13 +23,6 @@ process.on("unhandledRejection", (reason) => {
 process.on("uncaughtException", (err) => {
   console.error("[server] Uncaught exception (process kept alive):", err.stack || err.message);
 });
-
-import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { appRouter } from "./root";
-import { SyncService } from "./modules/sync/sync.service";
-import { TriggerSyncSchema } from "./modules/sync/sync.router";
-import { startWatcher } from "./scripts/watcher";
-import { poll as startBot, stopPolling } from "./scripts/bot/poll";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -52,162 +52,9 @@ app.use(
   }),
 );
 
-/**
- * Secret-protected REST route for triggering a sync from outside the app —
- * e.g. the GitHub Actions cron workflow (.github/workflows/sync-cron.yml),
- * for setups where the API is deployed somewhere publicly reachable.
- *
- * If you haven't deployed the API anywhere yet (still localhost-only), prefer
- * running `apps/api/src/scripts/cron-sync.ts` directly from the Action instead —
- * it talks straight to the Neon DB and doesn't need this route or a public API.
- *
- * Fails closed: if SYNC_SECRET isn't set, this route is disabled entirely
- * rather than silently accepting unauthenticated requests.
- */
-const syncService = new SyncService();
-let syncInProgress = false;
-
-function parseEnvFlag(name: string, defaultValue: boolean) {
-  const raw = process.env[name];
-  if (raw == null) return defaultValue;
-  return !["0", "false", "no"].includes(raw.trim().toLowerCase());
-}
-
-app.post("/api/sync", async (req, res) => {
-  const configuredSecret = process.env.SYNC_SECRET;
-  if (!configuredSecret) {
-    res
-      .status(503)
-      .json({
-        error: "SYNC_SECRET is not configured on this server — route disabled.",
-      });
-    return;
-  }
-
-  const providedSecret = req.header("x-sync-secret");
-  const expected = Buffer.from(configuredSecret);
-  const provided = Buffer.from(providedSecret ?? "");
-  const isAuthorized =
-    expected.length === provided.length && timingSafeEqual(expected, provided);
-
-  if (!isAuthorized) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
-  if (syncInProgress) {
-    res.status(409).json({ error: "A sync is already running." });
-    return;
-  }
-
-  const parsed = TriggerSyncSchema.safeParse(req.body ?? {});
-  if (!parsed.success) {
-    res
-      .status(400)
-      .json({ error: "Invalid body", details: parsed.error.flatten() });
-    return;
-  }
-
-  try {
-    syncInProgress = true;
-    const result = await syncService.run(parsed.data.scope);
-    res.json(result);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
-  } finally {
-    syncInProgress = false;
-  }
-});
-
-app.get("/api/proxy-image", async (req, res) => {
-  const url = req.query.url as string;
-  if (!url) {
-    res.status(400).send("No url provided");
-    return;
-  }
-  try {
-    // Use a dynamic ESM import for `got-scraping`. Importing the bare
-    // specifier lets Node resolve the package via its ESM `exports` map
-    // (which `require.resolve` can fail on for ESM-only packages).
-    const dynamicImport = new Function('modulePath', 'return import(modulePath)');
-    const { gotScraping } = await dynamicImport('got-scraping');
-    
-    const stream = gotScraping.stream({
-      url,
-      headers: { referer: 'https://mangadex.org' },
-    });
-    
-    stream.on('response', (response: any) => {
-      res.set('Content-Type', response.headers['content-type']);
-      res.set('Cache-Control', 'public, max-age=31536000');
-    });
-    
-    stream.on('error', (err: Error) => {
-      console.error("[server] proxy-image error:", err.message);
-      if (!res.headersSent) res.status(502).send("Proxy error");
-    });
-
-    stream.pipe(res);
-  } catch (err) {
-    console.error("[server] proxy-image exception:", err);
-    res.status(500).send("Internal proxy error");
-  }
-});
-
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
-});
-
-// TEMPORARY diagnostic route — remove once the DC5 connectivity issue is
-// resolved. Tests raw TCP reachability from inside this container to
-// Telegram's data centers, since Render's free tier has no Shell access.
-// Usage: GET /api/net-check?secret=YOUR_SYNC_SECRET
-app.get("/api/net-check", async (req, res) => {
-  const configuredSecret = process.env.SYNC_SECRET;
-  if (!configuredSecret || req.query.secret !== configuredSecret) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
-  const net = await import("net");
-  const tcpProbe = (
-    host: string,
-    port: number,
-    timeoutMs = 8000,
-  ): Promise<{ host: string; port: number; ok: boolean; ms: number; error?: string }> =>
-    new Promise((resolve) => {
-      const start = Date.now();
-      const socket = new net.Socket();
-      let settled = false;
-      const finish = (ok: boolean, error?: string) => {
-        if (settled) return;
-        settled = true;
-        socket.destroy();
-        resolve({ host, port, ok, ms: Date.now() - start, error });
-      };
-      socket.setTimeout(timeoutMs);
-      socket.once("connect", () => finish(true));
-      socket.once("timeout", () => finish(false, "timeout"));
-      socket.once("error", (err) => finish(false, err.message));
-      socket.connect(port, host);
-    });
-
-  const targets: [string, number, string][] = [
-    ["91.108.56.130", 443, "Telegram DC5 (Singapore) - the one failing"],
-    ["149.154.167.51", 443, "Telegram DC4 (Amsterdam) - control"],
-    ["149.154.167.40", 443, "Telegram DC2 (Amsterdam) - control"],
-    ["8.8.8.8", 443, "Google DNS - sanity check unrelated to Telegram"],
-  ];
-
-  const results = await Promise.all(
-    targets.map(([host, port, label]) =>
-      tcpProbe(host, port).then((r) => ({ ...r, label })),
-    ),
-  );
-
-  res.json({ timestamp: new Date().toISOString(), results });
-});
+app.use("/api/sync", syncRouter);
+app.use("/api/proxy-image", proxyRouter);
+app.use("/", healthRouter);
 
 // Friendly landing page for the bare root — this is an API-only service with
 // no UI of its own, so without this route, visiting the domain directly just
@@ -221,6 +68,12 @@ app.get("/", (_req, res) => {
     health: "/health",
   });
 });
+
+function parseEnvFlag(name: string, defaultValue: boolean) {
+  const raw = process.env[name];
+  if (raw == null) return defaultValue;
+  return !["0", "false", "no"].includes(raw.trim().toLowerCase());
+}
 
 const server = app.listen(PORT, () => {
   console.log(`🚀 API server running on http://localhost:${PORT}`);

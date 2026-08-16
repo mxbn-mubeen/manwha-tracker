@@ -6,11 +6,10 @@
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 if (!TOKEN) {
-  console.error('[bot] TELEGRAM_BOT_TOKEN is not set. Exiting.');
-  process.exit(1);
+  console.warn('[bot] TELEGRAM_BOT_TOKEN is not set. Bot features will be disabled.');
 }
 
-export const API = `https://api.telegram.org/bot${TOKEN}`;
+export const API = TOKEN ? `https://api.telegram.org/bot${TOKEN}` : '';
 
 import https from 'https';
 

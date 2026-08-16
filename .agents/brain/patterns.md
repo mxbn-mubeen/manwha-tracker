@@ -171,3 +171,14 @@ const num = extractChapterNumber("Chapter 150 - The Return"); // → 150
    - Call `markAsReadIfNewer` — only advances progress, never goes backwards
 
 ⚠️ **Do NOT add historical fetch/catch-up logic** — Telegram channels post cross-promotional ads that contain chapter-shaped numbers from other manhwas. Blind scanning of historical messages will corrupt chapter data (logged in mistakes.md).
+
+---
+
+## Locked / Early Access Chapters
+
+Sites often lock new chapters behind coins (Thunderscans) or "Early Access" (AsuraScans).
+- **Rule**: Never notify the user about a chapter they cannot read yet.
+- **Pattern**: Filter out locked chapters entirely during scraping.
+  - Generic indicator matching: use `LOCKED_CHAPTER_INDICATOR` regex (matches "coin", "🪙", "early access", "login", etc.) on chapter titles/badges in `chapter-extract.ts`.
+  - Gap detection: if a site provides fake teaser links but hides the real content (Thunderscans), check the gap between chapter numbers. E.g. if the last free chapter is 150 and the crawler sees 151 and 160, it drops anything above 150 until 151 is actually readable.
+  - Never use a headless browser just to execute the paywall check scripts (too heavy). Filter entirely via static HTML analysis.

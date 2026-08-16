@@ -26,6 +26,10 @@ D:\manwha-tracker\
 │   │   │   │   │   └── settings.router.ts
 │   │   │   │   └── telegram\
 │   │   │   │       └── (telegram module files)
+│   │   │   ├── routes\
+│   │   │   │   ├── sync.ts                    Webhook/Cron endpoint (/api/sync)
+│   │   │   │   ├── proxy.ts                   Image proxy endpoint (/api/proxy-image)
+│   │   │   │   └── health.ts                  Health checks (/health, /api/net-check)
 │   │   │   ├── scripts\
 │   │   │   │   ├── backfill-covers.ts         backfills cover URLs via MangaDex
 │   │   │   │   ├── cron-sync.ts               runs website sync loop
@@ -33,7 +37,7 @@ D:\manwha-tracker\
 │   │   │   │   └── fix-db.ts                  one-off DB cleanup script
 │   │   │   ├── env.ts                         loads .env from workspace root
 │   │   │   ├── root.ts                        tRPC app router composition
-│   │   │   ├── server.ts                      Express server entry
+│   │   │   ├── server.ts                      Express server entry (mounts TRPC + routes)
 │   │   │   └── trpc.ts                        tRPC context + procedures
 │   │   └── package.json
 │   └── web\          Vite 5 + React 19 — port 3000
@@ -77,6 +81,7 @@ D:\manwha-tracker\
 │   │   └── src\
 │   │       ├── adapters\
 │   │       │   ├── sites\
+│   │       │   │   ├── arenascans.ts
 │   │       │   │   ├── asurascans.ts
 │   │       │   │   ├── webtoon.ts
 │   │       │   │   ├── reaperscans.ts
@@ -189,10 +194,12 @@ Implements the `WebsiteAdapter` interface from `libs/shared/src/types/adapter.ts
 
 | Site | Adapter key | File |
 |------|------------|------|
+| Arena Scans | `arenascans` | `arenascans.ts` |
 | AsuraScans | `asurascans` | `asurascans.ts` |
 | Webtoon | `webtoon` | `webtoon.ts` |
 | Reaper Scans | `reaperscans` | `reaperscans.ts` |
 | manhuaus.com | `manhuaus` | `manhuaus.ts` |
+| Thunder Scans | `thunderscans` | `thunderscans.ts` |
 | Generic (catch-all) | `generic` | `generic.ts` |
 
 All adapters share- `extractChapterNumber(title/url)` — extracts the chapter number from strings (e.g. "Chapter 42" -> 42).

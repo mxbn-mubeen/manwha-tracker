@@ -2,6 +2,9 @@ import type { WebsiteAdapter } from "@manhwa-tracker/shared";
 import { fetchHtml } from "../http";
 import { detectTitleFromHtml, extractChaptersFromHtml } from "../utils/chapter-extract";
 
+/** AsuraScans early-access window. Chapters are locked for up to 6 hours after upload. */
+const EARLY_ACCESS_WINDOW_MS = 6 * 60 * 60 * 1000;
+
 export const asuraScansAdapter: WebsiteAdapter = {
   key: "asurascans",
   name: "AsuraScans",
@@ -19,6 +22,14 @@ export const asuraScansAdapter: WebsiteAdapter = {
 
   async latestChapter(url) {
     const list = await this.chapterList(url);
-    return list[0] ?? null;
+    const now = Date.now();
+    // Skip chapters still within the early-access window (posted < 6h ago).
+    // AsuraScans injects the "EARLY ACCESS" badge via JS only — our server-side
+    // scraper can't see it, but we can see the relative "1 hour ago" timestamp.
+    const freeChapter = list.find(
+      (c) => !c.publishedAt || now - c.publishedAt.getTime() >= EARLY_ACCESS_WINDOW_MS
+    );
+    return freeChapter ?? null;
   },
 };
+

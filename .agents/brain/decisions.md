@@ -162,3 +162,19 @@ Append-only log. Never delete entries.
 - Alternatives considered: Puppeteer (too much memory), native `fetch` with headers (failed on Cloudflare).
 - Affected modules: libs/parser/src/adapters/http.ts, libs/parser/package.json
 - Date: 2026-07-27
+
+---
+
+- Decision: Split `server.ts` into modular router files (`routes/sync.ts`, `routes/proxy.ts`, `routes/health.ts`).
+- Reason: `server.ts` grew beyond 300 lines and was mixing server initialization, background cron jobs, TRPC mounting, and Express REST routes. Modularizing it makes it easier to navigate.
+- Alternatives considered: Keep as monolithic file (too noisy).
+- Affected modules: apps/api/src/server.ts, apps/api/src/routes/*
+- Date: 2026-08-16
+
+---
+
+- Decision: Locked chapters (early access/coin-locked) are filtered via regex in the scraper (`LOCKED_CHAPTER_INDICATOR`) or gap detection (missing links) instead of JS/DOM evaluation.
+- Reason: Scrapers run on raw HTML. Paid chapters on sites like AsuraScans or Thunderscans either lack an `href` (using JS `onclick` modals) or contain explicit text ("Coin", "Early Access", "Login to read"). Filtering these at the extraction level prevents the app from notifying the user about chapters they cannot read yet, without needing a full headless browser to evaluate the paywall.
+- Alternatives considered: Headless browser to check paywalls (too heavy).
+- Affected modules: libs/parser/src/adapters/utils/chapter-extract.ts, libs/parser/src/adapters/sites/thunderscans.ts
+- Date: 2026-08-16

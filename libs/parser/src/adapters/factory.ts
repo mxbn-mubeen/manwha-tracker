@@ -6,6 +6,7 @@ import { manhuausAdapter } from "./sites/manhuaus";
 import { comixToAdapter } from "./sites/comixto";
 import { roliascanAdapter } from "./sites/roliascan";
 import { thunderscansAdapter } from "./sites/thunderscans";
+import { arenaScansAdapter } from "./sites/arenascans";
 import { genericAdapter } from "./sites/generic";
 
 /** Ordered by specificity — generic (matches everything) is never in this list. */
@@ -17,6 +18,7 @@ const SITE_ADAPTERS: WebsiteAdapter[] = [
   comixToAdapter,
   roliascanAdapter,
   thunderscansAdapter,
+  arenaScansAdapter,
 ];
 
 const ADAPTERS_BY_KEY: Record<string, WebsiteAdapter> = Object.fromEntries(
