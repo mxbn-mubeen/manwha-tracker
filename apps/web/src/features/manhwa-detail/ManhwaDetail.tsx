@@ -9,6 +9,7 @@ import { ManhwaHeader } from '@/features/manhwa-detail/components/ManhwaHeader';
 import { ProgressCard } from '@/features/manhwa-detail/components/ProgressCard';
 import { SourcesList } from '@/features/manhwa-detail/components/SourcesList';
 import { EditManhwaModal } from '@/features/manhwa-detail/components/EditManhwaModal';
+import { UnreadManhwaStrip } from '@/features/manhwa-detail/components/UnreadManhwaStrip';
 import { usePageTitle } from '@/lib/usePageTitle';
 
 export function ManhwaDetailPage() {
@@ -136,6 +137,9 @@ export function ManhwaDetailPage() {
           onClose={() => setIsEditModalOpen(false)}
         />
       )}
+
+      {/* Up Next — other unread manhwa */}
+      <UnreadManhwaStrip currentManhwaId={numericId} />
     </div>
   );
 }

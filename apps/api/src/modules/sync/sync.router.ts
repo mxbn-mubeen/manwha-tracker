@@ -1,6 +1,7 @@
+
 import { z } from 'zod';
 import { createTRPCRouter, publicProcedure } from '../../trpc';
-import { SyncService } from './sync.service';
+import { SyncService, getSyncHistory, getIsSyncing } from './sync.service';
 import { toSafeError } from '../../utils/trpc-error';
 
 const service = new SyncService();
@@ -26,4 +27,10 @@ export const syncRouter = createTRPCRouter({
         throw toSafeError(err, 'sync.run');
       }
     }),
+
+  /** Returns last 20 sync runs (newest first) from the in-process ring buffer. */
+  getHistory: publicProcedure.query(() => getSyncHistory()),
+  
+  /** Returns whether a sync is currently running in the background. */
+  isSyncing: publicProcedure.query(() => getIsSyncing()),
 });

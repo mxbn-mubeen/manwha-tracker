@@ -7,11 +7,11 @@ export const TriggerSyncSchema = z.object({
 
 export type TriggerSyncInput = z.infer<typeof TriggerSyncSchema>;
 
-export const SyncResultSchema = z.object({
+export const LegacySyncResultSchema = z.object({
   newChapters: z.number(),
   updatedSources: z.number(),
   errors: z.array(z.string()),
   duration: z.number(), // ms
 });
 
-export type SyncResult = z.infer<typeof SyncResultSchema>;
+export type LegacySyncResult = z.infer<typeof LegacySyncResultSchema>;

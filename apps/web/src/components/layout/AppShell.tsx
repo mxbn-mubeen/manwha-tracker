@@ -1,8 +1,11 @@
 import { Link, useLocation } from "react-router-dom"
-import { RefreshCw, Plus, Settings } from "lucide-react"
+import { RefreshCw, Plus, Settings, History, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { trpc } from "@/lib/trpc"
+import { useState, useEffect } from "react"
+import { SyncHistoryDrawer } from "@/features/sync/SyncHistoryDrawer"
+import { GlobalSearch } from "@/features/search/GlobalSearch"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -19,6 +22,21 @@ function Navbar() {
   const location = useLocation()
   const utils = trpc.useUtils()
 
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [searchOpen, setSearchOpen]   = useState(false)
+
+  // Cmd+K / Ctrl+K opens global search
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setSearchOpen(o => !o)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
   const syncMutation = trpc.sync.run.useMutation({
     onSuccess: async (result) => {
       // Refresh library/dashboard data so any newly-discovered chapters show up
@@ -29,7 +47,7 @@ function Navbar() {
         // visible, not just the first one.
         const errorDescription = (
           <ul className="mt-1 space-y-0.5 text-xs">
-            {result.errors.map((e, i) => (
+            {result.errors.map((e: string, i: number) => (
               <li key={i} className="truncate opacity-90">{e}</li>
             ))}
           </ul>
@@ -52,78 +70,117 @@ function Navbar() {
   })
 
   const handleSync = () => {
+    if (syncMutation.isPending || serverIsSyncing) return;
     syncMutation.mutate({ scope: "all" })
   };
 
-  const isSyncing = syncMutation.isPending;
+  const { data: serverIsSyncing = false } = trpc.sync.isSyncing.useQuery(undefined, {
+    refetchInterval: 2000,
+  });
+
+  const isSyncing = syncMutation.isPending || serverIsSyncing;
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="max-w-7xl mx-auto flex h-16 items-center px-4 sm:px-6 lg:px-8 justify-between">
-        <div className="flex items-center gap-3 sm:gap-6">
-          <Link to="/dashboard" className="flex items-center gap-2">
-            <div className="bg-amber-500 text-amber-950 font-bold h-8 w-8 flex items-center justify-center rounded-md shrink-0">
-              M
-            </div>
-            <span className="font-bold text-lg hidden sm:inline-block">Manhwa</span>
-          </Link>
-          
-          <nav className="flex items-center gap-1 sm:gap-4 text-sm font-medium text-muted-foreground">
-            <Link 
-              to="/dashboard" 
-              className={`transition-colors hover:text-foreground ${location.pathname === '/dashboard' ? 'text-foreground bg-white/5 px-2 sm:px-3 py-1.5 rounded-md' : 'px-2 sm:px-3 py-1.5'}`}
-            >
-              <div className="flex items-center gap-2">
-                <span className="grid grid-cols-2 gap-0.5 w-4 h-4">
-                  <div className="bg-current rounded-[1px]" />
-                  <div className="bg-current rounded-[1px]" />
-                  <div className="bg-current rounded-[1px]" />
-                  <div className="bg-current rounded-[1px]" />
-                </span>
-                <span className="hidden sm:inline">Dashboard</span>
+    <>
+      <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="max-w-7xl mx-auto flex h-16 items-center px-4 sm:px-6 lg:px-8 justify-between">
+          <div className="flex items-center gap-3 sm:gap-6">
+            <Link to="/dashboard" className="flex items-center gap-2">
+              <div className="bg-amber-500 text-amber-950 font-bold h-8 w-8 flex items-center justify-center rounded-md shrink-0">
+                M
               </div>
+              <span className="font-bold text-lg hidden sm:inline-block">Manhwa</span>
             </Link>
-            <Link 
-              to="/library" 
-              className={`transition-colors hover:text-foreground ${location.pathname === '/library' ? 'text-foreground bg-white/5 px-2 sm:px-3 py-1.5 rounded-md' : 'px-2 sm:px-3 py-1.5'}`}
-            >
-              <div className="flex items-center gap-2">
-                <span>|\</span>
-                <span className="hidden sm:inline">Library</span>
-              </div>
-            </Link>
-          </nav>
-        </div>
+            
+            <nav className="flex items-center gap-1 sm:gap-4 text-sm font-medium text-muted-foreground">
+              <Link 
+                to="/dashboard" 
+                className={`transition-colors hover:text-foreground ${location.pathname === '/dashboard' ? 'text-foreground bg-white/5 px-2 sm:px-3 py-1.5 rounded-md' : 'px-2 sm:px-3 py-1.5'}`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="grid grid-cols-2 gap-0.5 w-4 h-4">
+                    <div className="bg-current rounded-[1px]" />
+                    <div className="bg-current rounded-[1px]" />
+                    <div className="bg-current rounded-[1px]" />
+                    <div className="bg-current rounded-[1px]" />
+                  </span>
+                  <span className="hidden sm:inline">Dashboard</span>
+                </div>
+              </Link>
+              <Link 
+                to="/library" 
+                className={`transition-colors hover:text-foreground ${location.pathname === '/library' ? 'text-foreground bg-white/5 px-2 sm:px-3 py-1.5 rounded-md' : 'px-2 sm:px-3 py-1.5'}`}
+              >
+                <div className="flex items-center gap-2">
+                  <span>|\</span>
+                  <span className="hidden sm:inline">Library</span>
+                </div>
+              </Link>
+            </nav>
+          </div>
 
-        <div className="flex items-center gap-2 sm:gap-4">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="flex gap-2 px-2 sm:px-3"
-            onClick={handleSync}
-            disabled={isSyncing}
-          >
-            <RefreshCw className={`h-4 w-4 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync'}</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`h-9 w-9 rounded-full shrink-0 ${location.pathname === '/settings' ? 'bg-white/10 text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-            asChild
-          >
-            <Link to="/settings" aria-label="Settings">
-              <Settings className="h-4 w-4" />
-            </Link>
-          </Button>
-          <Button size="sm" className="gap-2 rounded-full px-3 sm:px-4" asChild>
-            <Link to="/add">
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Add Manhwa</span>
-            </Link>
-          </Button>
+          <div className="flex items-center gap-1 sm:gap-2">
+            {/* Global search trigger */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex gap-2 px-2 sm:px-3 text-muted-foreground hover:text-foreground"
+              onClick={() => setSearchOpen(true)}
+            >
+              <Search className="h-4 w-4 shrink-0" />
+              <span className="hidden md:inline text-xs text-zinc-600 border border-border/40 rounded px-1.5 py-0.5 font-mono">⌘K</span>
+            </Button>
+
+            {/* Sync history */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 text-muted-foreground hover:text-foreground"
+              onClick={() => setHistoryOpen(true)}
+              title="Sync history"
+            >
+              <History className="h-4 w-4" />
+            </Button>
+
+            {/* Sync button */}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="flex gap-2 px-2 sm:px-3"
+              onClick={handleSync}
+              disabled={isSyncing}
+            >
+              <RefreshCw className={`h-4 w-4 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync'}</span>
+            </Button>
+
+            {/* Settings */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-9 w-9 rounded-full shrink-0 ${location.pathname === '/settings' ? 'bg-white/10 text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              asChild
+            >
+              <Link to="/settings" aria-label="Settings">
+                <Settings className="h-4 w-4" />
+              </Link>
+            </Button>
+
+            {/* Add Manhwa */}
+            <Button size="sm" className="gap-2 rounded-full px-3 sm:px-4" asChild>
+              <Link to="/add">
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Add Manhwa</span>
+              </Link>
+            </Button>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      {/* Portals */}
+      <SyncHistoryDrawer open={historyOpen} onClose={() => setHistoryOpen(false)} />
+      <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
+    </>
   )
 }
+

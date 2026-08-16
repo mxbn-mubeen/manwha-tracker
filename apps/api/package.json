@@ -13,6 +13,7 @@
   "dependencies": {
     "@manhwa-tracker/database": "workspace:*",
     "@manhwa-tracker/parser": "workspace:*",
+    "@manhwa-tracker/shared": "workspace:*",
     "@trpc/server": "^11.0.0-rc.0",
     "big-integer": "^1.6.52",
     "cors": "^2.8.5",

@@ -1,15 +1,20 @@
 import { SyncRepository } from './sync.repository';
+import type { SyncScope, SyncResult, SyncSourceRow, SyncRun } from '@manhwa-tracker/shared';
 
-export type SyncScope = 'telegram' | 'websites' | 'all';
-
-export interface SyncResult {
-  scannedSources: number;
-  newChapters: number;
-  updatedManhwa: number;
-  skippedTelegram: number;
-  errors: string[];
-  duration: number;
+/** In-process tracking of sync status */
+let isCurrentlySyncing = false;
+export function getIsSyncing(): boolean {
+  return isCurrentlySyncing;
 }
+
+/** In-process ring buffer — last 20 sync runs. Cleared on server restart. */
+const syncHistory: SyncRun[] = [];
+const HISTORY_MAX = 20;
+
+export function getSyncHistory(): SyncRun[] {
+  return [...syncHistory].reverse(); // newest first
+}
+
 
 type SourceOutcome = {
   manhwaId: number;
@@ -20,6 +25,7 @@ type SourceOutcome = {
   newChapters: number;
   reason: string | null; // toast-safe description; null on success
 };
+
 
 /** "https://comix.to/title/..." -> "Comix". Falls back to the raw hostname if it doesn't parse. */
 function humanizeSourceName(url: string): string {
@@ -93,15 +99,21 @@ export class SyncService {
   }
 
   async run(scope: SyncScope = 'all'): Promise<SyncResult> {
-    const start = Date.now();
-    const result: SyncResult = {
-      scannedSources: 0,
-      newChapters: 0,
-      updatedManhwa: 0,
-      skippedTelegram: 0,
-      errors: [],
-      duration: 0,
-    };
+    if (isCurrentlySyncing) {
+      throw new Error("Sync is already running in the background");
+    }
+    isCurrentlySyncing = true;
+    try {
+      const start = Date.now();
+      const result: SyncResult = {
+        scannedSources: 0,
+        newChapters: 0,
+        updatedManhwa: 0,
+        skippedTelegram: 0,
+        errors: [],
+        duration: 0,
+        rows: [],
+      };
 
     const includeWebsites = scope === 'websites' || scope === 'all';
     const includeTelegram = scope === 'telegram' || scope === 'all';
@@ -192,6 +204,22 @@ export class SyncService {
         }
 
         logSourceOutcome(outcome);
+
+        // Map internal outcome status → 4 user-facing statuses
+        const rowStatus: SyncSourceRow['status'] =
+          outcome.status === 'blocked' ? 'failed'
+          : outcome.status === 'error' ? 'issue'
+          : outcome.newChapters > 0 ? 'new'
+          : 'no_new';
+
+        result.rows.push({
+          source: humanizeSourceName(outcome.sourceUrl),
+          manhwaTitle: outcome.manhwaTitle,
+          chapterFound: outcome.chaptersFound > 0 ? outcome.chaptersFound : null,
+          status: rowStatus,
+          reason: outcome.reason,
+        });
+
         if (outcome.status !== 'success') {
           result.errors.push(`${source.manhwaTitle}: ${outcome.reason}`);
         }
@@ -201,6 +229,15 @@ export class SyncService {
     }
 
     result.duration = Date.now() - start;
+
+    // Push to ring buffer (newest at end; getSyncHistory reverses)
+    const run: SyncRun = { ...result, runAt: new Date() };
+    syncHistory.push(run);
+    if (syncHistory.length > HISTORY_MAX) syncHistory.shift();
+
     return result;
+    } finally {
+      isCurrentlySyncing = false;
+    }
   }
 }

@@ -182,8 +182,8 @@ export function EditManhwaModal({
             <label className="text-sm font-medium text-zinc-400">
               Cover URL or Image Upload
             </label>
-            {editCoverUrl ? (
-              <div className="mt-1 flex items-center gap-4 bg-[#0e0f11] p-3 rounded-lg border border-border/50">
+            {editCoverUrl && (
+              <div className="mt-1 mb-2 flex items-center gap-4 bg-[#0e0f11] p-3 rounded-lg border border-border/50">
                 <img
                   src={getProxiedImageUrl(editCoverUrl)}
                   alt="Cover preview"
@@ -199,15 +199,14 @@ export function EditManhwaModal({
                   Remove
                 </Button>
               </div>
-            ) : (
-              <input
-                type="text"
-                value={editCoverUrl}
-                onChange={(e) => setEditCoverUrl(e.target.value)}
-                placeholder="https://..."
-                className="mt-1 bg-[#0e0f11] border border-border/50 text-white text-sm rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-amber-500"
-              />
             )}
+            <input
+              type="text"
+              value={editCoverUrl}
+              onChange={(e) => setEditCoverUrl(e.target.value)}
+              placeholder="https://..."
+              className="mt-1 bg-[#0e0f11] border border-border/50 text-white text-sm rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-amber-500"
+            />
             <div className="mt-2 flex items-center gap-2">
               <span className="text-xs text-zinc-500">Or upload:</span>
               <input

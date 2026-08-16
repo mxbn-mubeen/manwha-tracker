@@ -4,6 +4,7 @@ import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { Globe, Send } from 'lucide-react';
 
 export function AddManhwaForm() {
   const navigate = useNavigate();
@@ -17,8 +18,27 @@ export function AddManhwaForm() {
   const [latestChapter, setLatestChapter] = useState('');
   const [description, setDescription] = useState('');
 
+  // Optional source
+  const [sourceUrl, setSourceUrl]   = useState('');
+  const [sourceType, setSourceType] = useState<'website' | 'telegram'>('website');
+
+  const addSourceMutation = trpc.manhwa.addSource.useMutation({
+    onError: (err) => {
+      // Non-fatal — manhwa was already created; just warn about the source
+      toast.warning('Manhwa added, but source could not be attached', { description: err.message });
+    },
+  });
+
   const addMutation = trpc.manhwa.create.useMutation({
-    onSuccess: () => {
+    onSuccess: async (result) => {
+      // Attach source if one was provided
+      if (sourceUrl.trim()) {
+        await addSourceMutation.mutateAsync({
+          manhwaId: result.id,
+          url: sourceUrl.trim(),
+          type: sourceType,
+        });
+      }
       toast.success('Manhwa added successfully');
       utils.manhwa.getAll.invalidate();
       navigate('/library');
@@ -49,6 +69,8 @@ export function AddManhwaForm() {
       latestChapter: isNaN(parsedLatestChapter as number) ? undefined : parsedLatestChapter,
     });
   };
+
+  const isPending = addMutation.isPending || addSourceMutation.isPending;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -132,11 +154,55 @@ export function AddManhwaForm() {
         />
       </div>
 
+      {/* ── Optional source ─────────────────────────────────────────── */}
+      <div className="border border-border/30 rounded-xl p-4 space-y-3 bg-[#0e0f11]">
+        <p className="text-sm font-medium text-white flex items-center gap-2">
+          <span className="text-zinc-500">Add a source</span>
+          <span className="text-[10px] text-zinc-600 font-normal border border-border/40 rounded px-1.5 py-0.5">optional</span>
+        </p>
+        <div className="flex gap-2">
+          {/* Type toggle */}
+          <div className="flex rounded-md overflow-hidden border border-border/40 shrink-0">
+            <button
+              type="button"
+              onClick={() => setSourceType('website')}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${
+                sourceType === 'website'
+                  ? 'bg-amber-500 text-amber-950'
+                  : 'bg-transparent text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <Globe className="h-3 w-3" />
+              Website
+            </button>
+            <button
+              type="button"
+              onClick={() => setSourceType('telegram')}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${
+                sourceType === 'telegram'
+                  ? 'bg-amber-500 text-amber-950'
+                  : 'bg-transparent text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <Send className="h-3 w-3" />
+              Telegram
+            </button>
+          </div>
+          {/* URL input */}
+          <Input
+            placeholder={sourceType === 'telegram' ? '@channel_name or t.me/...' : 'https://asuracomic.net/series/...'}
+            value={sourceUrl}
+            onChange={(e) => setSourceUrl(e.target.value)}
+            className="bg-[#161719] border-border/40 text-white h-9 text-sm flex-1"
+          />
+        </div>
+      </div>
+
       <div className="pt-6 pb-2 flex justify-end gap-4 items-center">
         <Button variant="ghost" type="button" asChild className="text-muted-foreground hover:text-white hover:bg-white/5 font-medium">
           <Link to="/library">Cancel</Link>
         </Button>
-        <Button type="submit" disabled={addMutation.isPending} className="bg-amber-500 hover:bg-amber-600 text-amber-950 font-semibold px-8 h-10 shadow-md">
+        <Button type="submit" disabled={isPending} className="bg-amber-500 hover:bg-amber-600 text-amber-950 font-semibold px-8 h-10 shadow-md">
           Add to library
         </Button>
       </div>

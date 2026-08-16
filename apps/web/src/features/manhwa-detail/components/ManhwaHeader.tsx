@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Pencil, Check, X } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Pencil, Check, X, ChevronDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
@@ -14,9 +14,9 @@ interface ManhwaHeaderProps {
 }
 
 const STATUS_DOT_COLOR: Record<string, string> = {
-  ongoing: 'bg-green-500',
-  hiatus: 'bg-yellow-500',
-  completed: 'bg-blue-500',
+  ongoing: 'bg-emerald-500',
+  hiatus: 'bg-amber-500',
+  completed: 'bg-purple-500',
   dropped: 'bg-red-500',
 };
 
@@ -39,6 +39,18 @@ export function ManhwaHeader({ id, title, status, genres, description, latestCha
 
   const [isEditingChapter, setIsEditingChapter] = useState(false);
   const [chapterInput, setChapterInput] = useState(String(latestChapter));
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const currentStatus = status || 'ongoing';
 
@@ -56,20 +68,39 @@ export function ManhwaHeader({ id, title, status, genres, description, latestCha
     updateLatestChapterMutation.mutate({ id, chapterNum: parsed });
   };
 
+  const statuses = ['ongoing', 'hiatus', 'completed', 'dropped'];
+
   return (
     <div>
-      <div className="flex items-center gap-3 mb-3">
-        <div className={`h-2 w-2 rounded-full ${STATUS_DOT_COLOR[currentStatus] ?? 'bg-green-500'}`}></div>
-        <select
-          value={currentStatus}
-          onChange={(e) => updateStatusMutation.mutate({ id, status: e.target.value as 'ongoing' | 'completed' | 'hiatus' | 'dropped' })}
-          className="text-xs font-semibold tracking-wider text-muted-foreground uppercase bg-transparent border-none focus:outline-none cursor-pointer hover:text-white transition-colors"
+      <div className="flex items-center gap-3 mb-3 relative" ref={dropdownRef}>
+        <button
+          onClick={() => setDropdownOpen(!dropdownOpen)}
+          className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase bg-transparent border-none focus:outline-none cursor-pointer hover:text-white transition-colors"
         >
-          <option value="ongoing">ONGOING</option>
-          <option value="hiatus">HIATUS</option>
-          <option value="completed">COMPLETED</option>
-          <option value="dropped">DROPPED</option>
-        </select>
+          <div className={`h-2 w-2 rounded-full ${STATUS_DOT_COLOR[currentStatus] ?? 'bg-green-500'}`}></div>
+          {currentStatus}
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {dropdownOpen && (
+          <div className="absolute top-full left-0 mt-2 w-36 bg-[#161719] border border-border/50 rounded-lg shadow-2xl py-1.5 z-50 overflow-hidden backdrop-blur-sm">
+            {statuses.map(s => (
+              <button
+                key={s}
+                onClick={() => {
+                  updateStatusMutation.mutate({ id, status: s as 'ongoing' | 'completed' | 'hiatus' | 'dropped' });
+                  setDropdownOpen(false);
+                }}
+                className={`w-full text-left px-3 py-2 text-[11px] font-bold uppercase tracking-widest hover:bg-white/5 transition-colors flex items-center gap-2.5 ${
+                  s === currentStatus ? 'text-white bg-white/5' : 'text-zinc-400'
+                }`}
+              >
+                <div className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT_COLOR[s] ?? 'bg-green-500'}`}></div>
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-1">{title}</h1>

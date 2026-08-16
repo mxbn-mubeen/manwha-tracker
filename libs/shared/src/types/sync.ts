@@ -1,0 +1,21 @@
+export type SyncScope = 'telegram' | 'websites' | 'all';
+
+export type SyncSourceRow = {
+  source: string;          // humanized hostname, e.g. "Asura Scans"
+  manhwaTitle: string;     // e.g. "Solo Leveling"
+  chapterFound: number | null; // null when failed/issue
+  status: 'new' | 'no_new' | 'issue' | 'failed';
+  reason: string | null;   // detail for issue/failed rows
+};
+
+export interface SyncResult {
+  scannedSources: number;
+  newChapters: number;
+  updatedManhwa: number;
+  skippedTelegram: number;
+  errors: string[];
+  duration: number;
+  rows: SyncSourceRow[];   // per-source breakdown for history UI
+}
+
+export type SyncRun = SyncResult & { runAt: Date };

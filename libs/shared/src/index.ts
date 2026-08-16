@@ -5,6 +5,7 @@ export * from './types/progress';
 export * from './types/source';
 export * from './types/adapter';
 export * from './types/notification';
+export * from './types/sync';
 
 // Schemas (Zod)
 export * from './schemas/manhwa';
