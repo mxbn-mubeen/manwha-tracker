@@ -120,8 +120,8 @@ export async function fetchHtml(url: string): Promise<string> {
     const response = await gotScraping({
       url,
       headers: DEFAULT_HEADERS,
-      timeout: { request: 15_000 },
-      retry: { limit: 1 },
+      timeout: { request: 30_000 },
+      retry: { limit: 2 },
     });
 
     body = response.body;

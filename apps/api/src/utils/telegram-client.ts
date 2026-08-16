@@ -76,15 +76,47 @@ export async function connectTelegramClient({
   const addressFamilies = [false, true];
   for (const candidate of transportOrder) {
     for (const useIPV6 of addressFamilies) {
+      let proxyConfig: any = undefined;
+      if (process.env.TELEGRAM_PROXY_URL) {
+        try {
+          const url = new URL(process.env.TELEGRAM_PROXY_URL);
+          if (url.protocol === "mtproxy:") {
+            proxyConfig = {
+              MTProxy: true,
+              ip: url.hostname,
+              port: parseInt(url.port, 10),
+              secret: url.username || url.pathname.replace('/', ''),
+            };
+          } else if (url.protocol === "socks5:" || url.protocol === "socks4:") {
+            proxyConfig = {
+              socksType: url.protocol === "socks5:" ? 5 : 4,
+              ip: url.hostname,
+              port: parseInt(url.port, 10),
+              username: url.username || undefined,
+              password: url.password || undefined,
+            };
+          }
+        } catch (err) {
+          console.warn("[telegram] Failed to parse TELEGRAM_PROXY_URL:", err);
+        }
+      }
+
+      const clientOptions: any = {
+        ...options,
+        useIPV6,
+      };
+
+      if (proxyConfig) {
+        clientOptions.proxy = proxyConfig;
+      } else {
+        clientOptions.connection = candidate.connection;
+      }
+
       const client = new TelegramClient(
         new StringSession(session),
         apiId,
         apiHash,
-        {
-          ...options,
-          useIPV6,
-          connection: candidate.connection as any,
-        } as any,
+        clientOptions
       );
 
       try {
