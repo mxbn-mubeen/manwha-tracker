@@ -25,9 +25,18 @@ function Navbar() {
       await utils.manhwa.getAll.invalidate()
 
       if (result.errors.length > 0) {
+        // Show all errors — each on its own line so every failing title is
+        // visible, not just the first one.
+        const errorDescription = (
+          <ul className="mt-1 space-y-0.5 text-xs">
+            {result.errors.map((e, i) => (
+              <li key={i} className="truncate opacity-90">{e}</li>
+            ))}
+          </ul>
+        )
         toast.warning(
           `Sync finished with ${result.errors.length} issue(s). Found ${result.newChapters} new chapter(s).`,
-          { description: result.errors[0] }
+          { description: errorDescription }
         )
       } else if (result.newChapters > 0) {
         toast.success(

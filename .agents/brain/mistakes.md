@@ -300,3 +300,11 @@ Append-only log. Never delete entries.
 - Fix: Swapped `fetch` with `got-scraping` (using dynamic `import()` to bypass TS transpilation issues) which spoofs TLS signatures and browser headers to bypass basic Cloudflare checks.
 - Status: Resolved
 - Date: 2026-07-27
+
+---
+
+- Problem: Production deploy crashed with `Cannot find module '/app/apps/api/node_modules/@manhwa-tracker/parser/dist/index.ts'` (or `src/index.ts`). Node could not load the parser package at runtime.
+- Cause: `libs/parser/package.json` had `"exports"."."."default": "./src/index.ts"` — a TypeScript source file path. In dev, `tsx` resolves `.ts` transparently. In production the API is compiled to JS and runs under plain Node, which resolves workspace package exports literally — there is no compiled `dist/index.ts`, only `dist/index.js`. Compare with `@manhwa-tracker/shared` which correctly had `"default": "./dist/index.js"`.
+- Fix: Changed `parser/package.json` exports `"default"` from `"./src/index.ts"` to `"./dist/index.js"`. Dockerfile already builds parser before runner stage, so `dist/index.js` is always present at runtime.
+- Status: Resolved
+- Date: 2026-08-16

@@ -25,7 +25,7 @@ const DEFAULT_HEADERS = {
  */
 const CLOUDFLARE_MARKERS = [/cf-chl-/i, /challenges\.cloudflare\.com/i, /Just a moment\.\.\./i];
 
-function looksLikeCloudflareChallenge(html: string): boolean {
+export function looksLikeCloudflareChallenge(html: string): boolean {
   return CLOUDFLARE_MARKERS.filter((re) => re.test(html)).length >= 2;
 }
 
@@ -61,7 +61,7 @@ type FlareSolverrResult = { html: string; reason?: undefined } | { html: null; r
  *
  * Configure via FLARESOLVERR_URL, e.g. http://localhost:8191/v1.
  */
-async function solveViaFlareSolverr(url: string): Promise<FlareSolverrResult> {
+export async function solveViaFlareSolverr(url: string): Promise<FlareSolverrResult> {
   const endpoint = process.env.FLARESOLVERR_URL;
   if (!endpoint) {
     console.warn(`[http] FlareSolverr fallback skipped for ${url} — FLARESOLVERR_URL is not set`);

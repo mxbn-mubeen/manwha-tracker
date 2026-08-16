@@ -60,6 +60,8 @@ async function getBrowser(): Promise<Browser> {
   }
 }
 
+import { looksLikeCloudflareChallenge, solveViaFlareSolverr, CloudflareBlockedError } from "./http";
+
 /**
  * Render a page with a real browser and return the final HTML, after
  * client-side JS has had a chance to populate the DOM.
@@ -75,6 +77,14 @@ export async function fetchRenderedHtml(
   url: string,
   opts: { waitForSelector?: string; timeoutMs?: number } = {},
 ): Promise<string> {
+  // First try to bypass Cloudflare and execute JS via FlareSolverr if configured.
+  // FlareSolverr is faster, more robust against CF, and handles JS execution.
+  const fsResult = await solveViaFlareSolverr(url);
+  if (fsResult.html) {
+    return fsResult.html;
+  }
+  
+  // If FlareSolverr is not configured (or failed), fallback to local Playwright.
   const browser = await getBrowser();
   const page = await browser.newPage({
     userAgent:
@@ -85,7 +95,17 @@ export async function fetchRenderedHtml(
     await page.goto(url, {
       waitUntil: "networkidle", // wait until the SPA's own AJAX calls have settled
       timeout: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    }).catch((err) => {
+      // Don't hard-fail immediately on timeout, we will check the DOM for Cloudflare markers
+      console.warn(`[browser] Playwright navigation error for ${url}: ${err.message}`);
     });
+
+    const html = await page.content();
+    
+    // Check if we hit a Cloudflare challenge that Playwright can't bypass
+    if (looksLikeCloudflareChallenge(html)) {
+      throw new CloudflareBlockedError(url, "unsolved");
+    }
 
     if (opts.waitForSelector) {
       await page
