@@ -57,9 +57,11 @@ export function EditManhwaModal({
 
   const deleteMutation = trpc.manhwa.delete.useMutation({
     onSuccess: () => {
-      toast.success("Manhwa removed");
+      toast.success("Manhwa moved to Recently Deleted", {
+        description: "You have 30 days to recover it from Settings → Recently Deleted."
+      });
       utils.manhwa.getAll.invalidate();
-      navigate("/library");
+      navigate("/dashboard");
     },
     onError: (err) => toast.error(err.message || "Failed to delete manhwa"),
   });
@@ -304,7 +306,7 @@ export function EditManhwaModal({
             className="text-red-500 hover:text-red-400 hover:bg-red-500/10 px-3 h-9"
             disabled={deleteMutation.isPending}
             onClick={() => {
-              if (confirm("Are you sure you want to remove this manhwa?")) {
+              if (confirm("Move this manhwa to Recently Deleted?\n\nYou'll have 30 days to recover it.")) {
                 deleteMutation.mutate(manhwaId);
               }
             }}

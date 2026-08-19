@@ -22,6 +22,7 @@ export const manhwa = pgTable('manhwa', {
   description: text('description'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at'),
 });
 
 // ── sources ───────────────────────────────────────────────────────────────────
@@ -81,6 +82,19 @@ export const settings = pgTable('settings', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+// ── sync history ──────────────────────────────────────────────────────────────
+export const syncRuns = pgTable('sync_runs', {
+  id: serial('id').primaryKey(),
+  scannedSources: integer('scanned_sources').notNull().default(0),
+  newChapters: integer('new_chapters').notNull().default(0),
+  updatedManhwa: integer('updated_manhwa').notNull().default(0),
+  skippedTelegram: integer('skipped_telegram').notNull().default(0),
+  errors: jsonb('errors').$type<string[]>().notNull().default([]),
+  rows: jsonb('rows').$type<any[]>().notNull().default([]),
+  duration: integer('duration').notNull().default(0),
+  runAt: timestamp('run_at').notNull().defaultNow(),
+});
+
 // ── type exports ──────────────────────────────────────────────────────────────
 export type Manhwa = typeof manhwa.$inferSelect;
 export type InsertManhwa = typeof manhwa.$inferInsert;
@@ -96,3 +110,6 @@ export type InsertProgress = typeof progress.$inferInsert;
 
 export type Setting = typeof settings.$inferSelect;
 export type InsertSetting = typeof settings.$inferInsert;
+
+export type SyncRunRow = typeof syncRuns.$inferSelect;
+export type InsertSyncRunRow = typeof syncRuns.$inferInsert;

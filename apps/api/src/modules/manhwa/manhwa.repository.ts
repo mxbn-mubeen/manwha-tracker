@@ -14,6 +14,17 @@ export class ManhwaRepository {
     await db.delete(manhwa).where(eq(manhwa.id, id));
   }
 
+  async softDeleteManhwa(id: number) {
+    await db.update(manhwa).set({ deletedAt: new Date() }).where(eq(manhwa.id, id));
+  }
+
+  async recoverManhwa(id: number) {
+    await db.update(manhwa).set({ deletedAt: null }).where(eq(manhwa.id, id));
+  }
+
+  async getDeletedManhwa() {
+    return await db.select().from(manhwa).where(sql`${manhwa.deletedAt} IS NOT NULL`).orderBy(desc(manhwa.deletedAt));
+  }
   async createManual(data: {
     title: string;
     coverUrl?: string;

@@ -81,7 +81,15 @@ export class ManhwaService {
   }
 
   async delete(id: number) {
-    return await this.repo.deleteById(id);
+    return await this.repo.softDeleteManhwa(id);
+  }
+
+  async recover(id: number) {
+    return await this.repo.recoverManhwa(id);
+  }
+
+  async getDeleted() {
+    return await this.repo.getDeletedManhwa();
   }
 
   async addSource(manhwaId: number, url: string, type: 'telegram' | 'website') {

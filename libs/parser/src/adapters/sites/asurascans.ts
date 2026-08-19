@@ -17,7 +17,15 @@ export const asuraScansAdapter: WebsiteAdapter = {
 
   async chapterList(url) {
     const html = await fetchHtml(url);
-    return extractChaptersFromHtml(html, url);
+    const list = extractChaptersFromHtml(html, url);
+    const now = Date.now();
+    // Filter chapters still within the early-access window (posted < 6h ago).
+    // AsuraScans locks chapters behind a paywall for the first 6 hours — the
+    // badge is injected via JS so server-side scraping can't see it, but we
+    // can detect it via the relative timestamp.
+    return list.filter(
+      (c) => !c.publishedAt || now - c.publishedAt.getTime() >= EARLY_ACCESS_WINDOW_MS
+    );
   },
 
   async latestChapter(url) {

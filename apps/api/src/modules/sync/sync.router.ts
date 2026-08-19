@@ -28,8 +28,8 @@ export const syncRouter = createTRPCRouter({
       }
     }),
 
-  /** Returns last 20 sync runs (newest first) from the in-process ring buffer. */
-  getHistory: publicProcedure.query(() => getSyncHistory()),
+  /** Returns last 20 sync runs (newest first) from the database. */
+  getHistory: publicProcedure.query(async () => getSyncHistory()),
   
   /** Returns whether a sync is currently running in the background. */
   isSyncing: publicProcedure.query(() => getIsSyncing()),

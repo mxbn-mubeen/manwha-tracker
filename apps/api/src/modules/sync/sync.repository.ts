@@ -1,5 +1,5 @@
-import { db, manhwa, sources, chapters } from '@manhwa-tracker/database';
-import { eq, and, sql } from 'drizzle-orm';
+import { db, manhwa, sources, chapters, syncRuns, type InsertSyncRunRow } from '@manhwa-tracker/database';
+import { eq, and, sql, desc } from 'drizzle-orm';
 
 export class SyncRepository {
   /**
@@ -56,5 +56,13 @@ export class SyncRepository {
 
   async touchManhwaUpdatedAt(manhwaId: number) {
     await db.update(manhwa).set({ updatedAt: new Date() }).where(eq(manhwa.id, manhwaId));
+  }
+
+  async insertSyncRun(data: Omit<InsertSyncRunRow, 'id' | 'runAt'>) {
+    await db.insert(syncRuns).values(data);
+  }
+
+  async getRecentSyncRuns(limit: number = 20) {
+    return await db.select().from(syncRuns).orderBy(desc(syncRuns.runAt)).limit(limit);
   }
 }

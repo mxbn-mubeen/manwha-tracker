@@ -7,12 +7,14 @@ export function getIsSyncing(): boolean {
   return isCurrentlySyncing;
 }
 
-/** In-process ring buffer — last 20 sync runs. Cleared on server restart. */
-const syncHistory: SyncRun[] = [];
-const HISTORY_MAX = 20;
-
-export function getSyncHistory(): SyncRun[] {
-  return [...syncHistory].reverse(); // newest first
+export async function getSyncHistory(): Promise<SyncRun[]> {
+  const repo = new SyncRepository();
+  const runs = await repo.getRecentSyncRuns(20);
+  
+  // The UI and shared types expect 'runAt' as a Date, which it is since Neon returns it that way
+  // We need to map `SyncRunRow` back to the shared `SyncRun` interface if needed,
+  // but they're basically identical now except for the id.
+  return runs as any[];
 }
 
 
@@ -138,7 +140,14 @@ export class SyncService {
 
         try {
           const adapter = getAdapter(source.adapterKey, source.url);
-          const chapters = await adapter.chapterList(source.url);
+          
+          // Strict 60-second timeout to prevent sync from hanging indefinitely
+          const chapters = await Promise.race([
+            adapter.chapterList(source.url),
+            new Promise<never>((_, reject) => 
+              setTimeout(() => reject(new Error('Sync operation timed out after 60 seconds.')), 60000)
+            )
+          ]);
 
           if (chapters.length === 0) {
             outcome = {
@@ -230,10 +239,16 @@ export class SyncService {
 
     result.duration = Date.now() - start;
 
-    // Push to ring buffer (newest at end; getSyncHistory reverses)
-    const run: SyncRun = { ...result, runAt: new Date() };
-    syncHistory.push(run);
-    if (syncHistory.length > HISTORY_MAX) syncHistory.shift();
+    // Push to database history
+    await this.repo.insertSyncRun({
+      scannedSources: result.scannedSources,
+      newChapters: result.newChapters,
+      updatedManhwa: result.updatedManhwa,
+      skippedTelegram: result.skippedTelegram,
+      errors: result.errors,
+      rows: result.rows,
+      duration: result.duration,
+    });
 
     return result;
     } finally {

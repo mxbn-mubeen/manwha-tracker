@@ -111,6 +111,21 @@ export const manhwaRouter = createTRPCRouter({
       }
     }),
 
+  recover: publicProcedure
+    .input(z.coerce.number().int().positive())
+    .mutation(async ({ input }) => {
+      try {
+        return await service.recover(input);
+      } catch (err) {
+        throw toSafeError(err, 'manhwa.recover');
+      }
+    }),
+
+  getDeleted: publicProcedure
+    .query(async () => {
+      return await service.getDeleted();
+    }),
+
   addSource: publicProcedure
     .input(z.object({
       manhwaId: z.coerce.number().int().positive(),

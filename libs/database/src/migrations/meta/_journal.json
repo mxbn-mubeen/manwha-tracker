@@ -8,6 +8,13 @@
       "when": 1784807667434,
       "tag": "0000_colossal_rhino",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787148881449,
+      "tag": "0001_blushing_squadron_supreme",
+      "breakpoints": true
     }
   ]
 }

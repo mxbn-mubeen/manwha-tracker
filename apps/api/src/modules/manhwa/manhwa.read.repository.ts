@@ -47,6 +47,7 @@ export class ManhwaReadRepository {
       .from(manhwa)
       .leftJoin(progress, eq(progress.manhwaId, manhwa.id))
       .leftJoin(sources, eq(sources.manhwaId, manhwa.id))
+      .where(sql`${manhwa.deletedAt} IS NULL`)
       .orderBy(desc(manhwa.updatedAt));
 
     // Deduplicate: a manhwa may have multiple sources, take first
