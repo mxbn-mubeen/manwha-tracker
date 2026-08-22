@@ -48,9 +48,9 @@ export function RunCard({ run }: { run: SyncRun }) {
       {/* Run summary header */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.03] transition-colors"
+        className="w-full flex items-center justify-between gap-2 px-4 py-3 hover:bg-white/[0.03] transition-colors text-left"
       >
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
           <Clock className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
           <span className="text-zinc-300 font-medium">{formatRelative(run.runAt)}</span>
           <span className="text-zinc-600">·</span>
@@ -75,6 +75,125 @@ export function RunCard({ run }: { run: SyncRun }) {
           : <ChevronRight className="h-4 w-4 text-zinc-600 shrink-0" />
         }
       </button>
+
+      {/* Per-source rows */}
+      {open && (
+        <div className="border-t border-border/20">
+          {/* Tabs */}
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-border/10 bg-[#161719]">
+            <button 
+              onClick={() => setFilter('all')}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'all' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50'}`}
+            >
+              All ({run.rows.length})
+            </button>
+            <button 
+              onClick={() => setFilter('new')}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'new' ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10'}`}
+            >
+              New ({newCount})
+            </button>
+            <button 
+              onClick={() => setFilter('issues')}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'issues' ? 'bg-amber-500/20 text-amber-400' : 'text-zinc-500 hover:text-amber-400 hover:bg-amber-500/10'}`}
+            >
+              Issues ({issueCount})
+            </button>
+          </div>
+
+          {/* Table header - hidden on mobile, shown from sm up */}
+          <div className="hidden sm:grid grid-cols-[1fr_1.5fr_60px_auto] gap-3 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-600 border-b border-border/10">
+            <span>Source</span>
+            <span>Manhwa</span>
+            <span className="text-right">Ch.</span>
+            <span>Status</span>
+          </div>
+          {filteredRows.map((row: SyncSourceRow, i: number) => {
+            const cfg = STATUS_CONFIG[row.status];
+            return (
+              <div
+                key={i}
+                className="flex flex-col gap-1.5 px-4 py-2.5 text-sm border-b border-border/10 last:border-0 hover:bg-white/[0.02] sm:grid sm:grid-cols-[1fr_1.5fr_60px_auto] sm:gap-3 sm:items-start"
+              >
+                <div className="flex items-center justify-between gap-2 sm:contents">
+                  <span className="text-zinc-400 truncate min-w-0">{row.source}</span>
+                  <span className="text-zinc-400 font-mono text-xs sm:text-sm sm:text-right shrink-0">
+                    {row.chapterFound != null ? `ch. ${row.chapterFound}` : '—'}
+                  </span>
+                </div>
+                <span className="text-zinc-300 truncate min-w-0">{row.manhwaTitle}</span>
+                <span className="hidden sm:inline text-right text-zinc-400 font-mono">
+                  {row.chapterFound != null ? row.chapterFound : '—'}
+                </span>
+                <div className="flex flex-col gap-1">
+                  <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap w-fit ${cfg.cls}`}>
+                    {cfg.icon}
+                    {cfg.label}
+                  </span>
+                  {row.reason && (
+                    <span className="text-[10px] text-zinc-600 pl-1 break-words">{row.reason}</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          
+          {filteredRows.length === 0 && (
+            <div className="px-4 py-8 text-center text-sm text-zinc-500">
+              No sources match this filter.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main drawer ───────────────────────────────────────────────────────────────
+
+interface SyncHistoryDrawerProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+export function SyncHistoryDrawer({ open, onClose }: SyncHistoryDrawerProps) {
+  const { data: history = [] } = trpc.sync.getHistory.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+    staleTime: 0,
+  });
+
+  return (
+    <Sheet open={open} onOpenChange={(v: boolean) => !v && onClose()}>
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-4xl bg-[#0d0e10] border-border/30 flex flex-col"
+      >
+        <SheetHeader className="pb-4 border-b border-border/20">
+          <SheetTitle className="text-white flex items-center gap-2">
+            <Clock className="h-4 w-4 text-amber-400" />
+            Sync History
+          </SheetTitle>
+        </SheetHeader>
+
+        <div 
+          className="flex-1 overflow-y-auto py-4 pr-1 space-y-3 [&::-webkit-scrollbar]:hidden"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {history.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-40 text-zinc-600 gap-2">
+              <Clock className="h-8 w-8 opacity-30" />
+              <p className="text-sm">No syncs yet this session.</p>
+              <p className="text-xs opacity-60">Run a sync to see results here.</p>
+            </div>
+          ) : (
+            history.map((run, i) => <RunCard key={i} run={run as SyncRun} />)
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 
       {/* Per-source rows */}
       {open && (
