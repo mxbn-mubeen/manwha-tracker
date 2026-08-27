@@ -23,11 +23,9 @@ const PORT = process.env.PORT || 3002;
 const syncService = new SyncService();
 
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:5173',
-    ...(process.env.FRONTEND_URL || '').split(',').filter(Boolean),
-  ],
+  origin: function (origin, callback) {
+    callback(null, origin || '*');
+  },
   credentials: true,
 }));
 

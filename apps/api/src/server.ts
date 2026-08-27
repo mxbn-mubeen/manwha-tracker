@@ -22,14 +22,13 @@ process.on("uncaughtException", (err) => {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// CORS — allow the Vite frontend (dev: port 3000) and the live Vercel domain
+// CORS — dynamically reflect the origin to prevent CORS issues with preview URLs
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:5173",
-      ...(process.env.FRONTEND_URL || "").split(",").filter(Boolean),
-    ],
+    origin: function (origin, callback) {
+      // Allow any origin
+      callback(null, origin || '*');
+    },
     credentials: true,
   }),
 );

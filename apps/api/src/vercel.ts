@@ -11,11 +11,9 @@ import type { IncomingMessage, ServerResponse } from 'http';
 const allowedOrigins = (process.env.FRONTEND_URL || '').split(',').filter(Boolean);
 
 function setCors(req: IncomingMessage, res: ServerResponse) {
-  const origin = (req.headers.origin as string) || '';
-  const isAllowed =
-    !allowedOrigins.length || allowedOrigins.some((o) => origin.startsWith(o));
+  const origin = (req.headers.origin as string) || '*';
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', isAllowed ? origin : '');
+  res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-app-secret');
 }
