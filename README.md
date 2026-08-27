@@ -20,13 +20,14 @@ A personal, single-user Manhwa/Manga reading tracker. Automatically monitors cha
 | Styling | Tailwind CSS v4 + shadcn/ui |
 | Language | TypeScript 5 |
 | Data Fetching | TanStack Query v5 + tRPC React hooks |
-| API Backend | Express 4 + tRPC v11 (port 3001) |
+| API Backend | Express 4 + tRPC v11 (port 3001 locally, Vercel Serverless in prod) |
 | ORM | Drizzle ORM (plain query builder — neon-http driver) |
 | Validation | Zod |
 | Database | Neon PostgreSQL (serverless HTTP driver) |
 | Monorepo | PNPM Workspaces + TurboRepo |
 | Telegram Sync | GramJS (MTProto personal account) |
-| Scraping | Cheerio |
+| Scraping | Cheerio + FlareSolverr (for protected sites) |
+| Hosting | Vercel (frontend + fast API) + Render (background worker) |
 
 > **Note:** State management is handled entirely by TanStack Query — no Zustand or Redux.
 
@@ -72,38 +73,75 @@ manhwa-tracker/
 - Neon PostgreSQL account
 - Telegram API ID, API Hash, and phone number (for Telegram sync)
 
-### Setup on a New Machine
+### Local Development
 
-When pulling this repository on another laptop, **all commands must be run from the monorepo root directory** (`manhwa-tracker/`), unless specified otherwise. Turborepo and pnpm workspaces will automatically route commands to the correct apps (`web` or `api`).
+> All commands must be run from the **monorepo root** (`manhwa-tracker/`), not inside `apps/web` or `apps/api`.
 
 1. **Install dependencies**
    ```bash
    pnpm install
    ```
 
-2. **Setup Environment Variables**
+2. **Set up environment variables**
+
+   Copy the example `.env` file at the root:
    ```bash
-   # Copy the root .env.example
    cp .env.example .env
-   # Copy the web app's .env.example 
-   cp apps/web/.env.example apps/web/.env
    ```
+   Fill in your `DATABASE_URL`, `APP_SECRET`, and Telegram credentials.
 
-3. **Fill in your secrets:**
-   - Open the root `.env` file and provide your `DATABASE_URL` (Neon PostgreSQL), Telegram credentials, and a randomly generated `APP_SECRET` (e.g. `openssl rand -hex 32`).
-   - Open `apps/web/.env` and ensure `VITE_APP_SECRET` is set to the exact same value as your `APP_SECRET`.
-
-4. **Sync the Database Schema**
+3. **Sync the database schema**
    ```bash
    pnpm run db:push
    ```
 
-5. **Start the Application**
+4. **Start the full app (frontend + backend together)**
+
+   > If you get a port conflict error, first run: `npx kill-port 3000 3001`
+
    ```bash
    pnpm dev
    ```
 
-Frontend runs at **http://localhost:3000**, API at **http://localhost:3001**.
+   - Frontend: **http://localhost:3000**
+   - API: **http://localhost:3001**
+
+   > The Telegram watcher will fail to connect locally if Telegram is blocked on your network. This is expected — the UI still works fully.
+
+---
+
+## Deployment Architecture
+
+This project uses a **hybrid hosting** strategy to stay 100% free:
+
+| Service | Host | Purpose |
+|---|---|---|
+| Frontend + Fast tRPC API | **Vercel** | Serves UI, handles all fast DB queries via Serverless Functions |
+| Background Worker | **Render** (Docker) | Runs Telegram watcher, Telegram bot, handles `sync.run` |
+| FlareSolverr | **Render** (sleeps when idle) | Browser rendering for protected manga sites |
+| Database | **Neon PostgreSQL** | Shared between Vercel and Render |
+
+### Vercel Environment Variables
+
+| Variable | Value |
+|---|---|
+| `DATABASE_URL` | Your Neon Postgres URL |
+| `APP_SECRET` | Your shared secret |
+| `VITE_APP_SECRET` | Same as `APP_SECRET` |
+| `VITE_SYNC_URL` | Your Render worker URL (e.g. `https://your-api.onrender.com`) |
+
+### Render Environment Variables
+
+| Variable | Value |
+|---|---|
+| `DATABASE_URL` | Your Neon Postgres URL |
+| `APP_SECRET` | Same as Vercel `APP_SECRET` |
+| `FRONTEND_URL` | Your Vercel URL (e.g. `https://your-app.vercel.app`) |
+| `FLARESOLVERR_URL` | Your FlareSolverr URL on Render |
+| `TELEGRAM_API_ID` | Your Telegram API ID |
+| `TELEGRAM_API_HASH` | Your Telegram API Hash |
+| `TELEGRAM_BOT_TOKEN` | Your Telegram Bot Token |
+| `ALLOWED_CHAT_ID` | Your Telegram chat ID |
 
 ### Environment Variables
 

@@ -1,7 +1,7 @@
 # Manhwa Tracker — Master Memory
 
-project_root: D:\manwha-tracker
-last_brain_review: 2026-08-16
+project_root: F:\manwha-tracker
+last_brain_review: 2026-08-27
 
 ## What This Project Does
 
@@ -45,6 +45,27 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - Log readability: session death log reformatted into multi-line emoji blocks matching Source Updated style OK
 - Toast consistency: all toast.error/toast.success in TelegramSection use single-string format matching rest of project OK
 - Telegram bot commands extended: added `/create`, `/latest`, `/read` allowing full manhwa and progress management directly from Telegram without the web UI OK
+
+### Deployment Architecture (as of 2026-08-27)
+
+**Hybrid split: Vercel (fast API + frontend) + Render (background worker)**
+
+| Service | Host | What it does |
+|---|---|---|
+| Frontend + Fast tRPC API | Vercel | Serves UI, handles all fast DB queries via Serverless Functions at `/api/trpc/...` |
+| Background Worker | Render (Docker) | Runs Telegram watcher, Telegram bot, and handles `sync.run` long-running jobs |
+| FlareSolverr | Render (Docker, sleeps) | Browser rendering for protected manga sites — wakes on demand during sync |
+| Database | Neon PostgreSQL | Shared between Vercel and Render |
+
+**Key env vars:**
+- Vercel: `DATABASE_URL`, `APP_SECRET`, `VITE_APP_SECRET`, `VITE_SYNC_URL` (Render URL)
+- Render: `DATABASE_URL`, `APP_SECRET`, `FRONTEND_URL` (Vercel URL), `FLARESOLVERR_URL`, all Telegram vars
+
+**tRPC routing (frontend `providers.tsx`):**
+- `sync.run` → `VITE_SYNC_URL/trpc` (Render)
+- Everything else → `/api/trpc` (Vercel Serverless Function)
+
+**Local dev:** Run `pnpm dev` from monorepo root. Frontend on :3000, API on :3001. Kill ports first with `npx kill-port 3000 3001` if ports are in use.
 
 ### DB Driver Constraints (CRITICAL)
 - Driver: `drizzle-orm/neon-http` — **Neon HTTP serverless**
@@ -112,7 +133,10 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - Root `.env` — Authoritative shared file (DATABASE_URL + Telegram API_ID/API_HASH/PHONE/SESSION)
 - `apps/api/src/env.ts` — loads root `.env` explicitly via `dotenv.config({ path: resolve(__dirname, '../../../.env') })`
 - `apps/api/.env` — copy of root `.env` (kept as fallback but edits should go to root)
-- Frontend uses `VITE_API_URL` env var (defaults to `http://localhost:3001`)
+- Frontend NO LONGER uses `VITE_API_URL` for production. It auto-detects host:
+  - Production (non-localhost): routes to `/api` (Vercel Serverless)
+  - Local: routes to `http://localhost:3001`
+- `VITE_SYNC_URL` — points to Render URL for `sync.run` mutations (required in Vercel env vars)
 
 ## Roadmap Phases
 
