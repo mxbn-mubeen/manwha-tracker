@@ -2,10 +2,16 @@ import type { WebsiteAdapter } from "@manhwa-tracker/shared";
 import { fetchRenderedHtml } from "../browser";
 import { detectTitleFromHtml, extractChaptersFromHtml } from "../utils/chapter-extract";
 
-export const asuraScansAdapter: WebsiteAdapter = {
-  key: "asurascans",
-  name: "AsuraScans",
-  urlPatterns: [/asuracomic\.net/i, /asurascans\.com/i, /asurascan\.com/i],
+/**
+ * mgeko.com serves a bot-detection redirect page to plain HTTP fetchers —
+ * the actual chapter list never appears in the static response.
+ * We use the full browser renderer so the JS runs and the real page loads.
+ * Mgeko uses a Madara-style theme where chapters are listed as <a> links once rendered.
+ */
+export const mgekoAdapter: WebsiteAdapter = {
+  key: "mgeko",
+  name: "Mgeko",
+  urlPatterns: [/mgeko\.cc/i, /mgeko\.com/i],
 
   async detectTitle(url) {
     const html = await fetchRenderedHtml(url, { waitForSelector: "h1" });
@@ -13,9 +19,6 @@ export const asuraScansAdapter: WebsiteAdapter = {
   },
 
   async chapterList(url) {
-    // We use fetchRenderedHtml here because AsuraScans injects "EARLY ACCESS" 
-    // tags dynamically via JS. By letting the browser render the page, the 
-    // LOCKED_CHAPTER_INDICATOR in chapter-extract.ts naturally filters them out.
     const html = await fetchRenderedHtml(url, { waitForSelector: "a[href*='chapter']" });
     return extractChaptersFromHtml(html, url);
   },
@@ -25,4 +28,3 @@ export const asuraScansAdapter: WebsiteAdapter = {
     return list[0] ?? null;
   },
 };
-

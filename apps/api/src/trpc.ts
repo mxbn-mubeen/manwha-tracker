@@ -40,7 +40,11 @@ const requireSecret = t.middleware(({ ctx, next }) => {
     });
   }
 
-  const providedSecret = ctx.req.header('x-app-secret') ?? '';
+  let secretHeader = typeof ctx.req.header === 'function' ? ctx.req.header('x-app-secret') : ctx.req.headers?.['x-app-secret'];
+  if (Array.isArray(secretHeader)) {
+    secretHeader = secretHeader[0];
+  }
+  const providedSecret = secretHeader ?? '';
   const expected = Buffer.from(configuredSecret);
   const provided = Buffer.from(providedSecret);
   const isAuthorized = expected.length === provided.length && timingSafeEqual(expected, provided);

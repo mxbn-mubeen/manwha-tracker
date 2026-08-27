@@ -1,12 +1,19 @@
 import { SyncRepository } from './sync.repository';
+import { SettingsRepository } from '../settings/settings.repository';
 import type { SyncScope, SyncResult, SyncSourceRow, SyncRun } from '@manhwa-tracker/shared';
 
-/** In-process tracking of sync status */
-let isCurrentlySyncing = false;
-export function getIsSyncing(): boolean {
-  return isCurrentlySyncing;
+const IS_SYNCING_KEY = 'sys_is_syncing';
+
+export async function getIsSyncing(): Promise<boolean> {
+  const repo = new SettingsRepository();
+  const val = await repo.get(IS_SYNCING_KEY);
+  return val === 'true';
 }
 
+export async function setIsSyncing(value: boolean): Promise<void> {
+  const repo = new SettingsRepository();
+  await repo.set(IS_SYNCING_KEY, value ? 'true' : 'false');
+}
 export async function getSyncHistory(): Promise<SyncRun[]> {
   const repo = new SyncRepository();
   const runs = await repo.getRecentSyncRuns(20);
@@ -101,10 +108,11 @@ export class SyncService {
   }
 
   async run(scope: SyncScope = 'all'): Promise<SyncResult> {
+    const isCurrentlySyncing = await getIsSyncing();
     if (isCurrentlySyncing) {
       throw new Error("Sync is already running in the background");
     }
-    isCurrentlySyncing = true;
+    await setIsSyncing(true);
     try {
       const start = Date.now();
       const result: SyncResult = {
@@ -132,6 +140,25 @@ export class SyncService {
       const { getAdapter } = await import('@manhwa-tracker/parser');
       const webSources = await this.repo.getActiveSources('website');
       result.scannedSources = webSources.length;
+
+      // Wake up FlareSolverr before processing sources.
+      // On Render's free tier, the FlareSolverr instance sleeps after 15 min idle.
+      // Cold-starting it takes 30–60s — long enough to eat the entire 60s per-source
+      // timeout and cause every Cloudflare site to fail on the first sync after idle.
+      // Pinging it here gives it time to fully boot before we need it.
+      const flareSolverrUrl = process.env.FLARESOLVERR_URL;
+      if (flareSolverrUrl) {
+        const wakeStart = Date.now();
+        console.log('[sync] Waking up FlareSolverr...');
+        try {
+          await fetch(flareSolverrUrl.replace(/\/v1\/?$/, ''), {
+            signal: AbortSignal.timeout(70_000), // generous — cold start can take 60s
+          });
+          console.log(`[sync] FlareSolverr ready in ${Date.now() - wakeStart}ms`);
+        } catch {
+          console.warn('[sync] FlareSolverr did not respond — Cloudflare sites may fail this run.');
+        }
+      }
 
       const updatedManhwaIds = new Set<number>();
 
@@ -252,7 +279,7 @@ export class SyncService {
 
     return result;
     } finally {
-      isCurrentlySyncing = false;
+      await setIsSyncing(false);
     }
   }
 }

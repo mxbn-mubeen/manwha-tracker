@@ -32,5 +32,5 @@ export const syncRouter = createTRPCRouter({
   getHistory: publicProcedure.query(async () => getSyncHistory()),
   
   /** Returns whether a sync is currently running in the background. */
-  isSyncing: publicProcedure.query(() => getIsSyncing()),
+  isSyncing: publicProcedure.query(async () => await getIsSyncing()),
 });

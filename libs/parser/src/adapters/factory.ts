@@ -7,6 +7,8 @@ import { comixToAdapter } from "./sites/comixto";
 import { roliascanAdapter } from "./sites/roliascan";
 import { thunderscansAdapter } from "./sites/thunderscans";
 import { arenaScansAdapter } from "./sites/arenascans";
+import { ultimateOfAllAgesAdapter } from "./sites/ultimateofallages";
+import { mgekoAdapter } from "./sites/mgeko";
 import { genericAdapter } from "./sites/generic";
 
 /** Ordered by specificity — generic (matches everything) is never in this list. */
@@ -19,6 +21,8 @@ const SITE_ADAPTERS: WebsiteAdapter[] = [
   roliascanAdapter,
   thunderscansAdapter,
   arenaScansAdapter,
+  ultimateOfAllAgesAdapter,
+  mgekoAdapter,
 ];
 
 const ADAPTERS_BY_KEY: Record<string, WebsiteAdapter> = Object.fromEntries(
@@ -44,4 +48,4 @@ export function getAdapter(adapterKey: string | null | undefined, url: string): 
   return ADAPTERS_BY_KEY[detectedKey] ?? genericAdapter;
 }
 
-export { asuraScansAdapter, webtoonAdapter, reaperScansAdapter, manhuausAdapter, comixToAdapter, roliascanAdapter, thunderscansAdapter, genericAdapter };
+export { asuraScansAdapter, webtoonAdapter, reaperScansAdapter, manhuausAdapter, comixToAdapter, roliascanAdapter, thunderscansAdapter, ultimateOfAllAgesAdapter, mgekoAdapter, genericAdapter };

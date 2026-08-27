@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { httpBatchLink } from '@trpc/client';
+import { httpBatchLink, splitLink } from '@trpc/client';
 import superjson from 'superjson';
 import { trpc } from '@/lib/trpc';
 import { Toaster } from 'sonner';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const SYNC_URL = import.meta.env.VITE_SYNC_URL || API_URL;
 const APP_SECRET = import.meta.env.VITE_APP_SECRET || '';
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -18,10 +19,20 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [trpcClient] = useState(() =>
     trpc.createClient({
       links: [
-        httpBatchLink({
-          url: `${API_URL}/trpc`,
-          transformer: superjson,
-          headers: () => ({ 'x-app-secret': APP_SECRET }),
+        splitLink({
+          condition(op) {
+            return op.path === 'sync.run';
+          },
+          true: httpBatchLink({
+            url: `${SYNC_URL}/trpc`,
+            transformer: superjson,
+            headers: () => ({ 'x-app-secret': APP_SECRET }),
+          }),
+          false: httpBatchLink({
+            url: `${API_URL}/trpc`,
+            transformer: superjson,
+            headers: () => ({ 'x-app-secret': APP_SECRET }),
+          }),
         }),
       ],
     })

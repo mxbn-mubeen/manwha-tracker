@@ -2,20 +2,22 @@ import type { WebsiteAdapter } from "@manhwa-tracker/shared";
 import { fetchRenderedHtml } from "../browser";
 import { detectTitleFromHtml, extractChaptersFromHtml } from "../utils/chapter-extract";
 
-export const asuraScansAdapter: WebsiteAdapter = {
-  key: "asurascans",
-  name: "AsuraScans",
-  urlPatterns: [/asuracomic\.net/i, /asurascans\.com/i, /asurascan\.com/i],
-
+/**
+ * theultimateofallages.com uses a Madara-like theme where the chapter list
+ * is sometimes populated dynamically via AJAX. We use the browser renderer
+ * to ensure all chapters are loaded.
+ */
+export const ultimateOfAllAgesAdapter: WebsiteAdapter = {
+  key: "ultimateofallages",
+  name: "Ultimate of All Ages",
+  urlPatterns: [/theultimateofallages\.com/i],
+  
   async detectTitle(url) {
     const html = await fetchRenderedHtml(url, { waitForSelector: "h1" });
     return detectTitleFromHtml(html);
   },
 
   async chapterList(url) {
-    // We use fetchRenderedHtml here because AsuraScans injects "EARLY ACCESS" 
-    // tags dynamically via JS. By letting the browser render the page, the 
-    // LOCKED_CHAPTER_INDICATOR in chapter-extract.ts naturally filters them out.
     const html = await fetchRenderedHtml(url, { waitForSelector: "a[href*='chapter']" });
     return extractChaptersFromHtml(html, url);
   },
@@ -25,4 +27,3 @@ export const asuraScansAdapter: WebsiteAdapter = {
     return list[0] ?? null;
   },
 };
-
