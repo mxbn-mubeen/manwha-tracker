@@ -159,11 +159,23 @@ export function ManhwaHeader({ id, title, status, genres, description, latestCha
             <span className="font-semibold text-white">{latestChapter}</span>
             <button
               onClick={startEditingChapter}
-              className="text-muted-foreground hover:text-white"
+              className="text-muted-foreground hover:text-white ml-1"
               aria-label="Edit latest chapter"
             >
               <Pencil className="h-3.5 w-3.5" />
             </button>
+            <div className="flex items-center gap-1.5 ml-3">
+              {[1, 2, 5].map((inc) => (
+                <button
+                  key={inc}
+                  onClick={() => updateLatestChapterMutation.mutate({ id, chapterNum: latestChapter + inc })}
+                  disabled={updateLatestChapterMutation.isPending}
+                  className="text-[11px] font-bold bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/40 text-amber-500 px-2 py-0.5 rounded-md transition-all active:scale-95"
+                >
+                  +{inc}
+                </button>
+              ))}
+            </div>
           </>
         )}
       </div>

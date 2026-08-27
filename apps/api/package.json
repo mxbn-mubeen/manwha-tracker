@@ -22,7 +22,7 @@
     "express": "^4.19.2",
     "got-scraping": "^4.2.1",
     "input": "^1.0.1",
-    "superjson": "^2.2.6",
+    "superjson": "^1.13.3",
     "teleproto": "^1.228.0",
     "zod": "^3.23.0"
   },
