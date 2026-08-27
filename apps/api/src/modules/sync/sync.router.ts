@@ -1,36 +1,32 @@
-
 import { z } from 'zod';
 import { createTRPCRouter, publicProcedure } from '../../trpc';
-import { SyncService, getSyncHistory, getIsSyncing } from './sync.service';
-import { toSafeError } from '../../utils/trpc-error';
+import { getSyncHistory, getIsSyncing } from './sync.service';
 
-const service = new SyncService();
-
-/** Shared input contract for triggering a sync — used by both the tRPC mutation
- *  (navbar "Sync" button) and the secret-protected REST route (GitHub Actions cron). */
+/** Shared input schema — also used by the worker's sync.run endpoint. */
 export const TriggerSyncSchema = z.object({
   scope: z.enum(['telegram', 'websites', 'all']).default('all'),
 });
 
-export const syncRouter = createTRPCRouter({
-  /** Triggered by the "Sync" button in the navbar. Protected by the
-   *  APP_SECRET middleware applied to all publicProcedures — see trpc.ts. */
-  run: publicProcedure
-    .input(TriggerSyncSchema.optional())
-    .mutation(async ({ input }) => {
-      try {
-        return await service.run(input?.scope ?? 'all');
-      } catch (err) {
-        // Per-source failures are already caught inside SyncService and sanitized
-        // into result.errors — reaching here means something broke outside that
-        // loop (e.g. the initial getActiveSources DB call).
-        throw toSafeError(err, 'sync.run');
-      }
-    }),
+import { TRPCError } from '@trpc/server';
 
+export const syncRouter = createTRPCRouter({
   /** Returns last 20 sync runs (newest first) from the database. */
   getHistory: publicProcedure.query(async () => getSyncHistory()),
-  
-  /** Returns whether a sync is currently running in the background. */
+
+  /** Returns whether a sync is currently running. State is stored in the DB
+   *  (key: sys_is_syncing) so both this API and the worker share the same lock. */
   isSyncing: publicProcedure.query(async () => await getIsSyncing()),
+
+  /**
+   * The actual sync.run execution happens on the Render worker via a splitLink in the frontend.
+   * We define it here ONLY so the frontend tRPC client gets the TypeScript types.
+   */
+  run: publicProcedure
+    .input(TriggerSyncSchema)
+    .mutation(async () => {
+      throw new TRPCError({
+        code: 'NOT_IMPLEMENTED',
+        message: 'sync.run is handled by the Render worker. The frontend splitLink should have intercepted this.',
+      });
+    }),
 });

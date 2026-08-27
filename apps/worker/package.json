@@ -1,0 +1,31 @@
+{
+  "name": "worker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node --max-old-space-size=256 dist/server.js"
+  },
+  "dependencies": {
+    "@manhwa-tracker/database": "workspace:*",
+    "@manhwa-tracker/parser": "workspace:*",
+    "@manhwa-tracker/shared": "workspace:*",
+    "@trpc/server": "^11.0.0-rc.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.31.0",
+    "express": "^4.19.2",
+    "got-scraping": "^4.2.1",
+    "superjson": "^2.2.6",
+    "teleproto": "^1.228.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20",
+    "tsx": "^4.15.0",
+    "typescript": "^5.5.0"
+  }
+}
