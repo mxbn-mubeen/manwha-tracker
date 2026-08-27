@@ -5,8 +5,8 @@ import superjson from 'superjson';
 import { trpc } from '@/lib/trpc';
 import { Toaster } from 'sonner';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-const SYNC_URL = import.meta.env.VITE_SYNC_URL || API_URL;
+const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/$/, '');
+const SYNC_URL = (import.meta.env.VITE_SYNC_URL || API_URL).replace(/\/$/, '');
 const APP_SECRET = import.meta.env.VITE_APP_SECRET || '';
 
 export function Providers({ children }: { children: React.ReactNode }) {
