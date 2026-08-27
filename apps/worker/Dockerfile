@@ -1,13 +1,13 @@
 # ── Stage 1: deps ─────────────────────────────────────────────────────────────
 FROM node:20-alpine AS deps
 
-# Install pnpm
 RUN corepack enable && corepack prepare pnpm@9 --activate
 
 WORKDIR /app
 
 # Copy workspace manifests first (layer cache)
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY apps/worker/package.json ./apps/worker/
 COPY apps/api/package.json ./apps/api/
 COPY libs/database/package.json ./libs/database/
 COPY libs/parser/package.json ./libs/parser/
@@ -15,57 +15,36 @@ COPY libs/shared/package.json ./libs/shared/
 COPY libs/utils/package.json ./libs/utils/
 COPY libs/ui/package.json ./libs/ui/
 
-# Install all workspace deps including devDependencies (needed for tsc at build time)
-RUN pnpm install --frozen-lockfile --filter api...
+RUN pnpm install --frozen-lockfile --filter worker...
 
 # ── Stage 2: builder ──────────────────────────────────────────────────────────
 FROM deps AS builder
 
-# Copy source code
 COPY tsconfig.base.json ./
+COPY apps/worker ./apps/worker
 COPY apps/api ./apps/api
 COPY libs/database ./libs/database
 COPY libs/parser ./libs/parser
 COPY libs/shared ./libs/shared
 COPY libs/utils ./libs/utils
 
-# Compile libs in dependency order, then the API
-# shared has no internal workspace deps
+# Build libs in dependency order
 RUN pnpm --filter @manhwa-tracker/shared build
-# utils has no internal workspace deps
 RUN pnpm --filter @manhwa-tracker/utils build
-# database depends on shared
 RUN pnpm --filter @manhwa-tracker/database build
-# parser depends on shared + utils
 RUN pnpm --filter @manhwa-tracker/parser build
-# api depends on all libs
-RUN pnpm --filter api build
+# Build worker (also compiles api sources it imports)
+RUN pnpm --filter worker build
 
 # ── Stage 3: runtime ──────────────────────────────────────────────────────────
 FROM node:20-alpine AS runner
 
 RUN corepack enable && corepack prepare pnpm@9 --activate
 
-# Alpine's own chromium + the libs it needs, instead of Playwright's bundled
-# download — Playwright's own Chromium build targets glibc and doesn't
-# reliably run on Alpine's musl libc. NOT verified end-to-end in this
-# sandbox (no network path here to actually launch it) — test this build for
-# real before relying on it in production.
-RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    freetype-dev \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont
-
-ENV PLAYWRIGHT_CHROMIUM_PATH=/usr/bin/chromium-browser
-
 WORKDIR /app
 
-# Copy workspace manifests (needed for pnpm prod install)
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY apps/worker/package.json ./apps/worker/
 COPY apps/api/package.json ./apps/api/
 COPY libs/database/package.json ./libs/database/
 COPY libs/parser/package.json ./libs/parser/
@@ -73,23 +52,18 @@ COPY libs/shared/package.json ./libs/shared/
 COPY libs/utils/package.json ./libs/utils/
 COPY libs/ui/package.json ./libs/ui/
 
-# Install production deps only (no devDependencies, no tsx)
-RUN pnpm install --frozen-lockfile --filter api... --prod
+RUN pnpm install --frozen-lockfile --filter worker... --prod
 
-# Copy compiled output from builder
+COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
-
-# Copy compiled dist/ of each lib (not src — those are .ts files Node can't run)
 COPY --from=builder /app/libs/database/dist ./libs/database/dist
 COPY --from=builder /app/libs/parser/dist ./libs/parser/dist
 COPY --from=builder /app/libs/shared/dist ./libs/shared/dist
 COPY --from=builder /app/libs/utils/dist ./libs/utils/dist
 
-# Cloud Run injects PORT; default to 3001 locally
-ENV PORT=3001
+ENV PORT=3002
 ENV NODE_ENV=production
 
-EXPOSE 3001
+EXPOSE 3002
 
-# Run compiled JS — no tsx required
-CMD ["node", "apps/api/dist/server.js"]
+CMD ["node", "apps/worker/dist/server.js"]

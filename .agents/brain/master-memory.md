@@ -90,7 +90,7 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 | `delete` | mutation | Remove manhwa from library |
 | `getTelegramCount` | query | Count of active Telegram sources |
 
-### Phase 3 Scripts (in `apps/api/src/scripts/`)
+### Phase 3 Scripts (in `apps/worker/src/scripts/`)
 - `bot/` — Telegram Alert Bot Service (handles alerts and private channel registration via forwards) ✅
 - `watcher/` — Telegram Download Watcher (GramJS event-driven: NewMessage + ReadInbox) ✅
 - `cron/cron-sync.ts` — runs the website sync loop ✅

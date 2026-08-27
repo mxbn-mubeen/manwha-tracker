@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "installCommand": "cd ../.. && pnpm install --filter api...",
+  "buildCommand": "cd ../.. && pnpm --filter @manhwa-tracker/shared build && pnpm --filter @manhwa-tracker/utils build && pnpm --filter @manhwa-tracker/database build && pnpm --filter @manhwa-tracker/parser build",
+  "functions": {
+    "src/vercel.ts": {
+      "memory": 512,
+      "maxDuration": 30
+    }
+  },
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "src/vercel.ts"
+    }
+  ]
+}

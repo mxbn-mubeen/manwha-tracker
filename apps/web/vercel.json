@@ -1,7 +1,7 @@
 {
   "rewrites": [
     {
-      "source": "/((?!api/|trpc/).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]

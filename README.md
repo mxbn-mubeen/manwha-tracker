@@ -44,17 +44,19 @@ manhwa-tracker/
 │   │       │   └── ui/       # shadcn/ui components
 │   │       └── lib/
 │   │           └── trpc.ts   # tRPC client
-│   └── api/              # Express + tRPC API server
+│   ├── api/              # Express + tRPC API server (Vercel Serverless)
+│   │   └── src/
+│   │       └── modules/
+│   │           ├── manhwa/   # manhwa router
+│   │           ├── sync/     # sync router (queries only)
+│   │           └── settings/ # settings router
+│   └── worker/           # Background Docker service (Render)
 │       └── src/
-│           ├── modules/
-│           │   ├── manhwa/   # manhwa router/service/repository
-│           │   ├── sync/     # website sync router/service/repository
-│           │   ├── settings/ # settings router
+│           ├── modules/  # sync and other long-running tasks
 │           └── scripts/
 │               ├── watcher/            # GramJS event-driven watcher
 │               ├── bot/                # Telegram alert bot service
-│               ├── cron/               # Website sync runner
-│               └── backfill-covers.ts  # One-off cover backfill
+│               └── cron/               # Website sync runner
 ├── libs/
 │   ├── database/         # Drizzle schema + Neon client singleton
 │   ├── parser/           # Website adapters (AsuraScans, Webtoon, Reaper, manhuaus, generic)
