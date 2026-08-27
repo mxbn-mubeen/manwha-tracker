@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Pencil, Check, X, ChevronDown } from 'lucide-react';
+import { Pencil, Check, X, ChevronDown, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
@@ -39,8 +39,14 @@ export function ManhwaHeader({ id, title, status, genres, description, latestCha
 
   const [isEditingChapter, setIsEditingChapter] = useState(false);
   const [chapterInput, setChapterInput] = useState(String(latestChapter));
+  const [optimisticChapter, setOptimisticChapter] = useState(latestChapter);
+  const [loadingInc, setLoadingInc] = useState<number | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setOptimisticChapter(latestChapter);
+  }, [latestChapter]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -65,6 +71,7 @@ export function ManhwaHeader({ id, title, status, genres, description, latestCha
       toast.error('Enter a valid chapter number');
       return;
     }
+    setOptimisticChapter(parsed);
     updateLatestChapterMutation.mutate({ id, chapterNum: parsed });
   };
 
@@ -141,10 +148,10 @@ export function ManhwaHeader({ id, title, status, genres, description, latestCha
             <button
               onClick={submitChapterEdit}
               disabled={updateLatestChapterMutation.isPending}
-              className="text-green-500 hover:text-green-400"
+              className="text-green-500 hover:text-green-400 flex items-center justify-center"
               aria-label="Save latest chapter"
             >
-              <Check className="h-4 w-4" />
+              {updateLatestChapterMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             </button>
             <button
               onClick={() => setIsEditingChapter(false)}
@@ -156,7 +163,7 @@ export function ManhwaHeader({ id, title, status, genres, description, latestCha
           </>
         ) : (
           <>
-            <span className="font-semibold text-white">{latestChapter}</span>
+            <span className="font-semibold text-white">{optimisticChapter}</span>
             <button
               onClick={startEditingChapter}
               className="text-muted-foreground hover:text-white ml-1"
@@ -165,16 +172,24 @@ export function ManhwaHeader({ id, title, status, genres, description, latestCha
               <Pencil className="h-3.5 w-3.5" />
             </button>
             <div className="flex items-center gap-1.5 ml-3">
-              {[1, 2, 5].map((inc) => (
-                <button
-                  key={inc}
-                  onClick={() => updateLatestChapterMutation.mutate({ id, chapterNum: latestChapter + inc })}
-                  disabled={updateLatestChapterMutation.isPending}
-                  className="text-[11px] font-bold bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/40 text-amber-500 px-2 py-0.5 rounded-md transition-all active:scale-95"
-                >
-                  +{inc}
-                </button>
-              ))}
+              {[1, 2, 5].map((inc) => {
+                const isThisLoading = updateLatestChapterMutation.isPending && loadingInc === inc;
+                return (
+                  <button
+                    key={inc}
+                    onClick={() => {
+                      setLoadingInc(inc);
+                      const newChapter = optimisticChapter + inc;
+                      setOptimisticChapter(newChapter);
+                      updateLatestChapterMutation.mutate({ id, chapterNum: newChapter });
+                    }}
+                    disabled={updateLatestChapterMutation.isPending}
+                    className="text-[11px] font-bold flex items-center justify-center w-8 h-5 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/40 text-amber-500 rounded-md transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+                  >
+                    {isThisLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : `+${inc}`}
+                  </button>
+                );
+              })}
             </div>
           </>
         )}
