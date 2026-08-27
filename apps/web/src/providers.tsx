@@ -5,7 +5,7 @@ import superjson from 'superjson';
 import { trpc } from '@/lib/trpc';
 import { Toaster } from 'sonner';
 
-const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? '/api' : 'http://localhost:3001');
 const SYNC_URL = import.meta.env.VITE_SYNC_URL || API_URL;
 const APP_SECRET = import.meta.env.VITE_APP_SECRET || '';
 
