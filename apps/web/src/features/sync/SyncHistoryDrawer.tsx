@@ -48,9 +48,9 @@ export function RunCard({ run }: { run: SyncRun }) {
       {/* Run summary header */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.03] transition-colors"
+        className="w-full flex items-center justify-between gap-2 px-4 py-3 hover:bg-white/[0.03] transition-colors text-left"
       >
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
           <Clock className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
           <span className="text-zinc-300 font-medium">{formatRelative(run.runAt)}</span>
           <span className="text-zinc-600">·</span>
@@ -101,8 +101,8 @@ export function RunCard({ run }: { run: SyncRun }) {
             </button>
           </div>
 
-          {/* Table header */}
-          <div className="grid grid-cols-[1fr_1.5fr_60px_auto] gap-3 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-600 border-b border-border/10">
+          {/* Table header - hidden on mobile, shown from sm up */}
+          <div className="hidden sm:grid grid-cols-[1fr_1.5fr_60px_auto] gap-3 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-600 border-b border-border/10">
             <span>Source</span>
             <span>Manhwa</span>
             <span className="text-right">Ch.</span>
@@ -111,19 +111,27 @@ export function RunCard({ run }: { run: SyncRun }) {
           {filteredRows.map((row: SyncSourceRow, i: number) => {
             const cfg = STATUS_CONFIG[row.status];
             return (
-              <div key={i} className="grid grid-cols-[1fr_1.5fr_60px_auto] gap-3 px-4 py-2.5 text-sm border-b border-border/10 last:border-0 hover:bg-white/[0.02] items-start">
-                <span className="text-zinc-400 truncate">{row.source}</span>
-                <span className="text-zinc-300 truncate">{row.manhwaTitle}</span>
-                <span className="text-right text-zinc-400 font-mono">
+              <div
+                key={i}
+                className="flex flex-col gap-1.5 px-4 py-2.5 text-sm border-b border-border/10 last:border-0 hover:bg-white/[0.02] sm:grid sm:grid-cols-[1fr_1.5fr_60px_auto] sm:gap-3 sm:items-start"
+              >
+                <div className="flex items-center justify-between gap-2 sm:contents">
+                  <span className="text-zinc-400 truncate min-w-0">{row.source}</span>
+                  <span className="text-zinc-400 font-mono text-xs sm:text-sm sm:text-right shrink-0">
+                    {row.chapterFound != null ? `ch. ${row.chapterFound}` : '—'}
+                  </span>
+                </div>
+                <span className="text-zinc-300 truncate min-w-0">{row.manhwaTitle}</span>
+                <span className="hidden sm:inline text-right text-zinc-400 font-mono">
                   {row.chapterFound != null ? row.chapterFound : '—'}
                 </span>
                 <div className="flex flex-col gap-1">
-                  <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${cfg.cls}`}>
+                  <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap w-fit ${cfg.cls}`}>
                     {cfg.icon}
                     {cfg.label}
                   </span>
                   {row.reason && (
-                    <span className="text-[10px] text-zinc-600 pl-1">{row.reason}</span>
+                    <span className="text-[10px] text-zinc-600 pl-1 break-words">{row.reason}</span>
                   )}
                 </div>
               </div>
@@ -185,4 +193,3 @@ export function SyncHistoryDrawer({ open, onClose }: SyncHistoryDrawerProps) {
     </Sheet>
   );
 }
-
