@@ -5,13 +5,17 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node --max-old-space-size=256 dist/server.js"
+    "start": "node --max-old-space-size=256 dist/server.js",
+    "watch:telegram": "tsx src/scripts/watcher/index.ts",
+    "bot:telegram": "tsx src/scripts/bot/index.ts",
+    "cron:sync": "tsx src/scripts/cron/cron-sync.ts"
   },
   "dependencies": {
     "@manhwa-tracker/database": "workspace:*",
     "@manhwa-tracker/parser": "workspace:*",
     "@manhwa-tracker/shared": "workspace:*",
     "@trpc/server": "^11.0.0-rc.0",
+    "big-integer": "^1.6.52",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.31.0",

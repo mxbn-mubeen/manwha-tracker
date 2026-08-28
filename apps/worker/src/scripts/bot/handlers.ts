@@ -5,7 +5,7 @@
 import { db, manhwa, sources } from '@manhwa-tracker/database';
 import { eq, and } from 'drizzle-orm';
 import { TelegramRepository } from '../../modules/telegram/telegram.repository';
-import { SettingsRepository } from '../../modules/settings/settings.repository';
+import { SettingsRepository } from '@manhwa-tracker/database';
 import { ManhwaService } from '../../modules/manhwa/manhwa.service';
 import { setBotAlertChatId } from '../../utils/bot-alert';
 import { sendText, splitSafe } from './api';

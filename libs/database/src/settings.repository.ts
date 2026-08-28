@@ -1,4 +1,4 @@
-import { db, settings } from '@manhwa-tracker/database';
+import { db, settings } from './index';
 import { eq } from 'drizzle-orm';
 
 export class SettingsRepository {
@@ -24,6 +24,16 @@ export class SettingsRepository {
         target: settings.key,
         set: { value: value as unknown as Record<string, unknown>, updatedAt: new Date() },
       });
+  }
+
+  /** Returns when a setting was last written, or null if it doesn't exist. */
+  async getUpdatedAt(key: string): Promise<Date | null> {
+    const [row] = await db
+      .select({ updatedAt: settings.updatedAt })
+      .from(settings)
+      .where(eq(settings.key, key))
+      .limit(1);
+    return row?.updatedAt ?? null;
   }
 
   async delete(key: string): Promise<void> {

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "../../trpc";
-import { SettingsRepository } from "./settings.repository";
+import { SettingsRepository } from '@manhwa-tracker/database';
 import { TelegramClient, Api } from "teleproto";
 import { randomUUID } from "crypto";
 import { connectTelegramClient } from "../../utils/telegram-client";

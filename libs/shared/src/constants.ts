@@ -5,12 +5,17 @@ export const MANHWA_STATUS = ['ongoing', 'completed', 'hiatus', 'dropped'] as co
 export const NOTIFICATION_TYPES = ['new_chapter', 'source_error', 'sync_complete'] as const;
 
 export const ADAPTER_KEYS = [
-  'mangadex',
-  'webtoon',
+  'generic',
+  'arenascans',
   'asurascans',
-  'reaperscans',
-  'flamecomics',
+  'comixto',
   'manhuaus',
+  'mgeko',
+  'reaperscans',
+  'roliascan',
+  'thunderscans',
+  'ultimateofallages',
+  'webtoon',
   'telegram',
 ] as const;
 

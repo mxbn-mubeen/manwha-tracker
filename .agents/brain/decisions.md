@@ -178,3 +178,75 @@ Append-only log. Never delete entries.
 - Alternatives considered: Headless browser to check paywalls (too heavy).
 - Affected modules: libs/parser/src/adapters/utils/chapter-extract.ts, libs/parser/src/adapters/sites/thunderscans.ts
 - Date: 2026-08-16
+
+---
+
+- Decision: `apps/api` was split into `apps/api` (fast tRPC queries, Vercel Serverless) and a new
+  `apps/worker` (long-running: Telegram watcher, Telegram bot, website sync, Docker/Render). Note:
+  the exact date this split happened isn't recorded in this log — it predates this entry. All
+  "Affected modules" paths in decision entries above this one that say `apps/api/src/scripts/...`
+  reflect the pre-split layout and were accurate at the time they were written; those scripts now
+  live under `apps/worker/src/scripts/...`. This entry exists to document the split itself, which
+  was never logged when it happened.
+- Reason: Vercel Serverless Functions can't run persistent processes (a Telegram MTProto client,
+  a long-polling bot) — those need to live somewhere long-running, decoupled from the fast API.
+- Alternatives considered: Keeping everything in one `apps/api` deployed somewhere that supports
+  long-running processes (rejected — loses Vercel's free/fast serverless tier for the UI-facing queries).
+- Affected modules: apps/api/*, apps/worker/* (new), .github/workflows/sync-cron.yml
+- Date: (undated in this log — discovered retroactively 2026-08-28)
+
+---
+
+- Decision: Fixed `.github/workflows/sync-cron.yml` and `apps/api`/`apps/worker` `package.json`
+  scripts after the `apps/api`/`apps/worker` split left them pointing at the wrong package —
+  the workflow still built/ran from `apps/api`, and `apps/api/package.json` still declared
+  `cron:sync`/`watch:telegram`/`bot:telegram` scripts pointing at `src/scripts/...` files that no
+  longer exist there (they moved to `apps/worker`). This was causing the GitHub Actions sync cron
+  to fail with `ERR_MODULE_NOT_FOUND`.
+- Reason: The workflow and script declarations were never updated when the split happened.
+- Alternatives considered: None — this was a straightforward drift fix, not a design decision.
+- Affected modules: .github/workflows/sync-cron.yml, apps/api/package.json, apps/worker/package.json
+- Date: 2026-08-28
+
+---
+
+- Decision: Fixed `ADAPTER_KEYS` in `libs/shared/src/constants.ts`, which had drifted from the real
+  website adapters in `libs/parser/src/adapters/sites/` — it listed `mangadex` (not a website
+  adapter; MangaDex is only used for cover-image lookup) and `flamecomics` (no adapter file exists
+  for it), and was missing `generic`, `arenascans`, `comixto`, `mgeko`, `roliascan`, `thunderscans`,
+  and `ultimateofallages`. Confirmed `ADAPTER_KEYS`/`AdapterKey` aren't consumed anywhere else in
+  the codebase yet (no zod schema, DB constraint, or UI dropdown references them), so this was
+  pure documentation drift with no runtime impact at the time of the fix.
+- Reason: `WebsiteAdapter.key` is typed as plain `string`, so nothing enforced the two lists staying
+  in sync as adapters were added over time.
+- Alternatives considered: Also changing `WebsiteAdapter.key` to be typed as `AdapterKey` so this
+  can't silently drift again (deferred — logged as a follow-up in task.md rather than done as part
+  of this fix, since it touches every adapter file).
+- Affected modules: libs/shared/src/constants.ts
+- Date: 2026-08-28
+
+---
+
+- Decision: `getIsSyncing()` now treats the `sys_is_syncing` DB flag as stale (and self-clears it)
+  if it's been `true` for more than 15 minutes, instead of trusting it forever.
+- Reason: User reported the site's Sync button showing "Syncing..." on every page load with no
+  sync actually running. Root cause: `SyncService.run()` only clears the lock in a `finally` block,
+  but syncs website sources sequentially with up to a 60s timeout each (plus a 70s FlareSolverr
+  wake-up), while `.github/workflows/sync-cron.yml`'s job had `timeout-minutes: 10`. A library with
+  roughly 9+ sources hitting worst-case timeouts in one run (e.g. `70s + 9×60s = 610s > 600s`) gets
+  the whole job force-killed by GitHub Actions before the `finally` block can run, permanently
+  sticking the lock at `true` in the database until some other run happens to complete cleanly.
+  Raised the workflow's `timeout-minutes` to 25 as the other half of the fix, but the self-healing
+  check is the real safety net — the lock can still be abandoned by other means (a Render redeploy
+  killing the worker mid-sync via `POST /trpc/sync.run`, an OOM kill, etc.), and this makes the app
+  recover from any of those on its own instead of needing a manual DB fix.
+- Alternatives considered: Only raising the workflow timeout (rejected — doesn't cover a killed
+  worker process outside the cron path, and doesn't self-heal an already-stuck lock from before
+  the fix); wrapping the cron job in a hard process-level watchdog that force-clears the flag on
+  exit (more complex than a staleness check for the same outcome).
+- Affected modules: apps/worker/src/modules/sync/sync.service.ts,
+  apps/api/src/modules/sync/sync.service.ts (same fix mirrored — its `getIsSyncing` is what the
+  frontend's poll actually calls), apps/api/src/modules/settings/settings.repository.ts and
+  apps/worker/src/modules/settings/settings.repository.ts (added `getUpdatedAt`),
+  .github/workflows/sync-cron.yml (`timeout-minutes: 10` → `25`)
+- Date: 2026-08-28

@@ -5,10 +5,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node --max-old-space-size=256 dist/server.js",
-    "watch:telegram": "tsx src/scripts/watcher/index.ts",
-    "bot:telegram": "tsx src/scripts/bot/index.ts",
-    "cron:sync": "tsx src/scripts/cron/cron-sync.ts"
+    "start": "node --max-old-space-size=256 dist/server.js"
   },
   "dependencies": {
     "@manhwa-tracker/database": "workspace:*",

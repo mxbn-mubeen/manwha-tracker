@@ -1,5 +1,5 @@
 import { sendBotAlert } from '../../utils/bot-alert';
-import { SettingsRepository } from '../../modules/settings/settings.repository';
+import { SettingsRepository } from '@manhwa-tracker/database';
 
 const settingsRepo = new SettingsRepository();
 

@@ -7,7 +7,7 @@ A personal, single-user Manhwa/Manga reading tracker. Automatically monitors cha
 - 📚 **Unified library** — 200+ manhwa titles in one place
 - 📖 **Auto reading progress** — opens a chapter in Telegram → last-read chapter updates automatically
 - 🔔 **New chapter detection** — Telegram watcher detects new chapter posts in real-time
-- 🌐 **Website sync** — scrapes AsuraScans, Reaper Scans, Webtoon, manhuaus.com for latest chapters
+- 🌐 **Website sync** — scrapes AsuraScans, Reaper Scans, Webtoon, manhuaus.com, Arena Scans, Comix.to, Mgeko, RoliaScan, Thunder Scans, Ultimate of All Ages for latest chapters
 - 🎨 **Dark theme** — sleek dark manhwa-focused UI built with Tailwind v4 + shadcn/ui
 - ➕ **Manual add** — add any manhwa manually with cover, genres, status, and chapter progress
 - 📊 **Dashboard** — stats, Continue Reading, Recent Activity
@@ -25,7 +25,7 @@ A personal, single-user Manhwa/Manga reading tracker. Automatically monitors cha
 | Validation | Zod |
 | Database | Neon PostgreSQL (serverless HTTP driver) |
 | Monorepo | PNPM Workspaces + TurboRepo |
-| Telegram Sync | GramJS (MTProto personal account) |
+| Telegram Sync | teleproto (MTProto personal account) |
 | Scraping | Cheerio + FlareSolverr (for protected sites) |
 | Hosting | Vercel (frontend + fast API) + Render (background worker) |
 
@@ -54,12 +54,12 @@ manhwa-tracker/
 │       └── src/
 │           ├── modules/  # sync and other long-running tasks
 │           └── scripts/
-│               ├── watcher/            # GramJS event-driven watcher
+│               ├── watcher/            # teleproto event-driven watcher
 │               ├── bot/                # Telegram alert bot service
 │               └── cron/               # Website sync runner
 ├── libs/
 │   ├── database/         # Drizzle schema + Neon client singleton
-│   ├── parser/           # Website adapters (AsuraScans, Webtoon, Reaper, manhuaus, generic)
+│   ├── parser/           # Website adapters (AsuraScans, Webtoon, Reaper, manhuaus, Arena Scans, Comix.to, Mgeko, RoliaScan, Thunder Scans, Ultimate of All Ages, generic)
 │   └── shared/           # Shared TypeScript types
 └── .github/
     └── workflows/
@@ -196,6 +196,12 @@ Chapter sync is powered by adapter classes in `libs/parser/src/adapters/sites/`:
 | Webtoon | `webtoon` |
 | Reaper Scans | `reaperscans` |
 | manhuaus.com | `manhuaus` |
+| Arena Scans | `arenascans` |
+| Comix.to | `comixto` |
+| Mgeko | `mgeko` |
+| RoliaScan | `roliascan` |
+| Thunder Scans | `thunderscans` |
+| Ultimate of All Ages | `ultimateofallages` |
 | Generic (catch-all) | `generic` |
 
 Use `detectAdapterKey(url)` from `@manhwa-tracker/parser` to resolve the right adapter automatically.

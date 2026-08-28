@@ -13,7 +13,15 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Sequential per-source sync allows up to 70s for FlareSolverr to wake plus
+    # 60s per website source. 10 minutes was too tight for a library with more
+    # than ~9 sources hitting worst-case timeouts in one run — when this job
+    # got killed by the timeout mid-sync, the sys_is_syncing DB lock never got
+    # released (it's only cleared in a `finally` block that a hard kill skips),
+    # leaving the site's Sync button stuck showing "Syncing..." until something
+    # else completed a run. See apps/worker/src/modules/sync/sync.service.ts's
+    # stale-lock self-heal, added alongside this, for the other half of the fix.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -28,10 +36,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build packages
-        run: pnpm run build --filter api
+        run: pnpm run build --filter worker
 
       - name: Run sync
-        working-directory: apps/api
+        working-directory: apps/worker
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: pnpm run cron:sync

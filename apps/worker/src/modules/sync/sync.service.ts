@@ -1,13 +1,36 @@
 import { SyncRepository } from './sync.repository';
-import { SettingsRepository } from '../settings/settings.repository';
+import { SettingsRepository } from '@manhwa-tracker/database';
 import type { SyncScope, SyncResult, SyncSourceRow, SyncRun } from '@manhwa-tracker/shared';
 
 const IS_SYNCING_KEY = 'sys_is_syncing';
 
+// If a sync claims to still be running after this long, treat the lock as
+// abandoned rather than trust it forever. A legitimate run finishes well
+// under this — sequential per-source sync caps each source at 60s and the
+// FlareSolverr wake-up at 70s, so even a large library shouldn't approach
+// 15 minutes. This exists because the lock is only released by a `finally`
+// block in `run()`, which never executes if the process is killed from the
+// outside mid-run (e.g. the GitHub Actions cron's `timeout-minutes: 10`
+// firing on a slow run, or a Render redeploy tearing down the worker) —
+// without this check, a single killed run leaves every future page load
+// showing "Syncing..." forever until something else calls run() to clear it.
+const STALE_LOCK_MS = 15 * 60 * 1000;
+
 export async function getIsSyncing(): Promise<boolean> {
   const repo = new SettingsRepository();
   const val = await repo.get(IS_SYNCING_KEY);
-  return val === 'true';
+  if (val !== 'true') return false;
+
+  const updatedAt = await repo.getUpdatedAt(IS_SYNCING_KEY);
+  if (updatedAt && Date.now() - updatedAt.getTime() > STALE_LOCK_MS) {
+    console.warn(
+      `[sync] sys_is_syncing has been true since ${updatedAt.toISOString()} — ` +
+      'treating as an abandoned lock from a killed run and clearing it.',
+    );
+    await repo.set(IS_SYNCING_KEY, 'false');
+    return false;
+  }
+  return true;
 }
 
 export async function setIsSyncing(value: boolean): Promise<void> {

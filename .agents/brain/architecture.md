@@ -1,56 +1,92 @@
 # Architecture — Manhwa Tracker
 
 project_root: D:\manwha-tracker
-last_updated: 2026-07-22
+last_updated: 2026-08-28
 
-## Monorepo Structure (Actual as of 2026-07-22)
+## Monorepo Structure (Actual as of 2026-08-28)
+
+The project split the original single `apps/api` into two separate apps: a
+lightweight `apps/api` (fast tRPC queries, deployed to Vercel Serverless) and
+a long-running `apps/worker` (Telegram watcher, Telegram bot, website sync —
+deployed as a Docker service). `apps/web` is unchanged.
 
 ```
 D:\manwha-tracker\
 ├── apps\
-│   ├── api\          Express 4 + tRPC v11 — port 3001
+│   ├── api\          Express 4 + tRPC v11 — port 3001 (Vercel Serverless in prod)
 │   │   ├── src\
 │   │   │   ├── modules\
 │   │   │   │   ├── manhwa\
 │   │   │   │   │   ├── manhwa.router.ts          tRPC routes
 │   │   │   │   │   ├── manhwa.service.ts         business logic
-│   │   │   │   │   ├── manhwa.repository.ts      write operations (create/update/delete)
-│   │   │   │   │   ├── manhwa.read.repository.ts read operations (getAll, getById + per-source stats)
+│   │   │   │   │   ├── manhwa.repository.ts      write operations (create/update/delete/recover)
+│   │   │   │   │   ├── manhwa.read.repository.ts read operations (getAll, getById, getDeleted + per-source stats)
 │   │   │   │   │   ├── progress.repository.ts    progress upserts
 │   │   │   │   │   └── sources.repository.ts     source CRUD + adapter key resolution
 │   │   │   │   ├── sync\
-│   │   │   │   │   ├── sync.router.ts
+│   │   │   │   │   ├── sync.router.ts            getHistory, isSyncing, run (stub — see below)
 │   │   │   │   │   ├── sync.service.ts
 │   │   │   │   │   └── sync.repository.ts
 │   │   │   │   ├── settings\
-│   │   │   │   │   └── settings.router.ts
+│   │   │   │   │   ├── settings.router.ts        key/value settings + Telegram in-app login flow
+│   │   │   │   │   └── settings.repository.ts
 │   │   │   │   └── telegram\
-│   │   │   │       └── (telegram module files)
+│   │   │   │       └── telegram.repository.ts    (present but the watcher/bot run on the worker, not here)
 │   │   │   ├── routes\
-│   │   │   │   ├── sync.ts                    Webhook/Cron endpoint (/api/sync)
 │   │   │   │   ├── proxy.ts                   Image proxy endpoint (/api/proxy-image)
 │   │   │   │   └── health.ts                  Health checks (/health, /api/net-check)
-│   │   │   ├── scripts\
-│   │   │   │   ├── backfill-covers.ts         backfills cover URLs via MangaDex
-│   │   │   │   ├── cron-sync.ts               runs website sync loop
-│   │   │   │   ├── telegram-download-watcher.ts  GramJS event-driven chapter + progress tracker
-│   │   │   │   └── fix-db.ts                  one-off DB cleanup script
+│   │   │   ├── utils\
+│   │   │   │   ├── telegram-client.ts         connectTelegramClient() helper, used by settings.router's login flow
+│   │   │   │   └── trpc-error.ts              toSafeError / toSafeTelegramError
 │   │   │   ├── env.ts                         loads .env from workspace root
-│   │   │   ├── root.ts                        tRPC app router composition
-│   │   │   ├── server.ts                      Express server entry (mounts TRPC + routes)
+│   │   │   ├── root.ts                        tRPC app router composition (manhwa, sync, settings)
+│   │   │   ├── server.ts                      Express server entry (local dev, port 3001)
+│   │   │   ├── vercel.ts                      Vercel Serverless entry point
 │   │   │   └── trpc.ts                        tRPC context + procedures
+│   │   └── package.json
+│   ├── worker\       Express 4 — port 3002 (Docker service, e.g. Render)
+│   │   ├── src\
+│   │   │   ├── modules\                       Worker-local copies of manhwa/sync/settings/telegram
+│   │   │   │   ├── manhwa\                    (same file layout as apps/api's — no cross-app imports)
+│   │   │   │   ├── sync\
+│   │   │   │   │   ├── sync.service.ts        SyncService.run() — the real implementation
+│   │   │   │   │   └── sync.repository.ts
+│   │   │   │   ├── settings\
+│   │   │   │   │   └── settings.repository.ts
+│   │   │   │   └── telegram\
+│   │   │   │       └── telegram.repository.ts DB ops used by the watcher (insertChapter, markAsReadIfNewer, etc.)
+│   │   │   ├── scripts\
+│   │   │   │   ├── cron\
+│   │   │   │   │   └── cron-sync.ts           entry point for `pnpm run cron:sync` — runs website sync once and exits
+│   │   │   │   ├── watcher\                   Telegram Download Watcher (teleproto, event-driven + reconciliation)
+│   │   │   │   │   ├── index.ts               entry point, client setup, health check, rebuild scheduling
+│   │   │   │   │   ├── handlers.ts            new-message and read-update handlers
+│   │   │   │   │   ├── channel-map.ts         channel mapping and access-hash resolution/caching
+│   │   │   │   │   ├── reconcile.ts           periodic getDialogs()/getMessages() catch-up (see below)
+│   │   │   │   │   └── session.ts             session management and death alerts
+│   │   │   │   └── bot\                       Telegram Alert Bot (Bot API, not MTProto)
+│   │   │   │       ├── index.ts               entry point
+│   │   │   │       ├── poll.ts                long-polling loop and update dispatcher
+│   │   │   │       ├── handlers.ts            command and forward-message handlers
+│   │   │   │       └── api.ts                 Bot API HTTP helpers
+│   │   │   ├── utils\
+│   │   │   │   ├── telegram-client.ts         connectTelegramClient() helper (worker's own copy)
+│   │   │   │   └── bot-alert.ts               sends alert messages via the Bot API
+│   │   │   ├── env.ts                         loads .env from workspace root
+│   │   │   └── server.ts                      Express entry — starts watcher + bot, exposes POST /trpc/sync.run
 │   │   └── package.json
 │   └── web\          Vite 5 + React 19 — port 3000
 │       ├── src\
 │       │   ├── features\                      Feature-based folder structure (NOT pages/)
 │       │   │   ├── dashboard\
 │       │   │   │   ├── Dashboard.tsx
-│       │   │   │   └── components\
+│       │   │   │   └── components\            StatCard, ContinueReading, RecentActivity
 │       │   │   ├── manhwa\                    Library + AddManhwa
 │       │   │   │   ├── Library.tsx
 │       │   │   │   ├── AddManhwa.tsx
 │       │   │   │   └── components\
-│       │   │   │       └── ManhwaCard.tsx
+│       │   │   │       ├── ManhwaCard.tsx
+│       │   │   │       └── AddManhwaForm.tsx
 │       │   │   ├── manhwa-detail\
 │       │   │   │   ├── ManhwaDetail.tsx       (page entry - thin orchestrator)
 │       │   │   │   └── components\
@@ -58,15 +94,24 @@ D:\manwha-tracker\
 │       │   │   │       ├── ManhwaPoster.tsx   (cover image, continue reading, edit button)
 │       │   │   │       ├── ProgressCard.tsx   (chapter progress controls)
 │       │   │   │       ├── SourcesList.tsx    (sources list + add source form)
+│       │   │   │       ├── UnreadManhwaStrip.tsx
 │       │   │   │       └── EditManhwaModal.tsx (edit title, cover, description, genres)
+│       │   │   ├── search\
+│       │   │   │   └── GlobalSearch.tsx
+│       │   │   ├── sync\
+│       │   │   │   └── SyncHistoryDrawer.tsx
 │       │   │   └── settings\
-│       │   │       └── Settings.tsx
+│       │   │       ├── Settings.tsx
+│       │   │       └── components\            RecentlyDeletedSection, SyncHistorySection, TelegramSection
 │       │   ├── components\
 │       │   │   ├── layout\
-│       │   │   │   └── AppShell.tsx           (navbar + layout)
+│       │   │   │   └── AppShell.tsx           (navbar + layout, Sync button)
 │       │   │   └── ui\                        shadcn/ui components
 │       │   ├── lib\
-│       │   │   └── trpc.ts                    tRPC client + React Query setup
+│       │   │   ├── trpc.ts                    tRPC client + React Query setup (splitLink, see below)
+│       │   │   └── usePageTitle.ts
+│       │   ├── utils\
+│       │   │   └── image.ts                   proxies/rewrites cover image URLs (incl. MangaDex host handling)
 │       │   ├── providers.tsx                  tRPC + QueryClient providers
 │       │   ├── App.tsx                        router (react-router-dom v6)
 │       │   └── main.tsx
@@ -76,25 +121,39 @@ D:\manwha-tracker\
 │   │   └── src\
 │   │       ├── db.ts              neon() + drizzle() singleton
 │   │       └── schema\
-│   │           └── index.ts       manhwa, sources, chapters, progress, settings
-│   ├── parser\       Chapter extraction + site adapter + metadata parsing
+│   │           └── index.ts       manhwa, sources, chapters, progress, settings, sync_runs
+│   ├── parser\       Chapter extraction + site adapter + metadata parsing + cover lookup
 │   │   └── src\
 │   │       ├── adapters\
 │   │       │   ├── sites\
 │   │       │   │   ├── arenascans.ts
 │   │       │   │   ├── asurascans.ts
-│   │       │   │   ├── webtoon.ts
-│   │       │   │   ├── reaperscans.ts
+│   │       │   │   ├── comixto.ts
+│   │       │   │   ├── generic.ts
 │   │       │   │   ├── manhuaus.ts
-│   │       │   │   └── generic.ts
+│   │       │   │   ├── mgeko.ts
+│   │       │   │   ├── reaperscans.ts
+│   │       │   │   ├── roliascan.ts
+│   │       │   │   ├── thunderscans.ts
+│   │       │   │   ├── ultimateofallages.ts
+│   │       │   │   └── webtoon.ts
 │   │       │   ├── utils\
 │   │       │   │   ├── extract-chapter-number.ts
-│   │       │   │   └── chapter-extract.ts
-│   │       │   ├── factory.ts
+│   │       │   │   ├── chapter-extract.ts
+│   │       │   │   ├── drop-outliers.ts
+│   │       │   │   ├── extract-declared-count.ts
+│   │       │   │   ├── derive-slug.ts
+│   │       │   │   └── detect-title.ts
+│   │       │   ├── browser.ts          shared Playwright/FlareSolverr rendering for protected sites
+│   │       │   ├── esm-interop.ts
 │   │       │   ├── http.ts
+│   │       │   ├── factory.ts
 │   │       │   └── index.ts
+│   │       ├── cover-lookup.ts         MangaDex-as-image-index lookup (not a chapter source)
 │   │       └── metadata.ts
-│   └── shared\       Shared TypeScript types (minimal — may be deprecated)
+│   ├── shared\       Shared TypeScript types + constants (ADAPTER_KEYS, etc.)
+│   ├── ui\
+│   └── utils\
 ├── .agents\
 │   └── brain\        Project brain files
 ├── .env              Shared workspace env (DATABASE_URL + Telegram creds)
@@ -111,23 +170,28 @@ Driver: `drizzle-orm/neon-http` — **no relational queries, no transactions**
 
 | Table | Key Columns |
 |-------|-------------|
-| manhwa | id, slug, title, cover_url, status (ongoing\|completed\|hiatus\|dropped), genres[], description, created_at, updated_at |
-| sources | id, manhwa_id, type (telegram\|website), url, adapter_key, priority, is_active, created_at |
+| manhwa | id, slug, title, cover_url, status (ongoing\|completed\|hiatus\|dropped), genres[], description, created_at, updated_at, deleted_at |
+| sources | id, manhwa_id, type (telegram\|website), url, adapter_key, priority, is_active, created_at, telegram_entity_id (unique), telegram_access_hash, telegram_entity_type |
 | chapters | id, manhwa_id, source_id, chapter_num (real), title, url, published_at, discovered_at |
 | progress | id, manhwa_id (unique), chapter_id, last_read_at, is_completed |
-| notifications | (removed from schema — table was defined but never used anywhere) |
-| settings | id, key, value (jsonb), updated_at |
+| settings | id, key (unique), value (jsonb), updated_at |
+| sync_runs | id, scanned_sources, new_chapters, updated_manhwa, skipped_telegram, errors (jsonb), rows (jsonb), duration, run_at |
 
-No user_id — single user app.
+No user_id — single user app. There is no `notifications` table in the current schema.
 
 Relationships:
-- manhwa  - `sources` → `chapters` (1:N)
-  - `manhwa` → `progress` (1:1), enforced by UNIQUE constraint on manhwa_id)
-- chapters → notifications (1:many)
+- `manhwa` → `sources` → `chapters` (1:N)
+- `manhwa` → `progress` (1:1), enforced by UNIQUE constraint on manhwa_id
+- `manhwa.deleted_at` supports soft delete (`delete()`/`recover()`/`getDeleted()` on `ManhwaService`)
 
-## API Architecture (apps/api)
+## API Architecture (apps/api) — fast queries only
 
-Express app serving tRPC at `/trpc/*` with CORS configured for port 3000.
+Express app serving tRPC at `/trpc/*` with CORS reflecting the request origin. Deployed as a
+Vercel Serverless Function in production (`vercel.ts`); `server.ts` is the local-dev entry point.
+
+This app does **not** start the Telegram watcher, the Telegram bot, or the website-sync loop —
+those all live on `apps/worker`. `apps/api` only handles operations fast enough for a serverless
+function's timeout.
 
 ### tRPC Router (`manhwaRouter`)
 
@@ -143,16 +207,96 @@ Express app serving tRPC at `/trpc/*` with CORS configured for port 3000.
 | `updateLatestChapter` | mutation | id, chapterNum | Manually bump latest chapter |
 | `addSource` | mutation | manhwaId, url, type | Add source (validates Telegram/website format, detects adapterKey) |
 | `removeSource` | mutation | manhwaId, url | Remove a source row |
-| `delete` | mutation | id | Delete manhwa (cascades to progress/chapters/sources) |
+| `delete` | mutation | id | Soft-delete manhwa (sets deleted_at) |
+| `recover` | mutation | id | Undo a soft delete |
+| `getDeleted` | query | — | List soft-deleted manhwa |
 | `getTelegramCount` | query | — | Count of active Telegram sources |
+| `getChapters` | query | manhwaId | List discovered chapters for a manhwa |
+| `deleteChapter` | mutation | id | Delete a single chapter row |
 
-### Repository Rules (CRITICAL)
+### `syncRouter`
+
+| Endpoint | Type | Description |
+|---|---|---|
+| `getHistory` | query | Last 20 `sync_runs` rows, newest first |
+| `isSyncing` | query | Reads a DB-backed lock (`sys_is_syncing` setting) shared with the worker |
+| `run` | mutation | **Stub only** — throws `NOT_IMPLEMENTED`. Exists so the frontend gets TypeScript types; the frontend's tRPC `splitLink` routes the actual call to the worker instead (see Sync Flow below) |
+
+### `settingsRouter`
+
+Key/value settings (`get`/`set`/`delete`, blocked for `telegram_session`) plus an in-app
+Telegram login flow: `startTelegramLogin` (send OTP) → `verifyTelegramCode` (verify OTP, handles
+2FA via `teleproto/Password`'s `computeCheck`) → session saved to the `settings` table. Also
+`telegramStatus` (tests the saved session live against Telegram) and `disconnectTelegram`
+(the only path allowed to delete `telegram_session`).
+
+### Repository Rules (CRITICAL — applies to both apps/api and apps/worker)
 
 - ❌ `db.query.*` — NOT supported by neon-http (silently fails/hangs)
 - ❌ `db.transaction()` — NOT supported by neon-http (throws at runtime)
 - ✅ `db.select().from().leftJoin()` — use for all reads
 - ✅ `db.insert().onConflictDoUpdate()` — use for all upserts
 - ✅ Sequential plain inserts/updates — for multi-step writes (no atomicity guarantee)
+
+## Worker Architecture (apps/worker) — long-running jobs
+
+Separate Express app (port 3002 locally; Docker container, e.g. Render, in production). Deliberately
+has **no cross-app imports** from `apps/api` — its `modules/manhwa`, `modules/sync`, `modules/settings`,
+and `modules/telegram` are worker-local copies of the same file layout, not shared code, so the worker
+can be deployed independently of the API.
+
+`server.ts` responsibilities:
+- Starts the Telegram watcher (`scripts/watcher`) when `TELEGRAM_API_ID` is set and
+  `START_TELEGRAM_WATCHER` isn't disabled.
+- Starts the Telegram bot (`scripts/bot/poll.ts`) when `TELEGRAM_BOT_TOKEN` is set and
+  `START_TELEGRAM_BOT` isn't disabled.
+- Exposes exactly one tRPC-compatible route: `POST /trpc/sync.run`, guarded by a constant-time
+  comparison against `APP_SECRET` (header `x-app-secret`). It hand-rolls the tRPC batch response
+  shape so the frontend client doesn't need special-casing.
+- `GET /health` for uptime checks.
+
+### Telegram Watcher (`scripts/watcher/`)
+
+Uses `teleproto` (not GramJS — see Dependencies note below), event-driven with several recovery
+layers:
+- **Connection**: `connectionRetries: -1`, 2s retry delay, 60s timeout — survives transient network drops.
+- **Health check**: `getMe()` every 5 minutes; 3 consecutive failures triggers a full client rebuild.
+- **Activity watchdog**: rebuilds the client if no watcher activity in 45 minutes.
+- **Scheduled rebuild**: proactively recreates the client every 3 hours.
+- **Reconciliation** (`reconcile.ts`): runs every 5 minutes independent of the live event stream —
+  calls `getDialogs()`/`getMessages()` and reconciles against the DB. This is the mechanism that
+  catches reads/messages missed during a disconnect. `teleproto`'s installed version does not
+  support a `catchUp` constructor option (unlike GramJS) — reconciliation is the intended
+  replacement for that, not a stopgap.
+- Entity caching: `sources.telegram_entity_id` / `telegram_access_hash` / `telegram_entity_type`
+  are populated once via `getEntity()` and reused thereafter via `InputPeer` construction, avoiding
+  repeated username resolution (which is tightly FloodWait-limited).
+
+### Telegram Bot (`scripts/bot/`)
+
+Long-polling Bot API service (separate from the MTProto watcher). Supports `/start`, `/help`,
+`/cancel`, `/list`, `/create <title>`, `/latest <id> <chapter>`, `/read <id> <chapter>`, plus a
+forward-a-channel-message flow to register a new Telegram source (with a `/replace` vs `/cancel`
+prompt if the manhwa already has one).
+
+### Website Sync (`scripts/cron/cron-sync.ts` + `modules/sync/`)
+
+- `sync.repository.ts` — `getActiveSources(type)`, `getMaxChapterNum(manhwaId)`, `insertChapter(...)`,
+  `touchManhwaUpdatedAt(manhwaId)`. Plain select/join/insert only (same neon-http constraints as
+  the manhwa module).
+- `sync.service.ts` — `SyncService.run(scope: 'telegram' | 'websites' | 'all')`:
+  - For each active **website** source: resolves the adapter via `getAdapter`, calls
+    `latestChapter(url)` (max 60s), compares against the manhwa's current max chapter, inserts a new
+    `chapters` row if higher, touches `updatedAt`.
+  - **Telegram** sources are skipped by `sync.run` entirely — Telegram sync is handled
+    asynchronously by the standalone watcher process, not by this call.
+  - Wakes FlareSolverr (if configured) before syncing, since it sleeps when idle.
+  - Per-source failures are caught individually so one bad source doesn't abort the whole run.
+  - Writes a row to `sync_runs` per invocation (see Database Schema) for the frontend's sync-history UI.
+- `cron-sync.ts` is the entry point invoked by `pnpm run cron:sync` (called from
+  `.github/workflows/sync-cron.yml` on a 30-minute schedule) — runs one full sync and exits.
+- The worker's `POST /trpc/sync.run` route (see above) is the path the in-app "Sync" button uses;
+  the GitHub Actions cron and the button both end up calling the same `SyncService.run`.
 
 ## Frontend Architecture (apps/web)
 
@@ -162,94 +306,76 @@ React 19 + react-router-dom v6 SPA. All API calls go via tRPC hooks.
 / → redirect to /dashboard
 /dashboard     features/dashboard/Dashboard.tsx     Stats + Continue Reading + Recent Activity
 /library       features/manhwa/Library.tsx          Full grid, search, status filter (All/Reading/Unread/Completed/Hiatus/Dropped)
-/manhwa/:id    features/manhwa-detail/ManhwaDetail  Detail: progress, status dropdown, ID badge, sources with per-source status badge, edit
 /add           features/manhwa/AddManhwa.tsx        Manual add form (title, status, chapters, cover, genres, description)
-/settings      features/settings/Settings.tsx       Settings page
+/manhwa/:id    features/manhwa-detail/ManhwaDetail  Detail: progress, status dropdown, ID badge, sources with per-source status badge, edit
+/settings      features/settings/Settings.tsx       Settings page (Telegram login, sync history, recently deleted)
 ```
 
-Note: There is NO `src/pages/` directory. All pages live inside `src/features/` as the main file at the feature root.
+Note: There is NO `src/pages/` directory. All pages live inside `src/features/` as the main file at
+the feature root.
 
-tRPC client configured in `lib/trpc.ts` with SuperJSON transformer, connected to `http://localhost:3001/trpc`.
-
-## Telegram Sync (apps/api/src/scripts/)
-
-- `bot/` (Telegram Alert Bot Service)
-  - `index.ts`: Entry point.
-  - `poll.ts`: Long-polling loop and update dispatcher.
-  - `handlers.ts`: Command and forward-message handlers.
-  - `api.ts`: Bot API HTTP helpers.
-- `watcher/` (Telegram Download Watcher)
-  - `index.ts`: Entry point, client setup, and event wiring.
-  - `session.ts`: Session management and death alerts.
-  - `channel-map.ts`: Channel mapping and access hash resolution.
-  - `handlers.ts`: New message and read update handlers.
-- `cron-sync.ts` — runs website adapter sync loop for all website sources
-
-⚠️ Scripts that DO NOT EXIST (were in brain/roadmap but were never written): `telegram-scan.ts`, `telegram-import.ts`, `telegram-import-from-csv.ts`, `import-from-enriched-csv.ts`, `fix-progress.ts`
+`lib/trpc.ts` uses a `splitLink`: most procedures go to `VITE_API_URL` (the Vercel API), but
+`sync.run` specifically is routed to `VITE_SYNC_URL` (the worker's `POST /trpc/sync.run`), since
+that's the only procedure the API's stub can't actually perform.
 
 ## Website Adapters (libs/parser/src/adapters/)
 
 Implements the `WebsiteAdapter` interface from `libs/shared/src/types/adapter.ts`
-(`key`, `name`, `urlPatterns`, `detectTitle`, `latestChapter`, `chapterList`).
+(`key`, `name`, `urlPatterns`, `detectTitle`, `latestChapter`, `chapterList`). `key` is typed as
+plain `string` — nothing enforces that adapter keys match `ADAPTER_KEYS` in
+`libs/shared/src/constants.ts`, so that list needs to be kept in sync by hand (fixed 2026-08-28,
+see decisions.md).
 
-| Site | Adapter key | File |
+| Site | Adapter key | Needs browser rendering? |
 |------|------------|------|
-| Arena Scans | `arenascans` | `arenascans.ts` |
-| AsuraScans | `asurascans` | `asurascans.ts` |
-| Webtoon | `webtoon` | `webtoon.ts` |
-| Reaper Scans | `reaperscans` | `reaperscans.ts` |
-| manhuaus.com | `manhuaus` | `manhuaus.ts` |
-| Thunder Scans | `thunderscans` | `thunderscans.ts` |
-| Generic (catch-all) | `generic` | `generic.ts` |
+| Arena Scans | `arenascans` | no |
+| AsuraScans | `asurascans` | yes (Playwright/FlareSolverr) |
+| Comix.to | `comixto` | yes |
+| manhuaus.com | `manhuaus` | no |
+| Mgeko | `mgeko` | yes |
+| Reaper Scans | `reaperscans` | no |
+| RoliaScan | `roliascan` | yes |
+| Thunder Scans | `thunderscans` | no |
+| Ultimate of All Ages | `ultimateofallages` | yes |
+| Webtoon | `webtoon` | no |
+| Generic (catch-all) | `generic` | no |
 
-All adapters share- `extractChapterNumber(title/url)` — extracts the chapter number from strings (e.g. "Chapter 42" -> 42).
-  It includes robust filtering for slugs, removes common outliers (years, resolutions, dates), and caps
-  the extracted number at reasonable limits to prevent false positives from cross-promotion ads.r found as the latest chapter. This is deliberately robust-but-approximate:
-it works without knowing each site's exact CSS classes, at the cost of relying on
-the site including chapter numbers in visible link text or hrefs.
+Adapters needing browser rendering use `browser.ts`, which shares a single browser instance across
+requests (rather than launching a new Chromium process per fetch) and prefers FlareSolverr with
+local Playwright as fallback.
+
+Chapter-number extraction (`extractChapterNumber`, `drop-outliers.ts`, `extract-declared-count.ts`)
+has several layers of false-positive protection — DOM-order awareness, outlier filtering, and
+cross-checking against a declared chapter count — specifically to prevent a sidebar/trending widget
+on the page from being mistaken for the tracked series' own latest chapter.
 
 `factory.ts` exposes:
 - `detectAdapterKey(url)` — matches `urlPatterns` to pick a key, defaults to `'generic'`
 - `getAdapter(adapterKey, url)` — resolves an adapter instance, preferring the stored
   `adapter_key` (so a manually-corrected key is respected) and falling back to URL detection
 
-`libs/parser/src/metadata.ts` (`parseMetadataFromUrl`) is unchanged — used for the initial
-title/cover/description scrape when adding a manhwa via `addFromUrl`, separate from chapter sync.
+`libs/parser/src/metadata.ts` (`parseMetadataFromUrl`) is used for the initial title/cover/description
+scrape when adding a manhwa via `addFromUrl`, separate from chapter sync.
 
-## Sync Flow (apps/api/src/modules/sync/)
-
-Added 2026-07-21 to replace the placeholder "Sync" button (previously a `setTimeout` + toast).
-
-- `sync.repository.ts` — `getActiveSources(type)`, `getMaxChapterNum(manhwaId)`, `insertChapter(...)`,
-  `touchManhwaUpdatedAt(manhwaId)`. Plain select/join/insert only (same neon-http constraints as manhwa module).
-- `sync.service.ts` — `SyncService.run(scope: 'telegram' | 'websites' | 'all')`:
-  - For each active **website** source: resolves the adapter via `getAdapter`, calls `latestChapter(url)`,
-    compares against the manhwa's current max chapter, inserts a new `chapters` row if higher, touches `updatedAt`.
-  - For active **telegram** sources: `sync.run` skips fetching chapters for Telegram. Telegram sync is handled separately and asynchronously by the standalone GramJS watcher process (`watcher/index.ts`), not by this synchronous API call.
-  - Per-source failures are caught individually so one bad source doesn't abort the whole run.
-- `sync.router.ts` — `sync.run` tRPC mutation, input `{ scope }` (defaults `'all'`), no auth
-  (single-user app; same trust model as the rest of the API).
-- Frontend: `AppShell.tsx`'s Sync button calls `trpc.sync.run.useMutation()`, invalidates
-  `manhwa.getAll` on success, and shows the real `newChapters`/`updatedManhwa`/`errors` in a toast.
-
-Note: `libs/shared/src/schemas/sync.ts` already defined a `TriggerSyncSchema` with a `secret`
-field for an external cron trigger (e.g. GitHub Actions) — that REST/secret-protected entrypoint
-is still TODO; the `sync.run` tRPC mutation added here is for the in-app button only.
-
-## Settings Module (apps/api/src/modules/settings/)
-
-Added to support a `/settings` page in the frontend. Persists key/value pairs in the `settings` table (jsonb value column).
-- `settingsRouter` exported and registered in `root.ts` as `settings`.
-
-## Telegram Module (apps/api/src/modules/telegram/)
-
-Houses the repository and service used by `telegram-download-watcher.ts` for DB operations (insertChapter, findChapter, markAsReadIfNewer, touchManhwaUpdatedAt, getActiveTelegramSources).
+`libs/parser/src/cover-lookup.ts` uses MangaDex's public API purely as a cover-image index (never as
+a chapter source) for manual "Add Manhwa" entries and Telegram-only sources that have no website
+source to scrape a cover from.
 
 ## Design Patterns Used
 
-- Repository Pattern (db layer — class-based, split into `manhwa.read.repository.ts` + `manhwa.repository.ts` + `sources.repository.ts` + `progress.repository.ts`)
-- Service Pattern (business logic — `manhwa.service.ts`)
+- Repository Pattern (db layer — class-based, split into `manhwa.read.repository.ts` +
+  `manhwa.repository.ts` + `sources.repository.ts` + `progress.repository.ts`, duplicated between
+  `apps/api` and `apps/worker` since the two apps don't share runtime code)
+- Service Pattern (business logic — `manhwa.service.ts`, `sync.service.ts`)
 - Adapter Pattern (website connectors in `libs/parser`)
 - Singleton (Neon DB connection in `libs/database/src/db.ts`)
 - Upsert Pattern (onConflictDoUpdate instead of transactions)
 - Client-side Status Derivation (per-source Leading/Synced/Behind computed in SourcesList.tsx from API data)
+
+## Dependencies Worth Knowing
+
+- Telegram MTProto library is **`teleproto`**, not GramJS — older docs/comments in this repo may
+  still say GramJS; that's stale, not a second library in use.
+- `apps/api` and `apps/worker` deliberately do not import from each other. Shared code lives in
+  `libs/` (`database`, `parser`, `shared`, `ui`, `utils`); anything else is intentionally duplicated
+  per-app.

@@ -63,7 +63,7 @@ import "../../env";
 import { TelegramClient, Api } from "teleproto";
 import { NewMessage } from "teleproto/events";
 import { Raw } from "teleproto/events/Raw";
-import { SettingsRepository } from "../../modules/settings/settings.repository";
+import { SettingsRepository } from '@manhwa-tracker/database';
 import { connectTelegramClient } from "../../utils/telegram-client";
 import { setBotAlertChatId, sendBotAlert } from "../../utils/bot-alert";
 import {
