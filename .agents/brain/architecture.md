@@ -25,11 +25,10 @@ D:\manwha-tracker\
 │   │   │   │   │   └── sources.repository.ts     source CRUD + adapter key resolution
 │   │   │   │   ├── sync\
 │   │   │   │   │   ├── sync.router.ts            getHistory, isSyncing, run (stub — see below)
-│   │   │   │   │   ├── sync.service.ts
+│   │   │   │   │   ├── sync.service.ts           getIsSyncing() + getSyncHistory() only — no SyncService.run()
 │   │   │   │   │   └── sync.repository.ts
 │   │   │   │   ├── settings\
-│   │   │   │   │   ├── settings.router.ts        key/value settings + Telegram in-app login flow
-│   │   │   │   │   └── settings.repository.ts
+│   │   │   │   │   └── settings.router.ts        key/value settings + Telegram in-app login flow
 │   │   │   │   └── telegram\
 │   │   │   │       └── telegram.repository.ts    (present but the watcher/bot run on the worker, not here)
 │   │   │   ├── routes\
@@ -46,13 +45,16 @@ D:\manwha-tracker\
 │   │   └── package.json
 │   ├── worker\       Express 4 — port 3002 (Docker service, e.g. Render)
 │   │   ├── src\
-│   │   │   ├── modules\                       Worker-local copies of manhwa/sync/settings/telegram
-│   │   │   │   ├── manhwa\                    (same file layout as apps/api's — no cross-app imports)
+│   │   │   ├── modules\                       Worker-local modules (no cross-app imports from apps/api)
+│   │   │   │   ├── manhwa\                    manhwa.service + repositories (no router — not tRPC)
+│   │   │   │   │   ├── manhwa.service.ts
+│   │   │   │   │   ├── manhwa.repository.ts
+│   │   │   │   │   ├── manhwa.read.repository.ts
+│   │   │   │   │   ├── progress.repository.ts
+│   │   │   │   │   └── sources.repository.ts
 │   │   │   │   ├── sync\
 │   │   │   │   │   ├── sync.service.ts        SyncService.run() — the real implementation
 │   │   │   │   │   └── sync.repository.ts
-│   │   │   │   ├── settings\
-│   │   │   │   │   └── settings.repository.ts
 │   │   │   │   └── telegram\
 │   │   │   │       └── telegram.repository.ts DB ops used by the watcher (insertChapter, markAsReadIfNewer, etc.)
 │   │   │   ├── scripts\
@@ -117,11 +119,13 @@ D:\manwha-tracker\
 │       │   └── main.tsx
 │       └── package.json
 ├── libs\                          (was: packages\ — renamed for clarity)
-│   ├── database\     Drizzle ORM schema + Neon client singleton
+│   ├── database\     Drizzle ORM schema + Neon client singleton + shared repositories
 │   │   └── src\
-│   │       ├── db.ts              neon() + drizzle() singleton
+│   │       ├── db.ts                  neon() + drizzle() singleton
+│   │       ├── settings.repository.ts SettingsRepository — canonical; imported by both api and worker
+│   │       ├── index.ts               re-exports db, schema, SettingsRepository
 │   │       └── schema\
-│   │           └── index.ts       manhwa, sources, chapters, progress, settings, sync_runs
+│   │           └── index.ts           manhwa, sources, chapters, progress, settings, sync_runs
 │   ├── parser\       Chapter extraction + site adapter + metadata parsing + cover lookup
 │   │   └── src\
 │   │       ├── adapters\
@@ -363,10 +367,13 @@ source to scrape a cover from.
 
 ## Design Patterns Used
 
-- Repository Pattern (db layer — class-based, split into `manhwa.read.repository.ts` +
-  `manhwa.repository.ts` + `sources.repository.ts` + `progress.repository.ts`, duplicated between
-  `apps/api` and `apps/worker` since the two apps don't share runtime code)
-- Service Pattern (business logic — `manhwa.service.ts`, `sync.service.ts`)
+- Repository Pattern (db layer — class-based):
+  - `SettingsRepository` — **canonical copy in `@manhwa-tracker/database`**, imported by both `apps/api` and `apps/worker`
+  - `manhwa.read.repository.ts` + `manhwa.repository.ts` + `sources.repository.ts` + `progress.repository.ts` + `telegram.repository.ts` — **duplicated** between `apps/api` and `apps/worker` because these are tightly coupled to each app's business logic and keeping them separate avoids cross-app imports
+  - `sync.repository.ts` — duplicated (same reason); the API copy backs the read-only `getHistory`/`isSyncing` queries; the worker copy backs the full `SyncService.run()`
+- Service Pattern (business logic — `manhwa.service.ts`, `sync.service.ts`):
+  - `apps/api/src/modules/sync/sync.service.ts` — **read-only**: only `getIsSyncing()` and `getSyncHistory()`
+  - `apps/worker/src/modules/sync/sync.service.ts` — **full**: `SyncService.run()` + the above read helpers
 - Adapter Pattern (website connectors in `libs/parser`)
 - Singleton (Neon DB connection in `libs/database/src/db.ts`)
 - Upsert Pattern (onConflictDoUpdate instead of transactions)
@@ -377,5 +384,8 @@ source to scrape a cover from.
 - Telegram MTProto library is **`teleproto`**, not GramJS — older docs/comments in this repo may
   still say GramJS; that's stale, not a second library in use.
 - `apps/api` and `apps/worker` deliberately do not import from each other. Shared code lives in
-  `libs/` (`database`, `parser`, `shared`, `ui`, `utils`); anything else is intentionally duplicated
-  per-app.
+  `libs/` (`database`, `parser`, `shared`, `ui`, `utils`). `SettingsRepository` was moved to
+  `@manhwa-tracker/database` as it is truly stateless and used identically in both apps.
+  Domain-specific repositories (manhwa, sync, telegram) remain duplicated per-app.
+- `big-integer` is required by `apps/worker` (teleproto's BigInt entity handling) — added to
+  `apps/worker/package.json` 2026-08-28.

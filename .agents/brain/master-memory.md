@@ -29,8 +29,9 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - **Architecture fully migrated from Next.js to Vite + Express** (Option 2 — decoupled)
 - **`apps/api` split further into `apps/api` (fast queries, Vercel Serverless) + `apps/worker`
   (long-running: Telegram watcher, Telegram bot, website sync)** — the two apps do not import from
-  each other; each has its own copy of `modules/manhwa`, `modules/sync`, `modules/settings`,
-  `modules/telegram`
+  each other. Domain-specific modules (`manhwa`, `sync`, `telegram`) are duplicated per-app.
+  `SettingsRepository` is the exception — it lives in `@manhwa-tracker/database` and is imported
+  by both apps (moved 2026-08-28). The worker has no `settings/` module dir anymore.
 - Vite React frontend (apps/web) running on port 3000 OK
 - Neon PostgreSQL connected via @manhwa-tracker/database lib OK
 - packages/ renamed to libs/ for clarity OK
@@ -125,6 +126,12 @@ functionality is needed, it has to be written from scratch.
 - `libs/shared/src/constants.ts`'s `ADAPTER_KEYS` list was out of sync with the real adapters
   (had `mangadex`/`flamecomics`, which don't exist as website adapters; was missing 6 real ones) —
   fixed 2026-08-28, see decisions.md.
+- `SettingsRepository` consolidated into `@manhwa-tracker/database` (was duplicated in both
+  `apps/api` and `apps/worker`) — 2026-08-28.
+- `apps/api/src/modules/sync/sync.service.ts` slimmed to read-only helpers (`getIsSyncing`,
+  `getSyncHistory`); `SyncService.run()` lives only in the worker — 2026-08-28.
+- `apps/worker/src/modules/manhwa/manhwa.router.ts` deleted (dead code, never imported) — 2026-08-28.
+- `big-integer` added to `apps/worker/package.json` (was missing; required by teleproto watcher) — 2026-08-28.
 
 ## Tech Stack
 

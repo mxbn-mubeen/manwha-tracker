@@ -52,15 +52,16 @@ manhwa-tracker/
 │   │           └── settings/ # settings router
 │   └── worker/           # Background Docker service (Render)
 │       └── src/
-│           ├── modules/  # sync and other long-running tasks
+│           ├── modules/  # Worker-local modules: manhwa (service+repos), sync (SyncService.run), telegram
+│           │             # Note: SettingsRepository comes from @manhwa-tracker/database — not duplicated here
 │           └── scripts/
 │               ├── watcher/            # teleproto event-driven watcher
 │               ├── bot/                # Telegram alert bot service
-│               └── cron/               # Website sync runner
+│               └── cron/               # Website sync runner (cron-sync.ts)
 ├── libs/
-│   ├── database/         # Drizzle schema + Neon client singleton
+│   ├── database/         # Drizzle schema + Neon client singleton + SettingsRepository (shared by api & worker)
 │   ├── parser/           # Website adapters (AsuraScans, Webtoon, Reaper, manhuaus, Arena Scans, Comix.to, Mgeko, RoliaScan, Thunder Scans, Ultimate of All Ages, generic)
-│   └── shared/           # Shared TypeScript types
+│   └── shared/           # Shared TypeScript types + constants (ADAPTER_KEYS, MANHWA_STATUS, etc.)
 └── .github/
     └── workflows/
         └── sync-cron.yml # GitHub Actions cron for website sync
