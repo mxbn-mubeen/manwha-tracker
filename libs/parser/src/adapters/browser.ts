@@ -42,7 +42,7 @@ async function getBrowser(): Promise<Browser> {
     const browser = await chromium.launch({
       headless: true,
       executablePath: resolveExecutablePath(),
-      args: ["--disable-dev-shm-usage"],
+      args: ["--disable-dev-shm-usage", "--no-sandbox", "--disable-setuid-sandbox"],
     });
 
     sharedBrowser = browser;
@@ -75,13 +75,15 @@ import { looksLikeCloudflareChallenge, solveViaFlareSolverr, CloudflareBlockedEr
  */
 export async function fetchRenderedHtml(
   url: string,
-  opts: { waitForSelector?: string; timeoutMs?: number } = {},
+  opts: { waitForSelector?: string; timeoutMs?: number; skipFlareSolverr?: boolean } = {},
 ): Promise<string> {
   // First try to bypass Cloudflare and execute JS via FlareSolverr if configured.
   // FlareSolverr is faster, more robust against CF, and handles JS execution.
-  const fsResult = await solveViaFlareSolverr(url);
-  if (fsResult.html) {
-    return fsResult.html;
+  if (!opts.skipFlareSolverr) {
+    const fsResult = await solveViaFlareSolverr(url);
+    if (fsResult.html) {
+      return fsResult.html;
+    }
   }
   
   // If FlareSolverr is not configured (or failed), fallback to local Playwright.

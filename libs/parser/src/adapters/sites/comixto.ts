@@ -28,6 +28,7 @@ export const comixToAdapter: WebsiteAdapter = {
   async chapterList(url) {
     const html = await fetchRenderedHtml(url, {
       waitForSelector: "[class*=chapter], a[href*=chapter]",
+      skipFlareSolverr: true,
     });
     return extractChaptersFromHtml(html, url);
   },
