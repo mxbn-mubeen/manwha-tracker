@@ -1,4 +1,5 @@
-import { db, manhwa, sources, chapters, syncRuns, type InsertSyncRunRow } from '@manhwa-tracker/database';
+import { db } from './db';
+import { manhwa, sources, chapters, syncRuns, type InsertSyncRunRow } from './schema';
 import { eq, and, sql, desc } from 'drizzle-orm';
 
 export class SyncRepository {

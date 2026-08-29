@@ -1,5 +1,4 @@
-import { SyncRepository } from './sync.repository';
-import { SettingsRepository } from '@manhwa-tracker/database';
+import { SyncRepository, SettingsRepository } from '@manhwa-tracker/database';
 import type { SyncScope, SyncResult, SyncSourceRow, SyncRun } from '@manhwa-tracker/shared';
 
 const IS_SYNCING_KEY = 'sys_is_syncing';
