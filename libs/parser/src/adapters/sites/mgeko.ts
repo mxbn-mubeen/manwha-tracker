@@ -11,7 +11,7 @@ import { detectTitleFromHtml, extractChaptersFromHtml } from "../utils/chapter-e
 export const mgekoAdapter: WebsiteAdapter = {
   key: "mgeko",
   name: "Mgeko",
-  urlPatterns: [/mgeko\.cc/i, /mgeko\.com/i],
+  urlPatterns: [/mgeko\.cc/i, /mgeko\.com/i, /mgeko\.net/i],
 
   async detectTitle(url) {
     const html = await fetchRenderedHtml(url, { waitForSelector: "h1" });

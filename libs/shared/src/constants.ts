@@ -18,6 +18,7 @@ export const ADAPTER_KEYS = [
   'webtoon',
   'telegram',
   'infinitelevelup',
+  'mgread',
 ] as const;
 
 export type AdapterKey = typeof ADAPTER_KEYS[number];

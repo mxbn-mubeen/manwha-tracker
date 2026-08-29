@@ -203,12 +203,12 @@ Chapter sync is powered by adapter classes in `libs/parser/src/adapters/sites/`:
 | Site | Adapter Key | URL Patterns |
 |------|------------|-------------|
 | AsuraScans | `asurascans` | `asurascans.com`, `asuracomic.net`, `asurascan.com` |
-| Webtoon | `webtoon` | `webtoons.com` |
-| Reaper Scans | `reaperscans` | `reaperscans.com` |
+
 | manhuaus.com | `manhuaus` | `manhuaus.com` |
 | Arena Scans | `arenascans` | `arenascans.net` |
 | Comix.to | `comixto` | `comix.to` |
-| Mgeko | `mgeko` | `mgeko.com` |
+| Mgeko | `mgeko` | `mgeko.com`, `mgeko.cc`, `mgeko.net` |
+| MGRead | `mgread` | `mgread.io` |
 | RoliaScan | `roliascan` | `roliascan.com` |
 | Thunder Scans | `thunderscans` | `thunderscans.net` |
 | Infinite Level Up | `infinitelevelup` | `infinitelevelup.com` |

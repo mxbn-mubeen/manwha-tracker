@@ -9,6 +9,7 @@ import { thunderscansAdapter } from "./sites/thunderscans";
 import { arenaScansAdapter } from "./sites/arenascans";
 import { ultimateOfAllAgesAdapter } from "./sites/ultimateofallages";
 import { mgekoAdapter } from "./sites/mgeko";
+import { mgreadAdapter } from "./sites/mgread";
 import { genericAdapter } from "./sites/generic";
 import { infiniteLevelUpAdapter } from "./sites/infinitelevelup";
 
@@ -24,6 +25,7 @@ const SITE_ADAPTERS: WebsiteAdapter[] = [
   arenaScansAdapter,
   ultimateOfAllAgesAdapter,
   mgekoAdapter,
+  mgreadAdapter,
   infiniteLevelUpAdapter,
 ];
 
@@ -50,4 +52,4 @@ export function getAdapter(adapterKey: string | null | undefined, url: string): 
   return ADAPTERS_BY_KEY[detectedKey] ?? genericAdapter;
 }
 
-export { asuraScansAdapter, webtoonAdapter, reaperScansAdapter, manhuausAdapter, comixToAdapter, roliascanAdapter, thunderscansAdapter, ultimateOfAllAgesAdapter, mgekoAdapter, infiniteLevelUpAdapter, genericAdapter };
+export { asuraScansAdapter, webtoonAdapter, reaperScansAdapter, manhuausAdapter, comixToAdapter, roliascanAdapter, thunderscansAdapter, ultimateOfAllAgesAdapter, mgekoAdapter, mgreadAdapter, infiniteLevelUpAdapter, genericAdapter };
