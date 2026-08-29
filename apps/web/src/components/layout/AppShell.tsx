@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom"
-import { RefreshCw, Plus, Settings, History, Search } from "lucide-react"
+import { RefreshCw, Plus, Settings, History, Search, Globe } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { trpc } from "@/lib/trpc"
@@ -114,6 +114,15 @@ function Navbar() {
                 <div className="flex items-center gap-2">
                   <span>|\</span>
                   <span className="hidden sm:inline">Library</span>
+                </div>
+              </Link>
+              <Link 
+                to="/sources" 
+                className={`transition-colors hover:text-foreground ${location.pathname === '/sources' ? 'text-foreground bg-white/5 px-2 sm:px-3 py-1.5 rounded-md' : 'px-2 sm:px-3 py-1.5'}`}
+              >
+                <div className="flex items-center gap-2">
+                  <Globe className="w-4 h-4" />
+                  <span className="hidden sm:inline">Sources</span>
                 </div>
               </Link>
             </nav>

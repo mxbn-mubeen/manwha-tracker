@@ -308,3 +308,19 @@ Append-only log. Never delete entries.
 - Fix: Changed `parser/package.json` exports `"default"` from `"./src/index.ts"` to `"./dist/index.js"`. Dockerfile already builds parser before runner stage, so `dist/index.js` is always present at runtime.
 - Status: Resolved
 - Date: 2026-08-16
+
+---
+
+- Problem: Sources added before per-site adapter detection was fully wired up have `adapterKey = 'website'` (or sometimes `'generic'`) stored in the DB instead of the correct site key (e.g. `asurascans`, `thunderscans`). This caused filter chips and adapter badges on the /sources page to show a meaningless `website` label, and the filter could not group them by site correctly.
+- Cause: `SourcesRepository.createWithSource()` accepted `adapterKey` as a caller-supplied string. In some early code paths the caller passed `'website'` as a literal instead of calling `detectAdapterKey(url)`. The inconsistency went unnoticed because nothing consumed `adapterKey` until the Unified Sources page was built.
+- Fix: Added `manhwa.redetectAdapterKeys` tRPC mutation that loops over every website source, calls `detectAdapterKey(url)` from `@manhwa-tracker/parser`, and patches the DB row. Exposed as a "Fix Adapters" button (wand icon) on the /sources page. Also: `getAllSources` and `updateSourceUrl` endpoints added at the same time so the Sources page can read and edit sources.
+- Status: Resolved in code — **must click "Fix Adapters" button once per environment** (production + local) to patch existing bad rows. No schema migration needed.
+- Date: 2026-08-29
+
+---
+
+- Problem: Mobile view of /sources page was unusable — horizontal table overflow on small screens, text boxes overflowing, no way to tap-edit URLs.
+- Cause: `SourcesPage.tsx` used a single `<table>` layout with no mobile breakpoint handling. On phones the table shrank columns to unreadable widths and the URL column broke layout.
+- Fix: Added responsive dual-layout: desktop (`md:block`) uses the table; mobile (`md:hidden`) renders `<SourceCard>` components — full-width cards with title, adapter badge, truncated URL, and a full-width "Edit URL" button. Both `SourceRow` and `SourceCard` extracted to `features/sources/components/` (230-line split rule).
+- Status: Resolved
+- Date: 2026-08-29

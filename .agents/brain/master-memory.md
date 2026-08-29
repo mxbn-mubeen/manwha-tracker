@@ -1,7 +1,7 @@
 # Manhwa Tracker — Master Memory
 
 project_root: F:\manwha-tracker
-last_brain_review: 2026-08-28
+last_brain_review: 2026-08-29
 
 ## What This Project Does
 
@@ -17,8 +17,14 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - Reading progress tracking (last read chapter per title)
 - Dashboard: stats (total, reading, completed), Continue Reading, Recent Activity
 - Library: cover grid, search, status filters, add manhwa from URL
-- Website adapters for: AsuraScans, Webtoon, Reaper Scans, manhuaus.com, Arena Scans, Comix.to,
-  Mgeko, RoliaScan, Thunder Scans, Ultimate of All Ages (+ generic fallback) — 10 real site adapters total
+- **Unified Sources page** (`/sources`): manage all website + Telegram sources in one place.
+  - Two tabs (Websites / Telegram)
+  - Domain filter chips — one chip per unique hostname in DB, coloured by adapter
+  - Adapter badges — colour-coded per adapter (orange=asurascans, red=reaperscans, violet=thunderscans, etc.)
+  - Inline URL editing (SourceRow desktop / SourceCard mobile)
+  - Mobile card layout below `md` breakpoint
+  - **Fix Adapters button** — calls `manhwa.redetectAdapterKeys`, re-runs `detectAdapterKey(url)` on every website source row and writes correct key back
+- Website adapters for: AsuraScans (asurascans.com/asuracomic.net/asurascan.com), Webtoon, Reaper Scans, manhuaus.com, Arena Scans, Comix.to, Mgeko, RoliaScan, Thunder Scans, Infinite Level Up, Ultimate of All Ages (+ generic fallback) — 11 real site adapters total
 - Telegram channel monitoring → auto-detects new chapters → download/read = last read
 - Telegram alert bot (`/create`, `/latest`, `/read`, forward-to-register) for manhwa/progress management without the web UI
 - Soft delete (delete/recover/getDeleted) for manhwa
@@ -97,6 +103,9 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 | `updateLatestChapter` | mutation | Manually bump latest chapter (inserts chapter row if needed) |
 | `addSource` | mutation | Add Telegram/website source to existing manhwa |
 | `removeSource` | mutation | Remove a source from manhwa |
+| `getAllSources` | query | All sources with manhwa title, type, url, adapterKey (for /sources page) |
+| `updateSourceUrl` | mutation | Update a source URL; re-detects adapterKey from new URL |
+| `redetectAdapterKeys` | mutation | Re-runs detectAdapterKey() on all website sources; fixes stale 'website' keys |
 | `delete` / `recover` / `getDeleted` | mutation/mutation/query | Soft-delete manhwa, undo it, and list soft-deleted manhwa |
 | `getTelegramCount` | query | Count of active Telegram sources |
 | `getChapters` / `deleteChapter` | query/mutation | List and remove discovered chapters for a manhwa |
@@ -120,14 +129,16 @@ functionality is needed, it has to be written from scratch.
 ## Active Work
 
 - Telegram watcher is live and functioning correctly (event-driven + reconciliation, tested in production).
-- Website adapter sync covers 10 real sites now (see Key Features) — several need browser rendering
-  (Playwright/FlareSolverr) since they're Cloudflare-protected; see architecture.md's adapter table.
+- Website adapter sync covers 11 real sites now (see Key Features, added infinitelevelup) — several need browser rendering (Playwright/FlareSolverr) since they're Cloudflare-protected; see architecture.md's adapter table.
 - Settings page includes Telegram login/status, sync history, and recently-deleted sections.
-- `libs/shared/src/constants.ts`'s `ADAPTER_KEYS` list was out of sync with the real adapters
-  (had `mangadex`/`flamecomics`, which don't exist as website adapters; was missing 6 real ones) —
-  fixed 2026-08-28, see decisions.md.
-- `SettingsRepository` consolidated into `@manhwa-tracker/database` (was duplicated in both
-  `apps/api` and `apps/worker`) — 2026-08-28.
+- **Unified Sources page** built at `/sources` (2026-08-29):
+  - `SourcesPage.tsx` (main), `SourceRow.tsx` (desktop), `SourceCard.tsx` (mobile), `adapterColors.ts` (badge colours)
+  - Domain-based filter chips (not adapter-key based) — shows actual hostname from URL, coloured by adapter
+  - `getAllSources` tRPC query + `updateSourceUrl` mutation + `redetectAdapterKeys` mutation added to API
+  - Fix Adapters button re-runs `detectAdapterKey(url)` on all website sources and patches DB in one shot
+- Stale `adapterKey = 'website'` entries exist in DB for sources added before per-site detection was wired up — Fix Adapters button resolves this
+- `libs/shared/src/constants.ts`'s `ADAPTER_KEYS` list was out of sync with the real adapters (had `mangadex`/`flamecomics`, which don't exist as website adapters; was missing 6 real ones) — fixed 2026-08-28, see decisions.md.
+- `SettingsRepository` consolidated into `@manhwa-tracker/database` (was duplicated in both `apps/api` and `apps/worker`) — 2026-08-28.
 - `apps/api/src/modules/sync/sync.service.ts` slimmed to read-only helpers (`getIsSyncing`,
   `getSyncHistory`); `SyncService.run()` lives only in the worker — 2026-08-28.
 - `apps/worker/src/modules/manhwa/manhwa.router.ts` deleted (dead code, never imported) — 2026-08-28.

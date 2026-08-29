@@ -8,6 +8,8 @@ A personal, single-user Manhwa/Manga reading tracker. Automatically monitors cha
 - 📖 **Auto reading progress** — opens a chapter in Telegram → last-read chapter updates automatically
 - 🔔 **New chapter detection** — Telegram watcher detects new chapter posts in real-time
 - 🌐 **Website sync** — scrapes AsuraScans, Reaper Scans, Webtoon, manhuaus.com, Arena Scans, Comix.to, Mgeko, RoliaScan, Thunder Scans, Ultimate of All Ages for latest chapters
+- 🔗 **Unified Sources page** — manage every website and Telegram source in one place with inline URL editing, domain-based filter chips, and adapter badges
+- 🔧 **Fix Adapter Keys** — one-click button to re-detect and correct stale adapter keys across all website sources
 - 🎨 **Dark theme** — sleek dark manhwa-focused UI built with Tailwind v4 + shadcn/ui
 - ➕ **Manual add** — add any manhwa manually with cover, genres, status, and chapter progress
 - 📊 **Dashboard** — stats, Continue Reading, Recent Activity
@@ -38,7 +40,14 @@ manhwa-tracker/
 ├── apps/
 │   ├── web/              # Vite + React frontend
 │   │   └── src/
-│   │       ├── features/ # Feature-based structure (dashboard, manhwa, manhwa-detail, settings)
+│   │       ├── features/ # Feature-based structure (dashboard, manhwa, manhwa-detail, settings, sources)
+│   │       │   └── sources/  # Unified Sources page
+│   │       │       ├── SourcesPage.tsx        # Main page (filter chips, desktop table, mobile cards)
+│   │       │       ├── components/
+│   │       │       │   ├── SourceRow.tsx      # Desktop table row with inline URL editing
+│   │       │       │   └── SourceCard.tsx     # Mobile card with inline URL editing
+│   │       │       └── utils/
+│   │       │           └── adapterColors.ts   # Adapter key → badge colour mapping
 │   │       ├── components/
 │   │       │   ├── layout/   # AppShell, Navbar
 │   │       │   └── ui/       # shadcn/ui components
@@ -191,18 +200,65 @@ pnpm run db:migrate
 
 Chapter sync is powered by adapter classes in `libs/parser/src/adapters/sites/`:
 
-| Site | Adapter Key |
-|------|------------|
-| AsuraScans | `asurascans` |
-| Webtoon | `webtoon` |
-| Reaper Scans | `reaperscans` |
-| manhuaus.com | `manhuaus` |
-| Arena Scans | `arenascans` |
-| Comix.to | `comixto` |
-| Mgeko | `mgeko` |
-| RoliaScan | `roliascan` |
-| Thunder Scans | `thunderscans` |
-| Ultimate of All Ages | `ultimateofallages` |
-| Generic (catch-all) | `generic` |
+| Site | Adapter Key | URL Patterns |
+|------|------------|-------------|
+| AsuraScans | `asurascans` | `asurascans.com`, `asuracomic.net`, `asurascan.com` |
+| Webtoon | `webtoon` | `webtoons.com` |
+| Reaper Scans | `reaperscans` | `reaperscans.com` |
+| manhuaus.com | `manhuaus` | `manhuaus.com` |
+| Arena Scans | `arenascans` | `arenascans.net` |
+| Comix.to | `comixto` | `comix.to` |
+| Mgeko | `mgeko` | `mgeko.com` |
+| RoliaScan | `roliascan` | `roliascan.com` |
+| Thunder Scans | `thunderscans` | `thunderscans.net` |
+| Infinite Level Up | `infinitelevelup` | `infinitelevelup.com` |
+| Ultimate of All Ages | `ultimateofallages` | `ultimateofallages.com` |
+| Generic (catch-all) | `generic` | any URL not matched above |
 
 Use `detectAdapterKey(url)` from `@manhwa-tracker/parser` to resolve the right adapter automatically.
+
+### Fix Adapter Keys
+
+Sources added before per-site detection was implemented may have `adapterKey = 'website'` stored in the database instead of the correct key (e.g. `asurascans`).
+
+To fix all stale keys in one shot:
+
+1. Go to the **Sources** page in the web UI
+2. Click the **Fix Adapters** button (wand icon, top-right)
+3. The button calls `manhwa.redetectAdapterKeys` which loops over every website source row, runs `detectAdapterKey(url)` and writes the correct key back — then invalidates the query cache so the page refreshes immediately.
+
+Alternatively, trigger it via tRPC directly:
+
+```ts
+await trpc.manhwa.redetectAdapterKeys.mutate();
+// returns: { fixed: N }  — N = number of rows updated
+```
+
+## Sources Management
+
+The **Unified Sources** page (`/sources`) lets you manage every source in one place:
+
+- **Two tabs**: Websites / Telegram
+- **Domain filter chips** — one chip per unique hostname in the DB (e.g. `asurascans.com (12)`, `asuracomic.net (3)`). Each chip is coloured by its adapter. Chips reset when switching tabs.
+- **Adapter badges** — every row/card shows a colour-coded adapter badge (orange for asurascans, red for reaperscans, violet for thunderscans, etc.)
+- **Inline URL editing** — click the pencil icon to edit a source URL directly. The adapter key is automatically re-detected from the new URL on save.
+- **Mobile card layout** — on screens smaller than `md` breakpoint, sources render as tap-friendly cards with a full-width Edit URL button instead of the desktop table.
+- **Fix Adapters button** — top-right; one-click batch re-detection for all website sources.
+
+### Adapter Badge Colours
+
+| Adapter | Colour |
+|---------|--------|
+| `asurascans` | Orange |
+| `reaperscans` | Red |
+| `webtoon` | Sky blue |
+| `thunderscans` | Violet |
+| `manhuaus` | Yellow |
+| `infinitelevelup` | Emerald |
+| `mgeko` | Pink |
+| `arenascans` | Cyan |
+| `roliascan` | Lime |
+| `comixto` | Fuchsia |
+| `ultimateofallages` | Teal |
+| `telegram` | Blue |
+| `generic` | Zinc |

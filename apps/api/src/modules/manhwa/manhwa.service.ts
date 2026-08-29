@@ -97,7 +97,15 @@ export class ManhwaService {
   }
 
   async removeSource(manhwaId: number, url: string) {
-    return await this.sourcesRepo.removeSource(manhwaId, url);
+    await this.sourcesRepo.removeSource(manhwaId, url);
+  }
+
+  async getAllSources() {
+    return await this.sourcesRepo.getAllWithManhwa();
+  }
+
+  async updateSourceUrl(id: number, url: string) {
+    await this.sourcesRepo.updateSourceUrl(id, url);
   }
 
   async getTelegramCount() {
@@ -110,5 +118,9 @@ export class ManhwaService {
 
   async deleteChapter(chapterId: number) {
     return await this.repo.deleteChapter(chapterId);
+  }
+
+  async redetectAllAdapterKeys() {
+    return await this.sourcesRepo.redetectAllAdapterKeys();
   }
 }

@@ -160,7 +160,7 @@ export function AddManhwaForm() {
           <span className="text-zinc-500">Add a source</span>
           <span className="text-[10px] text-zinc-600 font-normal border border-border/40 rounded px-1.5 py-0.5">optional</span>
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-3">
           {/* Type toggle */}
           <div className="flex rounded-md overflow-hidden border border-border/40 shrink-0">
             <button

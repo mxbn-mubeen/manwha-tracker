@@ -164,6 +164,26 @@ export const manhwaRouter = createTRPCRouter({
       }
     }),
 
+  getAllSources: publicProcedure.query(async () => {
+    return await service.getAllSources();
+  }),
+
+  updateSourceUrl: publicProcedure
+    .input(z.object({
+      id: z.coerce.number().int().positive(),
+      url: z.string().min(1),
+    }).superRefine((data, ctx) => {
+      if (data.url.startsWith('http') || data.url.startsWith('@') || data.url.includes('t.me')) return;
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Must be a valid HTTP or Telegram URL", path: ['url'] });
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        return await service.updateSourceUrl(input.id, input.url);
+      } catch (err) {
+        throw toSafeError(err, 'manhwa.updateSourceUrl');
+      }
+    }),
+
   getTelegramCount: publicProcedure.query(async () => {
     return await service.getTelegramCount();
   }),
@@ -181,6 +201,15 @@ export const manhwaRouter = createTRPCRouter({
         return await service.deleteChapter(input);
       } catch (err) {
         throw toSafeError(err, 'manhwa.deleteChapter');
+      }
+    }),
+
+  redetectAdapterKeys: publicProcedure
+    .mutation(async () => {
+      try {
+        return await service.redetectAllAdapterKeys();
+      } catch (err) {
+        throw toSafeError(err, 'manhwa.redetectAdapterKeys');
       }
     }),
 });

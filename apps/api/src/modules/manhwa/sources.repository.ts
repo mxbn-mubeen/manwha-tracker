@@ -93,4 +93,74 @@ export class SourcesRepository {
       .limit(1);
     return row?.url ?? null;
   }
+
+  async getAllWithManhwa() {
+    return await db
+      .select({
+        id: sources.id,
+        manhwaId: sources.manhwaId,
+        manhwaTitle: manhwa.title,
+        type: sources.type,
+        url: sources.url,
+        adapterKey: sources.adapterKey,
+        isActive: sources.isActive,
+      })
+      .from(sources)
+      .innerJoin(manhwa, eq(manhwa.id, sources.manhwaId))
+      .orderBy(manhwa.title);
+  }
+
+  async updateSourceUrl(id: number, url: string) {
+    const normUrl = url.startsWith('@') ? `https://t.me/${url.slice(1)}` : url;
+    
+    // First find the source to know its type
+    const sourceRows = await db.select({ type: sources.type }).from(sources).where(eq(sources.id, id));
+    const row = sourceRows[0];
+    if (!row) throw new Error("Source not found");
+    const type = row.type;
+    
+    const adapterKey = type === 'telegram'
+      ? 'telegram'
+      : (await import('@manhwa-tracker/parser')).detectAdapterKey(normUrl);
+
+    await db.update(sources)
+      .set({ url: normUrl, adapterKey })
+      .where(eq(sources.id, id));
+  }
+
+  async redetectAllAdapterKeys() {
+    const { detectAdapterKey } = await import('@manhwa-tracker/parser');
+    const allWebsite = await db
+      .select({ id: sources.id, url: sources.url, adapterKey: sources.adapterKey })
+      .from(sources)
+      .where(eq(sources.type, 'website'));
+
+    console.log(`\n🔧 Fix Adapters — scanning ${allWebsite.length} website sources...`);
+
+    let fixed = 0;
+    let unchanged = 0;
+    const changes: string[] = [];
+
+    for (const src of allWebsite) {
+      const correct = detectAdapterKey(src.url);
+      if (correct !== src.adapterKey) {
+        await db.update(sources)
+          .set({ adapterKey: correct })
+          .where(eq(sources.id, src.id));
+        changes.push(`  [${src.id}] ${src.adapterKey} → ${correct}  (${src.url})`);
+        fixed++;
+      } else {
+        unchanged++;
+      }
+    }
+
+    if (changes.length > 0) {
+      console.log(`✅ Fixed ${fixed} sources:\n${changes.join('\n')}`);
+    } else {
+      console.log(`✅ All ${unchanged} sources already have correct adapter keys — nothing to fix.`);
+    }
+    console.log(`📊 Summary: ${fixed} fixed, ${unchanged} unchanged\n`);
+
+    return { fixed, unchanged };
+  }
 }
