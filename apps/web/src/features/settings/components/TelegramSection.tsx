@@ -1,49 +1,17 @@
 import { useState, useEffect } from 'react';
-import {
-  Send,
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  Trash2,
-  Phone,
-  KeyRound,
-  ShieldCheck,
-  LogIn,
-} from 'lucide-react';
+import { Send, CheckCircle2, XCircle, Loader2, Trash2, LogIn } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { TelegramLoginWizard } from './TelegramLoginWizard';
 
 type LoginStep = 'idle' | 'phone' | 'code' | '2fa' | 'success';
-
-function StepHeader({
-  icon,
-  title,
-  step,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  step: number;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="h-7 w-7 rounded-full bg-white/5 flex items-center justify-center text-xs font-bold text-muted-foreground border border-border/50">
-        {step}
-      </div>
-      <div className="flex items-center gap-2 font-semibold text-sm">
-        {icon}
-        {title}
-      </div>
-    </div>
-  );
-}
 
 export function TelegramSection() {
   const utils = trpc.useUtils();
 
-  // Login wizard state
   const [step, setStep] = useState<LoginStep>('idle');
   const [phone, setPhone] = useState('');
   const [tempId, setTempId] = useState('');
@@ -51,27 +19,17 @@ export function TelegramSection() {
   const [password, setPassword] = useState('');
 
   const { data: status, isLoading: statusLoading, refetch: refetchStatus } =
-    trpc.settings.telegramStatus.useQuery(undefined, {
-      retry: false,
-      refetchOnWindowFocus: false,
-    });
+    trpc.settings.telegramStatus.useQuery(undefined, { retry: false, refetchOnWindowFocus: false });
 
-  // Remembered phone number, persisted server-side (not localStorage) so it
-  // follows you across any browser or device — it's not a secret (it's not
-  // in SENSITIVE_KEYS, and is already shown back in the status card once
-  // connected), it's just a convenience so you don't retype it every time.
   const { data: rememberedPhone } = trpc.settings.get.useQuery('telegram_phone_hint');
   const rememberPhone = trpc.settings.set.useMutation({
-    onSuccess: () => {
-      utils.settings.get.invalidate('telegram_phone_hint');
-    },
+    onSuccess: () => utils.settings.get.invalidate('telegram_phone_hint'),
   });
 
   useEffect(() => {
     if (rememberedPhone && !phone) setPhone(rememberedPhone);
   }, [rememberedPhone, phone]);
 
-  // Step 1 — send OTP
   const startLogin = trpc.settings.startTelegramLogin.useMutation({
     onSuccess: (data) => {
       setTempId(data.tempId);
@@ -81,7 +39,6 @@ export function TelegramSection() {
     onError: (err) => toast.error(err.message || 'Failed to send code'),
   });
 
-  // Step 2 — verify OTP (+ optional 2FA)
   const verifyCode = trpc.settings.verifyTelegramCode.useMutation({
     onSuccess: async (data) => {
       if (data.needs2FA) {
@@ -89,7 +46,6 @@ export function TelegramSection() {
         toast.info('2FA required', { description: 'Enter your Telegram Two-Step Verification password.' });
         return;
       }
-      // Fully signed in
       setStep('success');
       setPhone(''); setCode(''); setPassword(''); setTempId('');
       await utils.settings.telegramStatus.invalidate();
@@ -98,7 +54,6 @@ export function TelegramSection() {
     },
     onError: (err) => {
       toast.error(err.message || 'Verification failed');
-      // Reset to phone step so user can retry
       setStep('phone');
       setCode(''); setTempId('');
     },
@@ -121,17 +76,7 @@ export function TelegramSection() {
     startLogin.mutate({ phone: trimmed });
   };
 
-  const handleVerifyCode = () => {
-    verifyCode.mutate({ tempId, code: code.trim() });
-  };
-
-  const handleVerify2FA = () => {
-    verifyCode.mutate({ tempId, code: code.trim(), password: password.trim() });
-  };
-
-  const reset = () => {
-    setStep('idle'); setPhone(''); setCode(''); setPassword(''); setTempId('');
-  };
+  const reset = () => { setStep('idle'); setPhone(''); setCode(''); setPassword(''); setTempId(''); };
 
   return (
     <section className="space-y-4">
@@ -145,14 +90,12 @@ export function TelegramSection() {
         </p>
       </div>
 
-      {/* ── Status Card ── */}
+      {/* Status Card */}
       <Card className="p-5 space-y-4 bg-card border-border/50">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-muted-foreground">Connection Status</span>
           {statusLoading ? (
-            <Badge variant="outline" className="gap-1.5">
-              <Loader2 size={11} className="animate-spin" /> Checking…
-            </Badge>
+            <Badge variant="outline" className="gap-1.5"><Loader2 size={11} className="animate-spin" /> Checking…</Badge>
           ) : status?.connected ? (
             <Badge className="gap-1.5 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
               <CheckCircle2 size={12} /> Connected
@@ -182,147 +125,36 @@ export function TelegramSection() {
         {status?.source === 'database' && (
           <div className="border-t border-border/50 pt-3">
             <Button
-              variant="ghost"
-              size="sm"
+              variant="ghost" size="sm"
               className="text-red-400 hover:text-red-300 hover:bg-red-500/10 gap-2"
               onClick={() => deleteMutation.mutate()}
               disabled={deleteMutation.isPending}
             >
-              <Trash2 size={14} />
-              Remove saved session
+              <Trash2 size={14} /> Remove saved session
             </Button>
           </div>
         )}
       </Card>
 
-      {/* ── Login Wizard ── */}
-      {step === 'idle' || step === 'success' ? (
-        <Card className="p-5 space-y-4 bg-card border-border/50">
-          <div>
-            <h3 className="text-sm font-semibold mb-0.5">
-              {status?.connected ? 'Re-connect Account' : 'Connect Account'}
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              Log in with your phone number — Telegram will send you a verification code. No app or
-              terminal needed.
-            </p>
-          </div>
-          <Button
-            id="start-telegram-login"
-            onClick={() => setStep('phone')}
-            className="gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold"
-          >
-            <LogIn size={14} />
-            {status?.connected ? 'Re-connect Telegram' : 'Connect Telegram'}
-          </Button>
-        </Card>
-      ) : null}
+      <TelegramLoginWizard
+        step={step}
+        phone={phone}
+        code={code}
+        password={password}
+        isConnected={!!status?.connected}
+        startLoginPending={startLogin.isPending}
+        verifyCodePending={verifyCode.isPending}
+        onPhoneChange={setPhone}
+        onCodeChange={setCode}
+        onPasswordChange={setPassword}
+        onStart={() => setStep('phone')}
+        onSendCode={handleSendCode}
+        onVerifyCode={() => verifyCode.mutate({ tempId, code: code.trim() })}
+        onVerify2FA={() => verifyCode.mutate({ tempId, code: code.trim(), password: password.trim() })}
+        onReset={reset}
+        onBackToPhone={() => setStep('phone')}
+      />
 
-      {/* Step 1 — Phone Number */}
-      {step === 'phone' && (
-        <Card className="p-5 space-y-4 bg-card border-border/50">
-          <StepHeader icon={<Phone size={16} className="text-blue-400" />} title="Enter your phone number" step={1} />
-          <p className="text-xs text-muted-foreground">
-            Use the international format, e.g. <code className="font-mono bg-white/5 px-1 rounded">+919876543210</code>
-          </p>
-          <input
-            id="telegram-phone-input"
-            type="tel"
-            autoFocus
-            placeholder="+919876543210"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSendCode()}
-            className="w-full rounded-md border border-border/50 bg-black/30 px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-muted-foreground/50"
-          />
-          <div className="flex gap-2">
-            <Button
-              id="send-telegram-code"
-              onClick={handleSendCode}
-              disabled={!phone.trim() || startLogin.isPending}
-              className="gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold"
-            >
-              {startLogin.isPending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-              {startLogin.isPending ? 'Sending…' : 'Send Code'}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={reset} className="text-muted-foreground">
-              Cancel
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {/* Step 2 — OTP Code */}
-      {step === 'code' && (
-        <Card className="p-5 space-y-4 bg-card border-border/50">
-          <StepHeader icon={<KeyRound size={16} className="text-amber-400" />} title="Enter the verification code" step={2} />
-          <p className="text-xs text-muted-foreground">
-            Check your Telegram app for a message from <strong>Telegram</strong> with a 5-digit code.
-          </p>
-          <input
-            id="telegram-otp-input"
-            type="text"
-            inputMode="numeric"
-            autoFocus
-            maxLength={8}
-            placeholder="12345"
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-            onKeyDown={(e) => e.key === 'Enter' && handleVerifyCode()}
-            className="w-full rounded-md border border-border/50 bg-black/30 px-3 py-2.5 text-sm font-mono tracking-widest text-center focus:outline-none focus:ring-2 focus:ring-amber-500/50 placeholder:text-muted-foreground/50"
-          />
-          <div className="flex gap-2">
-            <Button
-              id="verify-telegram-code"
-              onClick={handleVerifyCode}
-              disabled={code.length < 4 || verifyCode.isPending}
-              className="gap-2 bg-amber-500 hover:bg-amber-400 text-amber-950 font-semibold"
-            >
-              {verifyCode.isPending ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-              {verifyCode.isPending ? 'Verifying…' : 'Verify Code'}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setStep('phone')} className="text-muted-foreground">
-              Back
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {/* Step 2.5 — 2FA Password */}
-      {step === '2fa' && (
-        <Card className="p-5 space-y-4 bg-card border-border/50">
-          <StepHeader icon={<ShieldCheck size={16} className="text-purple-400" />} title="Two-step verification" step={3} />
-          <p className="text-xs text-muted-foreground">
-            Your account has Two-Step Verification enabled. Enter your Telegram password to continue.
-          </p>
-          <input
-            id="telegram-2fa-input"
-            type="password"
-            autoFocus
-            placeholder="Your 2FA password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleVerify2FA()}
-            className="w-full rounded-md border border-border/50 bg-black/30 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 placeholder:text-muted-foreground/50"
-          />
-          <div className="flex gap-2">
-            <Button
-              id="verify-telegram-2fa"
-              onClick={handleVerify2FA}
-              disabled={!password.trim() || verifyCode.isPending}
-              className="gap-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold"
-            >
-              {verifyCode.isPending ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
-              {verifyCode.isPending ? 'Verifying…' : 'Submit Password'}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={reset} className="text-muted-foreground">
-              Cancel
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {/* Security note */}
       <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 text-xs text-amber-300/80 space-y-1">
         <p className="font-semibold text-amber-300">Security note</p>
         <p>

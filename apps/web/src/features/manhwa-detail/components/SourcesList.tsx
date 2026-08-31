@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Plus, Send, Trash2, Star, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Plus, Send, Trash2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
+import { StatusBadge, computeStatus, timeAgo } from './SourceStatusBadge';
 
 interface Source {
   url: string | null;
@@ -15,119 +16,7 @@ interface Source {
 interface SourcesListProps {
   manhwaId: number;
   sources: Source[] | undefined;
-  latestChapter: number; // global max — used to compute relative status
-}
-
-/** Returns a compact relative time string like "2 min ago", "just now", "3 days ago". */
-function timeAgo(dateRaw: Date | string | null): string {
-  if (!dateRaw) return 'never';
-  const date = typeof dateRaw === 'string' ? new Date(dateRaw) : dateRaw;
-  const diffMs = Date.now() - date.getTime();
-  if (diffMs < 0) return 'just now';
-  const s = Math.floor(diffMs / 1000);
-  if (s < 60) return `${s}s ago`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m} min ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  return `${d} day${d !== 1 ? 's' : ''} ago`;
-}
-
-type SourceStatus = 'leading' | 'synced' | 'behind' | 'unknown';
-
-function computeStatus(
-  sourceChapter: number | null,
-  globalMax: number,
-  allSources: Source[],
-): SourceStatus {
-  if (sourceChapter === null) return 'unknown';
-
-  // If every source has the same chapter, all are synced
-  const allKnown = allSources.filter(s => s.latestChapterNum !== null);
-  const allSame =
-    allKnown.length > 1 &&
-    allKnown.every(s => s.latestChapterNum === sourceChapter);
-  if (allSame) return 'synced';
-
-  if (sourceChapter >= globalMax) return 'leading';
-  return 'behind';
-}
-
-/** Compact duration string: "2h", "3d", "45m" */
-function formatDuration(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h`;
-  const d = Math.floor(h / 24);
-  return `${d}d`;
-}
-
-function StatusBadge({
-  status,
-  sourceChapter,
-  globalMax,
-  thisDiscoveredAt,
-  leaderDiscoveredAt,
-}: {
-  status: SourceStatus;
-  sourceChapter: number | null;
-  globalMax: number;
-  thisDiscoveredAt: Date | string | null;
-  leaderDiscoveredAt: Date | string | null;
-}) {
-  if (status === 'unknown') {
-    return (
-      <span className="text-xs text-muted-foreground/60">— No chapters synced yet</span>
-    );
-  }
-
-  if (status === 'leading') {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-400">
-        <Star className="h-3 w-3 fill-amber-400" />
-        Leading source
-      </span>
-    );
-  }
-
-  if (status === 'synced') {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400">
-        <CheckCircle2 className="h-3 w-3" />
-        Synced
-      </span>
-    );
-  }
-
-  // behind — compute time gap vs leader if both timestamps available
-  const diff = globalMax - (sourceChapter ?? 0);
-  let timeDiffLabel: string | null = null;
-  if (leaderDiscoveredAt && thisDiscoveredAt) {
-    const leaderMs = typeof leaderDiscoveredAt === 'string' ? new Date(leaderDiscoveredAt).getTime() : leaderDiscoveredAt.getTime();
-    const thisMs = typeof thisDiscoveredAt === 'string' ? new Date(thisDiscoveredAt).getTime() : thisDiscoveredAt.getTime();
-    const gapMs = thisMs - leaderMs; // negative = this source found its chapter BEFORE leader found theirs
-    if (gapMs > 60_000) timeDiffLabel = `${formatDuration(gapMs)} slower`;
-    else if (gapMs < -60_000) timeDiffLabel = `${formatDuration(-gapMs)} faster`;
-  }
-
-  return (
-    <span className="inline-flex items-center gap-2 text-xs font-medium text-orange-400/80">
-      <span className="inline-flex items-center gap-1">
-        <AlertTriangle className="h-3 w-3" />
-        Behind by {diff} chapter{diff !== 1 ? 's' : ''}
-      </span>
-      {timeDiffLabel && (
-        <span className="text-zinc-500">·</span>
-      )}
-      {timeDiffLabel && (
-        <span className="text-zinc-400 font-normal">{timeDiffLabel} than leader</span>
-      )}
-    </span>
-  );
+  latestChapter: number;
 }
 
 export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListProps) {
@@ -175,8 +64,6 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
           }
 
           const status = computeStatus(source.latestChapterNum, latestChapter, sources);
-
-          // Find the leading source's lastDiscoveredAt for time comparison
           const leaderSource = sources.find(s => computeStatus(s.latestChapterNum, latestChapter, sources) === 'leading');
           const leaderDiscoveredAt = leaderSource?.lastDiscoveredAt ?? null;
 
@@ -185,9 +72,7 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
               <a href={source.url} target="_blank" rel="noopener noreferrer" className="block">
                 <Card className="bg-[#161719] border-border/30 p-4 rounded-xl group-hover/source:border-amber-500/30 transition-colors pr-14">
                   <div className="flex items-start gap-4">
-                    {/* Icon */}
-                    <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isTelegram ? 'bg-blue-500/10 text-blue-400' : 'bg-emerald-500/10 text-emerald-400'
-                      }`}>
+                    <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isTelegram ? 'bg-blue-500/10 text-blue-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
                       {isTelegram ? (
                         <Send size={18} className="-ml-0.5" />
                       ) : (
@@ -198,34 +83,19 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
                         </svg>
                       )}
                     </div>
-
-                    {/* Content */}
                     <div className="flex-1 min-w-0">
-                      {/* Name + type row */}
                       <div className="flex items-baseline gap-2 flex-wrap">
-                        <h4 className="font-semibold text-white truncate max-w-[200px] sm:max-w-[300px]">
-                          {displayName}
-                        </h4>
-                        <span className="text-xs text-muted-foreground shrink-0">
-                          {isTelegram ? 'Telegram' : 'Website'}
-                        </span>
+                        <h4 className="font-semibold text-white truncate max-w-[200px] sm:max-w-[300px]">{displayName}</h4>
+                        <span className="text-xs text-muted-foreground shrink-0">{isTelegram ? 'Telegram' : 'Website'}</span>
                       </div>
-
-                      {/* Chapter + timestamp row */}
                       <div className="flex items-center gap-3 mt-1 flex-wrap">
                         <span className="text-sm font-medium text-zinc-300">
-                          {source.latestChapterNum !== null
-                            ? `Ch. ${source.latestChapterNum}`
-                            : '—'}
+                          {source.latestChapterNum !== null ? `Ch. ${source.latestChapterNum}` : '—'}
                         </span>
                         {source.lastDiscoveredAt && (
-                          <span className="text-xs text-muted-foreground/60">
-                            Last discovered {timeAgo(source.lastDiscoveredAt)}
-                          </span>
+                          <span className="text-xs text-muted-foreground/60">Last discovered {timeAgo(source.lastDiscoveredAt)}</span>
                         )}
                       </div>
-
-                      {/* Status badge row */}
                       <div className="mt-1.5">
                         <StatusBadge
                           status={status}
@@ -274,11 +144,7 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
               type="text"
               value={newSourceUrl}
               onChange={(e) => setNewSourceUrl(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && newSourceUrl.trim() && !addSourceMutation.isPending) {
-                  handleAddSource();
-                }
-              }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && newSourceUrl.trim() && !addSourceMutation.isPending) handleAddSource(); }}
               placeholder={newSourceType === 'telegram' ? '@channel_name or t.me/...' : 'https://example.com/...'}
               className="bg-[#161719] border border-border/50 text-white text-sm rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-amber-500 placeholder:text-muted-foreground"
             />

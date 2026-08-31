@@ -1,63 +1,13 @@
 /**
- * Telegram download-watcher
- * -------------------------
- * Long-running process (NOT part of the Express/tRPC server — run it as its
- * own PM2/systemd service, separate from `pnpm dev`).
+ * Telegram download-watcher — long-running process, NOT part of the API server.
  *
- * Design, per .agents/brain/decisions.md ("Telegram download = auto Last Read")
- * and .agents/brain/patterns.md ("Progress Auto-Update from Telegram"):
+ * Design: see .agents/brain/decisions.md ("Telegram download = auto Last Read")
+ * and .agents/brain/patterns.md ("Progress Auto-Update from Telegram").
  *
- *   1. NewMessage on a tracked channel  -> catalogue the chapter (insert into
- *      `chapters`, idempotent). This alone does NOT touch progress.
- *   2. UpdateReadChannelInbox / UpdateReadHistoryInbox on a tracked channel
- *      -> the user's Telegram read-pointer moved (opened the app, opened the
- *      file, read it from their phone — GramJS/MTProto has no separate
- *      "file downloaded" event; the read-receipt is the closest real signal
- *      to "the user consumed this"). We resolve the newest message at-or-below
- *      the new read pointer, extract its chapter number, and mark it as last
- *      read — but only if it's actually newer than what's already recorded.
- *
- * IMPORTANT CAVEAT (read before relying on this):
- * MTProto's "read" update fires when ANY client logged into this account
- * reads the channel — including this watcher itself calling getMessages(),
- * which can mark things read as a side effect. We deliberately avoid calling
- * anything that marks messages read (no client.markAsRead / no auto-download)
- * so the only source of read-pointer movement is the user's own client(s).
- * This has not been run against a live Telegram session — verify against
- * your actual channels before trusting it unattended.
- *
- * SELF-HEALING (see .agents/brain — "watcher stops processing after TIMEOUT storms"):
- * connectionRetries: -1 makes the client retry a broken connection forever, but
- * it retries the SAME connection — if the underlying MTProto sender gets wedged
- * (the "Error: TIMEOUT" storms seen in prod logs), infinite retries on that one
- * connection never recovers it, and updates silently stop forever with no
- * crash and no alert. Two independent nets catch that now:
- *
- * UPDATE: the TIMEOUT storms below were traced to an unfixed upstream bug in
- * GramJS's internal update loop (gram-js/gramjs#753 — the project is archived
- * with no fix coming). We've since migrated off `telegram` (GramJS) onto
- * `teleproto`, an actively-maintained fork that addresses this at the source.
- * The layered defenses below are left in place regardless — they're generically
- * useful against any wedged-connection failure mode, not just this specific
- * one, and cost nothing when the connection is healthy.
- *   - The periodic getMe() health check counts CONSECUTIVE failures (not just
- *     auth-death markers). After a few in a row it tears down and rebuilds the
- *     client from scratch instead of trusting GramJS's internal retry loop.
- *   - A "last real activity" watchdog restarts the watcher if no actual
- *     Telegram event (new message / read update) has arrived in a long time —
- *     deliberately NOT reset by getMe() or reconcile succeeding, since prod
- *     logs (client/updates.js _updateLoop) show GramJS's own update-fetching
- *     loop can get stuck retrying "Error: TIMEOUT" forever while completely
- *     unrelated RPCs like getMe() keep working fine. That loop also appears
- *     to swallow its own errors internally — including, apparently, an
- *     AUTH_KEY_* session death, which came out as endless generic TIMEOUTs
- *     instead of ever reaching our AUTH_KEY_* detection — so it can't be
- *     trusted to surface anything to app code at all.
- *   - Because of that last point, an unconditional scheduled rebuild runs on
- *     a fixed timer regardless of whether any problem was detected, as a
- *     backstop against wedges that are invisible to both checks above.
- * All paths funnel into the same recreate-the-client routine, with backoff
- * so a real outage doesn't spin-loop reconnect attempts.
+ * Self-healing: uses a generation counter + health-check interval + activity watchdog
+ * + scheduled rebuild to recover from wedged connections. Full rationale is in
+ * .agents/brain/decisions.md ("watcher stops processing after TIMEOUT storms").
+ * Migrated from GramJS → teleproto (gram-js/gramjs#753 — unresolved upstream bug).
  */
 import "../../env";
 import { TelegramClient, Api } from "teleproto";
@@ -75,6 +25,7 @@ import {
 import { buildChannelMap, channelMap } from "./channel-map";
 import { handleNewMessage, handleReadUpdate } from "./handlers";
 import { reconcileAll } from "./reconcile";
+import { setupWatcherIntervals } from "./intervals";
 
 const API_ID = Number(process.env.TELEGRAM_API_ID);
 const API_HASH = process.env.TELEGRAM_API_HASH ?? "";
@@ -88,29 +39,9 @@ if (!API_ID || !API_HASH) {
 
 const settingsRepo = new SettingsRepository();
 
-// How many consecutive getMe() health-check failures (non-auth) before we
-// give up on the current connection and rebuild the client from scratch.
-// 3 failures * 5-minute interval = ~15 minutes of confirmed unresponsiveness.
-const MAX_CONSECUTIVE_HEALTH_FAILURES = 3;
-const HEALTH_CHECK_INTERVAL_MS = 5 * 60 * 1000;
-
-// Independent backstop: if truly nothing has happened (no live event, no
-// successful health ping) for this long, force a rebuild even if the health
-// check itself hasn't tripped. Generously above normal low-traffic lulls.
-const ACTIVITY_WATCHDOG_MS = 45 * 60 * 1000;
-const ACTIVITY_WATCHDOG_CHECK_INTERVAL_MS = 5 * 60 * 1000;
-
-// Backoff between rebuild attempts, so a genuine outage (Telegram down,
-// network unreachable) doesn't turn into a tight reconnect loop.
+// Constants for restart backoffs
 const RESTART_BACKOFF_BASE_MS = 30 * 1000;
 const RESTART_BACKOFF_MAX_MS = 5 * 60 * 1000;
-
-// Unconditional rebuild on a fixed schedule, regardless of whether any
-// problem has been detected. See the SELF-HEALING note above: GramJS's own
-// internal update loop can wedge and swallow its errors without ever
-// surfacing them to app code, so detection-based recovery alone isn't
-// trustworthy — this bounds the worst case.
-const SCHEDULED_RESTART_INTERVAL_MS = 3 * 60 * 60 * 1000; // 3 hours
 
 // How often to re-check for a session when none is configured yet (e.g. a
 // fresh deploy before anyone has logged in via Settings → Telegram). Cheap —
@@ -267,134 +198,7 @@ async function runWatcherGeneration(attempt = 0): Promise<void> {
       (attempt > 0 ? `\n🔁 Recovered after ${attempt} rebuild attempt(s)` : ""),
   );
 
-  // Re-map every 5 minutes so newly-added sources (via the web UI) get picked up
-  // without restarting the process.
-  intervals.push(
-    setInterval(
-      () => {
-        if (!isCurrent()) return;
-        buildChannelMap(client).catch((e) =>
-          console.error("[watcher] remap failed:", e),
-        );
-      },
-      5 * 60 * 1000,
-    ),
-  );
-
-  // Proactive session health check, independent of channel activity — a dead
-  // session with no tracked channels posting anything would otherwise sit
-  // silently until the next remap's getEntity call happens to fail.
-  //
-  // Also doubles as the primary detector for a wedged connection: repeated
-  // non-auth failures here (e.g. the getMe() call itself timing out) mean the
-  // connection GramJS is endlessly retrying internally isn't actually
-  // recovering, so after a few in a row we rebuild the client outright rather
-  // than trusting it to fix itself.
-  intervals.push(
-    setInterval(async () => {
-      if (!isCurrent()) return;
-      try {
-        await client.getMe();
-        consecutiveHealthFailures = 0;
-        // Deliberately NOT touchActivity() here: getMe() is an independent
-        // RPC call, separate from GramJS's internal update-fetching loop
-        // (client/updates.js _updateLoop). Prod logs have shown that loop can
-        // get stuck retrying "Error: TIMEOUT" forever — swallowing its own
-        // errors internally, including what may actually be a masked
-        // AUTH_KEY_* death — without ever throwing anything our code sees.
-        // getMe() can keep succeeding the whole time that's happening, so
-        // treating it as "activity" would blind the watchdog below to the
-        // exact failure mode it exists to catch.
-      } catch (err) {
-        const deathMarker = isSessionDeathError(err);
-        if (deathMarker) {
-          handleSessionDeath(deathMarker, shutdown);
-          return;
-        }
-        consecutiveHealthFailures++;
-        const message = err instanceof Error ? err.message : String(err);
-        console.error(
-          `[watcher] Health check failed (${consecutiveHealthFailures}/${MAX_CONSECUTIVE_HEALTH_FAILURES}): ${message}`,
-        );
-        if (consecutiveHealthFailures >= MAX_CONSECUTIVE_HEALTH_FAILURES) {
-          rebuild(
-            `${consecutiveHealthFailures} consecutive health-check failures (${message}) — connection likely stuck in a retry loop`,
-          );
-        }
-      }
-    }, HEALTH_CHECK_INTERVAL_MS),
-  );
-
-  // Independent backstop: even if getMe() keeps succeeding, if literally no
-  // real activity (event or health ping) has landed in a long time, force a
-  // rebuild. Catches failure modes where a fresh RPC still goes through but
-  // the persistent update stream itself has silently stopped delivering.
-  intervals.push(
-    setInterval(() => {
-      if (!isCurrent()) return;
-      const idleMs = Date.now() - lastActivityAt;
-      if (idleMs >= ACTIVITY_WATCHDOG_MS) {
-        rebuild(
-          `no watcher activity for ${Math.round(idleMs / 60000)} minutes`,
-        );
-      }
-    }, ACTIVITY_WATCHDOG_CHECK_INTERVAL_MS),
-  );
-
-  // Second safety net independent of the live event stream — see reconcile.ts
-  // for why this exists on top of catchUp. Run once shortly after startup
-  // (covers whatever happened while the watcher was down/deploying), then on
-  // a fixed interval after that.
-  //
-  // Interval tightened from 15min -> 5min: prod logs show the live push path
-  // (GramJS's _updateLoop) getting stuck in TIMEOUT retries for extended,
-  // uninterrupted stretches (unresolved upstream bug — gram-js/gramjs#753).
-  // While it's stuck, live events likely aren't reaching handleNewMessage /
-  // handleReadUpdate at all, so reconcile — which uses separate, direct RPCs
-  // that don't depend on that loop — is effectively the PRIMARY path right
-  // now, not just a backstop. 5 minutes is still comfortably above a full
-  // pass's actual runtime for ~200 channels (reconcileInFlight already
-  // no-ops an overlapping run if a pass ever takes longer than the interval),
-  // so this is safe to run this often.
-  setTimeout(() => {
-    if (!isCurrent()) return;
-    // Not treated as "activity" either, for the same reason as getMe() above —
-    // a reconcile pass that finds nothing new still proves only that
-    // getMessages()/getDialogs() RPCs work, not that the live push stream is
-    // alive. Only real incoming events (below) count toward the watchdog.
-    reconcileAll(client).catch((e) =>
-      console.error("[watcher] initial reconcile failed:", e),
-    );
-  }, 10_000);
-  intervals.push(
-    setInterval(
-      () => {
-        if (!isCurrent()) return;
-        reconcileAll(client).catch((e) =>
-          console.error("[watcher] reconcile failed:", e),
-        );
-      },
-      5 * 60 * 1000,
-    ),
-  );
-
-  // Unconditional backstop, independent of every detection mechanism above.
-  // The prod logs show GramJS's internal update loop can swallow its own
-  // errors (including a possibly-masked AUTH_KEY death) and retry forever
-  // without ever surfacing anything our error handlers or health checks can
-  // see. No amount of "detect and react" logic can be trusted to catch every
-  // variant of that, so on a fixed schedule we rebuild the client outright —
-  // cheap, safe (in-flight work isn't lost, just briefly paused), and bounds
-  // the worst case for an otherwise-invisible wedge to this interval instead
-  // of "forever, silently, until someone notices manually."
-  intervals.push(
-    setInterval(() => {
-      if (!isCurrent()) return;
-      rebuild(
-        "scheduled periodic rebuild (safety net against silent internal-loop wedges)",
-      );
-    }, SCHEDULED_RESTART_INTERVAL_MS),
-  );
+  intervals.push(...setupWatcherIntervals(client, isCurrent, rebuild, shutdown, () => lastActivityAt));
 
   client.addEventHandler((event) => {
     touchActivity();
