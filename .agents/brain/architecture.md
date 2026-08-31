@@ -1,7 +1,7 @@
 # Architecture — Manhwa Tracker
 
-project_root: D:\manwha-tracker
-last_updated: 2026-08-28
+project_root: F:\manwha-tracker
+last_updated: 2026-08-31
 
 ## Monorepo Structure (Actual as of 2026-08-28)
 
@@ -28,7 +28,8 @@ D:\manwha-tracker\
 │   │   │   │   │   ├── sync.service.ts           getIsSyncing() + getSyncHistory() only — no SyncService.run()
 │   │   │   │   │   └── sync.repository.ts
 │   │   │   │   ├── settings\
-│   │   │   │   │   └── settings.router.ts        key/value settings + Telegram in-app login flow
+│   │   │   │   │   ├── settings.router.ts        CRUD key/value get/set/delete
+│   │   │   │   │   └── telegram-auth.procedures.ts  SendCode, SignIn, 2FA, telegramStatus, disconnectTelegram (extracted 2026-08-31)
 │   │   │   │   └── telegram\
 │   │   │   │       └── telegram.repository.ts    (present but the watcher/bot run on the worker, not here)
 │   │   │   ├── routes\
@@ -53,7 +54,8 @@ D:\manwha-tracker\
 │   │   │   │   │   ├── progress.repository.ts
 │   │   │   │   │   └── sources.repository.ts
 │   │   │   │   ├── sync\
-│   │   │   │   │   ├── sync.service.ts        SyncService.run() — the real implementation
+│   │   │   │   │   ├── sync.service.ts        Orchestration only: lock, scope routing, DB history write
+│   │   │   │   │   ├── sync.website.ts        Website sync loop: FlareSolverr wake-up, per-source scraping, helpers (extracted 2026-08-31)
 │   │   │   │   │   └── sync.repository.ts
 │   │   │   │   └── telegram\
 │   │   │   │       └── telegram.repository.ts DB ops used by the watcher (insertChapter, markAsReadIfNewer, etc.)
@@ -61,15 +63,17 @@ D:\manwha-tracker\
 │   │   │   │   ├── cron\
 │   │   │   │   │   └── cron-sync.ts           entry point for `pnpm run cron:sync` — runs website sync once and exits
 │   │   │   │   ├── watcher\                   Telegram Download Watcher (teleproto, event-driven + reconciliation)
-│   │   │   │   │   ├── index.ts               entry point, client setup, health check, rebuild scheduling
+│   │   │   │   │   ├── index.ts               entry point, client lifecycle, event handler registration
+│   │   │   │   │   ├── intervals.ts           health-check, watchdog, reconcile, scheduled-rebuild intervals (extracted 2026-08-31)
 │   │   │   │   │   ├── handlers.ts            new-message and read-update handlers
 │   │   │   │   │   ├── channel-map.ts         channel mapping and access-hash resolution/caching
-│   │   │   │   │   ├── reconcile.ts           periodic getDialogs()/getMessages() catch-up (see below)
+│   │   │   │   │   ├── reconcile.ts           periodic getDialogs()/getMessages() catch-up
 │   │   │   │   │   └── session.ts             session management and death alerts
 │   │   │   │   └── bot\                       Telegram Alert Bot (Bot API, not MTProto)
 │   │   │   │       ├── index.ts               entry point
 │   │   │   │       ├── poll.ts                long-polling loop and update dispatcher
-│   │   │   │       ├── handlers.ts            command and forward-message handlers
+│   │   │   │       ├── handlers.ts            simple command handlers (/start, /help, /list, /create, /latest, /read, /cancel)
+│   │   │   │       ├── channel-registration.ts multi-step channel add & conflict flow (extracted 2026-08-31)
 │   │   │   │       └── api.ts                 Bot API HTTP helpers
 │   │   │   ├── utils\
 │   │   │   │   ├── telegram-client.ts         connectTelegramClient() helper (worker's own copy)
@@ -96,15 +100,21 @@ D:\manwha-tracker\
 │       │   │   │       ├── ManhwaPoster.tsx   (cover image, continue reading, edit button)
 │       │   │   │       ├── ProgressCard.tsx   (chapter progress controls)
 │       │   │   │       ├── SourcesList.tsx    (sources list + add source form)
+│       │   │   │       ├── SourceStatusBadge.tsx   (StatusBadge + timeAgo/computeStatus/formatDuration helpers — extracted 2026-08-31)
 │       │   │   │       ├── UnreadManhwaStrip.tsx
-│       │   │   │       └── EditManhwaModal.tsx (edit title, cover, description, genres)
+│       │   │   │       ├── EditManhwaModal.tsx (edit title, cover, description, genres)
+│       │   │   │       └── ManageChaptersSection.tsx (expandable chapters list — extracted 2026-08-31)
 │       │   │   ├── search\
 │       │   │   │   └── GlobalSearch.tsx
 │       │   │   ├── sync\
 │       │   │   │   └── SyncHistoryDrawer.tsx
 │       │   │   └── settings\
 │       │   │       ├── Settings.tsx
-│       │   │       └── components\            RecentlyDeletedSection, SyncHistorySection, TelegramSection
+│       │   │       └── components\
+│       │   │           ├── RecentlyDeletedSection.tsx
+│       │   │           ├── SyncHistorySection.tsx
+│       │   │           ├── TelegramSection.tsx         (status card + wizard wiring)
+│       │   │           └── TelegramLoginWizard.tsx     (phone/OTP/2FA step UI — extracted 2026-08-31)
 │       │   ├── components\
 │       │   │   ├── layout\
 │       │   │   │   └── AppShell.tsx           (navbar + layout, Sync button)
@@ -344,9 +354,17 @@ see decisions.md).
 | Webtoon | `webtoon` | no |
 | Generic (catch-all) | `generic` | no |
 
-Adapters needing browser rendering use `browser.ts`, which shares a single browser instance across
-requests (rather than launching a new Chromium process per fetch) and prefers FlareSolverr with
-local Playwright as fallback.
+Adapters needing browser rendering use `browser.ts`. The rendering stack (as of 2026-08-31):
+1. **FlareSolverr** — tried first if `FLARESOLVERR_URL` env var is set. A 503 or non-200 response
+   is treated as a failure and falls through to the next layer.
+2. **Playwright headless browser** (`browser.ts` — `fetchRenderedHtml`) — tried if FlareSolverr
+   fails or is not configured. Shares a single browser instance across requests.
+3. **Hard failure** — throws `CloudflareBlockedError` with a user-readable reason.
+
+The `looksLikeCloudflareChallenge(html)` helper gates both layers — if the initial HTTP fetch
+returns a Cloudflare interstitial page, the fallback chain starts. If a 503 comes back from
+FlareSolverr, it triggers the Playwright fallback. Playwright timeouts (30s) map to a
+user-friendly "Site took too long to respond" message.
 
 Chapter-number extraction (`extractChapterNumber`, `drop-outliers.ts`, `extract-declared-count.ts`)
 has several layers of false-positive protection — DOM-order awareness, outlier filtering, and

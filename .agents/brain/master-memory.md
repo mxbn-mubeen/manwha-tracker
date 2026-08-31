@@ -1,7 +1,7 @@
 # Manhwa Tracker — Master Memory
 
 project_root: F:\manwha-tracker
-last_brain_review: 2026-08-29
+last_brain_review: 2026-08-31
 
 ## What This Project Does
 
@@ -30,35 +30,25 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - Soft delete (delete/recover/getDeleted) for manhwa
 - Sync history (`sync_runs` table) with per-row status (new/no_new/issue/failed) shown in a Settings drawer
 
-## Current State (as of 2026-08-28)
+## Current State (as of 2026-08-31)
 
 - **Architecture fully migrated from Next.js to Vite + Express** (Option 2 — decoupled)
 - **`apps/api` split further into `apps/api` (fast queries, Vercel Serverless) + `apps/worker`
-  (long-running: Telegram watcher, Telegram bot, website sync)** — the two apps do not import from
-  each other. Domain-specific modules (`manhwa`, `sync`, `telegram`) are duplicated per-app.
-  `SettingsRepository` is the exception — it lives in `@manhwa-tracker/database` and is imported
-  by both apps (moved 2026-08-28). The worker has no `settings/` module dir anymore.
+  (long-running: Telegram watcher, Telegram bot, website sync)**
 - Vite React frontend (apps/web) running on port 3000 OK
 - Neon PostgreSQL connected via @manhwa-tracker/database lib OK
-- packages/ renamed to libs/ for clarity OK
 - UI rebuilt with Tailwind v4 + shadcn/ui dark manhwa theme OK
 - Dashboard, Library, AddManhwa, ManhwaDetail, Settings pages all working OK
-- Web src reorganized from pages/ to features/ (feature-based folder structure) OK
+- Web src organized as features/ (feature-based folder structure) OK
 - ManhwaDetail refactored into sub-components: ManhwaHeader, ManhwaPoster, ProgressCard, SourcesList, EditManhwaModal OK
-- ManhwaHeader now shows ID badge (ID #42) below the title OK
-- Telegram watcher live and running (`apps/worker/src/scripts/watcher/index.ts`) — event-driven,
-  catches new chapters + read progress, plus a 5-minute reconciliation pass, health-check rebuild,
-  activity watchdog, and scheduled rebuild for resilience OK
+- Telegram watcher live and running — event-driven + reconciliation + health-check rebuild + activity watchdog + scheduled rebuild OK
 - manhwa.repository.ts split into manhwa.repository.ts (writes) + manhwa.read.repository.ts (reads) OK
 - Per-source chapter status in SourcesList: Leading/Synced/Behind badge and Last discovered X ago OK
 - Library Unread filter added (shows manhwa where latestChapter > lastChapter) OK
-- Session death graceful shutdown: handleSessionDeath accepts optional onShutdown callback — the
-  watcher stops cleanly without calling process.exit(1) OK
-- Watcher interval tracking: startWatcher stores all setInterval handles and clears them on shutdown OK
-- Channel-map stale ID fix: buildChannelMap detects when telegramEntityId changed (bot replace flow) and removes stale key before inserting corrected one OK
-- Telegram phone auto-fill: TelegramSection.tsx initialises phone from localStorage (defaults to user number) and saves on each send OK
-- Bot commands clickable: /replace and /cancel use slash prefix so Telegram renders them as tappable blue links OK
-- Telegram bot commands extended: `/start`, `/help`, `/cancel`, `/list`, `/create`, `/latest`, `/read` allowing full manhwa and progress management directly from Telegram without the web UI OK
+- Completed manhwa filtering added: Dashboard Continue Reading and Library Unread hide `status='completed'` titles OK
+- **Cloudflare fallback chain**: `http.ts` now tries FlareSolverr → Playwright headless browser → fails; the `looksLikeCloudflareChallenge` check gates both layers OK
+- **Codebase-wide 230-line refactor** complete (2026-08-31) — all files now under 230 lines OK
+  (see Active Work for the full list of extracted files)
 
 ### Deployment Architecture (as of 2026-08-28)
 
@@ -129,20 +119,24 @@ functionality is needed, it has to be written from scratch.
 ## Active Work
 
 - Telegram watcher is live and functioning correctly (event-driven + reconciliation, tested in production).
-- Website adapter sync covers 11 real sites now (see Key Features, added infinitelevelup) — several need browser rendering (Playwright/FlareSolverr) since they're Cloudflare-protected; see architecture.md's adapter table.
+- Website adapter sync covers 11 real sites now — several need browser rendering via Playwright/FlareSolverr chain.
 - Settings page includes Telegram login/status, sync history, and recently-deleted sections.
-- **Unified Sources page** built at `/sources` (2026-08-29):
-  - `SourcesPage.tsx` (main), `SourceRow.tsx` (desktop), `SourceCard.tsx` (mobile), `adapterColors.ts` (badge colours)
-  - Domain-based filter chips (not adapter-key based) — shows actual hostname from URL, coloured by adapter
-  - `getAllSources` tRPC query + `updateSourceUrl` mutation + `redetectAdapterKeys` mutation added to API
-  - Fix Adapters button re-runs `detectAdapterKey(url)` on all website sources and patches DB in one shot
-- Stale `adapterKey = 'website'` entries exist in DB for sources added before per-site detection was wired up — Fix Adapters button resolves this
-- `libs/shared/src/constants.ts`'s `ADAPTER_KEYS` list was out of sync with the real adapters (had `mangadex`/`flamecomics`, which don't exist as website adapters; was missing 6 real ones) — fixed 2026-08-28, see decisions.md.
-- `SettingsRepository` consolidated into `@manhwa-tracker/database` (was duplicated in both `apps/api` and `apps/worker`) — 2026-08-28.
-- `apps/api/src/modules/sync/sync.service.ts` slimmed to read-only helpers (`getIsSyncing`,
-  `getSyncHistory`); `SyncService.run()` lives only in the worker — 2026-08-28.
-- `apps/worker/src/modules/manhwa/manhwa.router.ts` deleted (dead code, never imported) — 2026-08-28.
-- `big-integer` added to `apps/worker/package.json` (was missing; required by teleproto watcher) — 2026-08-28.
+- **Unified Sources page** built at `/sources` (2026-08-29).
+- **230-line refactor complete (2026-08-31)** — files extracted:
+  - `watcher/intervals.ts` — health check, watchdog, reconcile, scheduled rebuild intervals
+  - `bot/channel-registration.ts` — multi-step channel add flow + conflict resolution
+  - `sync/sync.website.ts` — FlareSolverr wake-up + per-source scraping loop + helpers
+  - `ManageChaptersSection.tsx` — expandable chapters list from EditManhwaModal
+  - `TelegramLoginWizard.tsx` — phone/OTP/2FA step UI from TelegramSection
+  - `SourceStatusBadge.tsx` — StatusBadge + timeAgo/computeStatus/formatDuration helpers
+  - `telegram-auth.procedures.ts` — SendCode/SignIn/2FA/status/disconnect from settings.router
+- **Cloudflare fallback chain** (2026-08-31): `libs/parser/src/adapters/http.ts` now tries:
+  1. Direct HTTP fetch
+  2. FlareSolverr (if `FLARESOLVERR_URL` set)
+  3. Playwright headless browser (`browser.ts`)
+  Gated by `looksLikeCloudflareChallenge()`. Playwright timeout (30s) maps to a user-friendly error.
+- **Completed manhwa filtering** (2026-08-31): Dashboard Continue Reading and sources.repository.ts
+  `getActiveSources` both exclude `status = 'completed'` manhwa.
 
 ## Tech Stack
 

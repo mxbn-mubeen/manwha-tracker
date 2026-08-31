@@ -6,6 +6,7 @@ export type SyncSourceRow = {
   chapterFound: number | null; // null when failed/issue
   status: 'new' | 'no_new' | 'issue' | 'failed';
   reason: string | null;   // detail for issue/failed rows
+  durationMs?: number;     // latency in milliseconds
 };
 
 export interface SyncResult {

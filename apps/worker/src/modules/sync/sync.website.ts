@@ -13,6 +13,7 @@ export type SourceOutcome = {
   chaptersFound: number;
   newChapters: number;
   reason: string | null;
+  durationMs: number;
 };
 
 /** "https://comix.to/title/..." -> "Comix". Falls back to hostname if parsing fails. */
@@ -52,6 +53,18 @@ export function describeSourceError(err: unknown): string {
 }
 
 /**
+ * Formats milliseconds into a human-readable string: "800ms", "1.2s", "1m 5s"
+ */
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  const totalSeconds = Math.floor(ms / 1000);
+  if (totalSeconds < 60) return `${(ms / 1000).toFixed(1)}s`;
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}m ${s}s`;
+}
+
+/**
  * Prints one source's outcome as a labeled block, matching the same shape
  * shown on the source's card in the UI.
  */
@@ -59,12 +72,10 @@ export function logSourceOutcome(outcome: SourceOutcome): void {
   const lines = [
     `${humanizeSourceName(outcome.sourceUrl)} (${outcome.sourceUrl})`,
     `Manhwa ID: ${outcome.manhwaId}`,
-    `Status: ${outcome.status.toUpperCase()}`,
-    `Last attempt: just now`,
-    `Chapters found: ${outcome.chaptersFound}`,
   ];
   if (outcome.status === 'success') lines.push(`New chapters: ${outcome.newChapters}`);
   if (outcome.reason) lines.push(`Reason: ${outcome.reason}`);
+  lines.push(`Time taken: ${formatDuration(outcome.durationMs)}`);
   const logFn = outcome.status === 'success' ? console.log : console.warn;
   logFn(`[sync] ${outcome.manhwaTitle}\n${lines.map(l => `  ${l}`).join('\n')}`);
 }
@@ -102,6 +113,7 @@ export async function runWebsiteSync(
 
   for (const source of webSources) {
     let outcome: SourceOutcome;
+    const startMs = Date.now();
 
     try {
       const adapter = getAdapter(source.adapterKey, source.url);
@@ -121,6 +133,7 @@ export async function runWebsiteSync(
           chaptersFound: 0,
           newChapters: 0,
           reason: 'Got a response but found no chapters — site may be blocking the request.',
+          durationMs: Date.now() - startMs,
         };
       } else {
         const existingNums = await repo.getExistingChapterNums(source.manhwaId);
@@ -157,6 +170,7 @@ export async function runWebsiteSync(
           chaptersFound: chapters.length,
           newChapters: insertedCount,
           reason: null,
+          durationMs: Date.now() - startMs,
         };
       }
     } catch (err) {
@@ -169,6 +183,7 @@ export async function runWebsiteSync(
         chaptersFound: 0,
         newChapters: 0,
         reason: describeSourceError(err),
+        durationMs: Date.now() - startMs,
       };
       if (outcome.reason === 'Failed to check for updates.') {
         console.debug(`[sync] raw error for ${source.manhwaTitle} (${source.url}):`, err);
@@ -186,9 +201,10 @@ export async function runWebsiteSync(
     result.rows.push({
       source: humanizeSourceName(outcome.sourceUrl),
       manhwaTitle: outcome.manhwaTitle,
-      chapterFound: outcome.chaptersFound > 0 ? outcome.chaptersFound : null,
+      chapterFound: outcome.status === 'success' ? outcome.chaptersFound : null,
       status: rowStatus,
       reason: outcome.reason,
+      durationMs: outcome.durationMs,
     });
 
     if (outcome.status !== 'success') {

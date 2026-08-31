@@ -57,7 +57,7 @@ export function LibraryPage() {
         (m.progress?.latestChapter ?? 0) -
         (m.progress?.lastChapter ?? 0);
 
-      matchesFilter = unread > 0;
+      matchesFilter = m.status !== 'completed' && unread > 0;
     }
 
     return matchesSearch && matchesFilter;

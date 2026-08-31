@@ -332,3 +332,19 @@ Append-only log. Never delete entries.
 - Fix: Added responsive dual-layout: desktop (`md:block`) uses the table; mobile (`md:hidden`) renders `<SourceCard>` components — full-width cards with title, adapter badge, truncated URL, and a full-width "Edit URL" button. Both `SourceRow` and `SourceCard` extracted to `features/sources/components/` (230-line split rule).
 - Status: Resolved
 - Date: 2026-08-29
+
+---
+
+- Problem: architecture.md stored project_root as `D:\manwha-tracker` (an old path) instead of `F:\manwha-tracker`.
+- Cause: Brain was originally created using the wrong drive letter. master-memory.md was correct (F:\) but architecture.md still had D:\.
+- Fix: Corrected project_root in architecture.md during 2026-08-31 brain review.
+- Status: Resolved
+- Date: 2026-08-31
+
+---
+
+- Problem: 7 source files exceeded the 230-line project rule (watcher/index.ts at 449 lines, bot/handlers.ts at 328, sync.service.ts at 315, EditManhwaModal.tsx at 338, TelegramSection.tsx at 336, SourcesList.tsx at 301, settings.router.ts at 265).
+- Cause: Files grew organically over multiple sessions without extraction enforced in practice.
+- Fix: Codebase-wide refactor on 2026-08-31 extracted 7 new files. All files now pass the 230-line check (`tsc --noEmit` passes on all three apps).
+- Status: Resolved
+- Date: 2026-08-31

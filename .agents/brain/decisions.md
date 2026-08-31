@@ -250,3 +250,26 @@ Append-only log. Never delete entries.
   apps/worker/src/modules/settings/settings.repository.ts (added `getUpdatedAt`),
   .github/workflows/sync-cron.yml (`timeout-minutes: 10` → `25`)
 - Date: 2026-08-28
+
+---
+
+- Decision: Enforce 230-line max per file via codebase-wide refactor
+- Reason: Mandated by project rule — components or files exceeding ~230 lines must be extracted into focused sub-files. Keeps each file cohesive, easier to review, and reduces cognitive load when touching one concern doesn't require scrolling past another.
+- Alternatives considered: Leaving files as-is (violates the rule); increasing the limit (defeats the purpose).
+- Affected modules:
+  - apps/worker/src/scripts/watcher/index.ts → intervals.ts (extracted health-check + watchdog + reconcile + scheduled-rebuild setup)
+  - apps/worker/src/scripts/bot/handlers.ts → channel-registration.ts (extracted multi-step channel add/conflict flow)
+  - apps/worker/src/modules/sync/sync.service.ts → sync.website.ts (extracted FlareSolverr wake-up + per-source loop + error helpers)
+  - apps/web/src/features/manhwa-detail/components/EditManhwaModal.tsx → ManageChaptersSection.tsx (expandable chapters list)
+  - apps/web/src/features/settings/components/TelegramSection.tsx → TelegramLoginWizard.tsx (phone/OTP/2FA step UI)
+  - apps/web/src/features/manhwa-detail/components/SourcesList.tsx → SourceStatusBadge.tsx (pure display helpers)
+  - apps/api/src/modules/settings/settings.router.ts → telegram-auth.procedures.ts (Telegram login flow procedures)
+- Date: 2026-08-31
+
+---
+
+- Decision: Playwright headless browser as FlareSolverr fallback
+- Reason: FlareSolverr returns 503 for heavily-protected sites (asurascans) and sleeps when idle on Render's free tier. Rather than failing entirely, the sync should try a second rendering layer before giving up.
+- Alternatives considered: Retry FlareSolverr (same outcome, wastes time); accept the failure (breaks sync for those sites); self-host a dedicated FlareSolverr (not free).
+- Affected modules: libs/parser/src/adapters/http.ts (fetchHtml — added `solveViaFlareSolverr` + `fetchRenderedHtml` fallback chain behind `looksLikeCloudflareChallenge` guard)
+- Date: 2026-08-31

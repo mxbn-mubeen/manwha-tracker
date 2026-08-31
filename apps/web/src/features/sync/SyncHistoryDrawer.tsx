@@ -117,10 +117,11 @@ export function RunCard({ run }: { run: SyncRun }) {
           </div>
 
           {/* Table header - hidden on mobile, shown from sm up */}
-          <div className="hidden sm:grid grid-cols-[140px_minmax(0,1fr)_70px_140px] gap-3 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-600 border-b border-border/10">
+          <div className="hidden sm:grid grid-cols-[140px_minmax(0,1fr)_70px_50px_140px] gap-3 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-600 border-b border-border/10">
             <span>Source</span>
             <span>Manhwa</span>
             <span className="text-right">Ch.</span>
+            <span className="text-right">Time</span>
             <span>Status</span>
           </div>
           {filteredRows.map((row: SyncSourceRow, i: number) => {
@@ -128,7 +129,7 @@ export function RunCard({ run }: { run: SyncRun }) {
             return (
               <div
                 key={i}
-                className="flex flex-col gap-1.5 px-4 py-2.5 text-sm border-b border-border/10 last:border-0 hover:bg-white/[0.02] sm:grid sm:grid-cols-[140px_minmax(0,1fr)_70px_140px] sm:gap-3 sm:items-start"
+                className="flex flex-col gap-1.5 px-4 py-2.5 text-sm border-b border-border/10 last:border-0 hover:bg-white/[0.02] sm:grid sm:grid-cols-[140px_minmax(0,1fr)_70px_50px_140px] sm:gap-3 sm:items-start"
               >
                 {/* Mobile-only: source + chapter on one line. Hidden from sm up, where
                     each becomes its own grid column instead — without sm:hidden here,
@@ -146,6 +147,9 @@ export function RunCard({ run }: { run: SyncRun }) {
                 <span className="text-zinc-300 truncate min-w-0">{row.manhwaTitle}</span>
                 <span className="hidden sm:inline text-right text-zinc-400 font-mono">
                   {row.chapterFound != null ? row.chapterFound : '—'}
+                </span>
+                <span className="hidden sm:inline text-right text-zinc-500 font-mono text-xs">
+                  {row.durationMs != null ? formatDuration(row.durationMs) : '—'}
                 </span>
                 <div className="flex flex-col gap-1 min-w-0">
                   <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap w-fit ${cfg.cls}`}>

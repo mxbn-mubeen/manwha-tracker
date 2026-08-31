@@ -114,7 +114,9 @@ function scanAndFilterChapters(html: string, baseUrl: string): ChapterExtractDeb
    * advertised latest (Ch.34).
    */
   const domOrderValues = Array.from(found.values()); // Map preserves insertion = DOM order
-  const domLatestNum = domOrderValues[0]?.chapterNum ?? null;
+  // Look at the first 5 links and take the max to bypass "Read First Chapter" buttons at the top
+  const firstFew = domOrderValues.slice(0, 5).map(c => c.chapterNum);
+  const domLatestNum = firstFew.length > 0 ? Math.max(...firstFew) : null;
   if (domLatestNum !== null && domLatestNum > 0) {
     const maxFound = Math.max(...found.keys());
     if (maxFound > domLatestNum * 1.5) {

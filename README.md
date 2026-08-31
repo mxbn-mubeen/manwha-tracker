@@ -8,11 +8,13 @@ A personal, single-user Manhwa/Manga reading tracker. Automatically monitors cha
 - 📖 **Auto reading progress** — opens a chapter in Telegram → last-read chapter updates automatically
 - 🔔 **New chapter detection** — Telegram watcher detects new chapter posts in real-time
 - 🌐 **Website sync** — scrapes AsuraScans, Reaper Scans, Webtoon, manhuaus.com, Arena Scans, Comix.to, Mgeko, RoliaScan, Thunder Scans, Ultimate of All Ages for latest chapters
+- 🛡️ **Cloudflare fallback chain** — FlareSolverr → Playwright headless browser; protected sites are retried automatically with each layer before failing
 - 🔗 **Unified Sources page** — manage every website and Telegram source in one place with inline URL editing, domain-based filter chips, and adapter badges
 - 🔧 **Fix Adapter Keys** — one-click button to re-detect and correct stale adapter keys across all website sources
 - 🎨 **Dark theme** — sleek dark manhwa-focused UI built with Tailwind v4 + shadcn/ui
 - ➕ **Manual add** — add any manhwa manually with cover, genres, status, and chapter progress
-- 📊 **Dashboard** — stats, Continue Reading, Recent Activity
+- 📊 **Dashboard** — stats, Continue Reading (excludes completed), Recent Activity
+- ✅ **Completed manhwa filtering** — dashboard Continue Reading and Library Unread views automatically hide completed titles
 
 ## Tech Stack
 
@@ -40,14 +42,22 @@ manhwa-tracker/
 ├── apps/
 │   ├── web/              # Vite + React frontend
 │   │   └── src/
-│   │       ├── features/ # Feature-based structure (dashboard, manhwa, manhwa-detail, settings, sources)
-│   │       │   └── sources/  # Unified Sources page
-│   │       │       ├── SourcesPage.tsx        # Main page (filter chips, desktop table, mobile cards)
+│   │       ├── features/
+│   │       │   ├── manhwa-detail/components/
+│   │       │   │   ├── EditManhwaModal.tsx         # Edit form
+│   │       │   │   ├── ManageChaptersSection.tsx   # Expandable chapters list (extracted)
+│   │       │   │   ├── SourcesList.tsx             # Sources list + add-source form
+│   │       │   │   └── SourceStatusBadge.tsx       # StatusBadge + pure helpers (extracted)
+│   │       │   ├── settings/components/
+│   │       │   │   ├── TelegramSection.tsx         # Status card + wires wizard
+│   │       │   │   └── TelegramLoginWizard.tsx     # Phone/OTP/2FA step UI (extracted)
+│   │       │   └── sources/                        # Unified Sources page
+│   │       │       ├── SourcesPage.tsx
 │   │       │       ├── components/
-│   │       │       │   ├── SourceRow.tsx      # Desktop table row with inline URL editing
-│   │       │       │   └── SourceCard.tsx     # Mobile card with inline URL editing
+│   │       │       │   ├── SourceRow.tsx           # Desktop table row with inline URL editing
+│   │       │       │   └── SourceCard.tsx          # Mobile card with inline URL editing
 │   │       │       └── utils/
-│   │       │           └── adapterColors.ts   # Adapter key → badge colour mapping
+│   │       │           └── adapterColors.ts        # Adapter key → badge colour mapping
 │   │       ├── components/
 │   │       │   ├── layout/   # AppShell, Navbar
 │   │       │   └── ui/       # shadcn/ui components
@@ -58,15 +68,24 @@ manhwa-tracker/
 │   │       └── modules/
 │   │           ├── manhwa/   # manhwa router
 │   │           ├── sync/     # sync router (queries only)
-│   │           └── settings/ # settings router
+│   │           └── settings/
+│   │               ├── settings.router.ts          # CRUD get/set/delete
+│   │               └── telegram-auth.procedures.ts # In-app Telegram login flow
 │   └── worker/           # Background Docker service (Render)
 │       └── src/
-│           ├── modules/  # Worker-local modules: manhwa (service+repos), sync (SyncService.run), telegram
-│           │             # Note: SettingsRepository comes from @manhwa-tracker/database — not duplicated here
+│           ├── modules/
+│           │   └── sync/
+│           │       ├── sync.service.ts     # Orchestration only (lock, scope, DB history)
+│           │       ├── sync.website.ts     # Website loop: FlareSolverr wake-up, per-source scraping
+│           │       └── sync.repository.ts
 │           └── scripts/
-│               ├── watcher/            # teleproto event-driven watcher
-│               ├── bot/                # Telegram alert bot service
-│               └── cron/               # Website sync runner (cron-sync.ts)
+│               ├── watcher/
+│               │   ├── index.ts            # Client lifecycle, connect, event handlers
+│               │   └── intervals.ts        # Health check, watchdog, reconcile, scheduled rebuild
+│               ├── bot/
+│               │   ├── handlers.ts         # Simple commands (/start, /help, /list, /create…)
+│               │   └── channel-registration.ts  # Multi-step channel add & conflict flow
+│               └── cron/                   # Website sync runner (cron-sync.ts)
 ├── libs/
 │   ├── database/         # Drizzle schema + Neon client singleton + SettingsRepository (shared by api & worker)
 │   ├── parser/           # Website adapters (AsuraScans, Webtoon, Reaper, manhuaus, Arena Scans, Comix.to, Mgeko, RoliaScan, Thunder Scans, Ultimate of All Ages, generic)

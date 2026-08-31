@@ -41,6 +41,7 @@ export function DashboardPage() {
   // Manhwas with unread chapters
   const continueReading = manhwasList
     .filter(m => {
+      if (m.status === 'completed') return false;
       const unread = (m.progress?.latestChapter ?? 0) - (m.progress?.lastChapter ?? 0);
       return unread > 0;
     })
