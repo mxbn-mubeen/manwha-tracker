@@ -54,14 +54,30 @@ function computeStatus(
   return 'behind';
 }
 
+/** Compact duration string: "2h", "3d", "45m" */
+function formatDuration(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  const d = Math.floor(h / 24);
+  return `${d}d`;
+}
+
 function StatusBadge({
   status,
   sourceChapter,
   globalMax,
+  thisDiscoveredAt,
+  leaderDiscoveredAt,
 }: {
   status: SourceStatus;
   sourceChapter: number | null;
   globalMax: number;
+  thisDiscoveredAt: Date | string | null;
+  leaderDiscoveredAt: Date | string | null;
 }) {
   if (status === 'unknown') {
     return (
@@ -87,12 +103,29 @@ function StatusBadge({
     );
   }
 
-  // behind
+  // behind — compute time gap vs leader if both timestamps available
   const diff = globalMax - (sourceChapter ?? 0);
+  let timeDiffLabel: string | null = null;
+  if (leaderDiscoveredAt && thisDiscoveredAt) {
+    const leaderMs = typeof leaderDiscoveredAt === 'string' ? new Date(leaderDiscoveredAt).getTime() : leaderDiscoveredAt.getTime();
+    const thisMs = typeof thisDiscoveredAt === 'string' ? new Date(thisDiscoveredAt).getTime() : thisDiscoveredAt.getTime();
+    const gapMs = thisMs - leaderMs; // negative = this source found its chapter BEFORE leader found theirs
+    if (gapMs > 60_000) timeDiffLabel = `${formatDuration(gapMs)} slower`;
+    else if (gapMs < -60_000) timeDiffLabel = `${formatDuration(-gapMs)} faster`;
+  }
+
   return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-400/80">
-      <AlertTriangle className="h-3 w-3" />
-      Behind by {diff} chapter{diff !== 1 ? 's' : ''}
+    <span className="inline-flex items-center gap-2 text-xs font-medium text-orange-400/80">
+      <span className="inline-flex items-center gap-1">
+        <AlertTriangle className="h-3 w-3" />
+        Behind by {diff} chapter{diff !== 1 ? 's' : ''}
+      </span>
+      {timeDiffLabel && (
+        <span className="text-zinc-500">·</span>
+      )}
+      {timeDiffLabel && (
+        <span className="text-zinc-400 font-normal">{timeDiffLabel} than leader</span>
+      )}
     </span>
   );
 }
@@ -142,6 +175,10 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
           }
 
           const status = computeStatus(source.latestChapterNum, latestChapter, sources);
+
+          // Find the leading source's lastDiscoveredAt for time comparison
+          const leaderSource = sources.find(s => computeStatus(s.latestChapterNum, latestChapter, sources) === 'leading');
+          const leaderDiscoveredAt = leaderSource?.lastDiscoveredAt ?? null;
 
           return (
             <div key={i} className="relative group/source">
@@ -194,6 +231,8 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
                           status={status}
                           sourceChapter={source.latestChapterNum}
                           globalMax={latestChapter}
+                          thisDiscoveredAt={source.lastDiscoveredAt}
+                          leaderDiscoveredAt={leaderDiscoveredAt}
                         />
                       </div>
                     </div>

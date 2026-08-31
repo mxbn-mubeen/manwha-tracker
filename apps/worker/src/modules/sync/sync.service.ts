@@ -129,7 +129,7 @@ export class SyncService {
     this.repo = new SyncRepository();
   }
 
-  async run(scope: SyncScope = 'all'): Promise<SyncResult> {
+  async run(scope: SyncScope = 'all', triggeredBy: string = 'manual'): Promise<SyncResult> {
     const isCurrentlySyncing = await getIsSyncing();
     if (isCurrentlySyncing) {
       throw new Error("Sync is already running in the background");
@@ -144,6 +144,7 @@ export class SyncService {
         skippedTelegram: 0,
         errors: [],
         duration: 0,
+        triggeredBy,
         rows: [],
       };
 
@@ -232,6 +233,11 @@ export class SyncService {
               }
             }
 
+            // Always update the source's last synced chapter/time so we know what this source *actually* has,
+            // even if it wasn't the first to find the chapters.
+            const maxChapter = Math.max(...chapters.map(c => c.chapterNum));
+            await this.repo.updateSourceSyncStatus(source.sourceId, maxChapter);
+
             outcome = {
               manhwaId: source.manhwaId,
               sourceUrl: source.url,
@@ -297,6 +303,7 @@ export class SyncService {
       errors: result.errors,
       rows: result.rows,
       duration: result.duration,
+      triggeredBy: result.triggeredBy,
     });
 
     return result;

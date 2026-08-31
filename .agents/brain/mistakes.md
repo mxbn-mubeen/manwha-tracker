@@ -1,6 +1,14 @@
-# Mistakes â€” Manhwa Tracker
+# Mistakes – Manhwa Tracker
 
 Append-only log. Never delete entries.
+
+---
+
+- Problem: Source cards on the manhwa detail page showed wrong `latestChapterNum` for "secondary" sources. If thunderscans finds Ch.69 first and inserts the chapter row with `sourceId = thunderscans.id`, then arenascan syncs later and finds Ch.69 already in the DB (so nothing is inserted), arenascan's `latestChapterNum` would show as `null` (or stuck at Ch.1 if that was the last chapter it was first to insert). This caused the "Behind by 68 chapters" false-positive in the Sources list.
+- Cause: `manhwa.read.repository.ts` computed `latestChapterNum` per source as `MAX(chapters.chapterNum) WHERE chapters.sourceId = source.id`. Because `sourceId` is only written on the chapter row by the *first* source to insert that chapter, any subsequent source that also sees that chapter gets no credit.
+- Fix: Changed `latestChapterNum` in the `sourceMetadata` query to a correlated subquery `SELECT MAX(chapter_num) FROM chapters WHERE manhwa_id = ?` (global max for the manhwa). All sources that successfully sync and can see the latest chapter are now shown as up-to-date. `lastDiscoveredAt` remains per-source-attributed (honest: null means this source has never been the first to find a new chapter).
+- Status: Resolved
+- Date: 2026-08-31
 
 ---
 

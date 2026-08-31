@@ -18,7 +18,7 @@ import { SyncService } from '../../modules/sync/sync.service';
 
 async function main() {
   const service = new SyncService();
-  const result = await service.run('websites');
+  const result = await service.run('websites', 'github-cron');
 
   console.log(
     `[cron-sync] scanned=${result.scannedSources} newChapters=${result.newChapters} ` +

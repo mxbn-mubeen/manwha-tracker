@@ -25,7 +25,20 @@ export function formatRelative(date: Date): string {
 }
 
 export function formatDuration(ms: number): string {
-  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+  // Duration may arrive as seconds (worker stores it that way) or milliseconds.
+  // Heuristic: if the value is < 300 and has decimals it's almost certainly
+  // seconds already (a full sync takes 30–300 s, never < 1 ms as an integer).
+  // Anything >= 1000 is treated as milliseconds and converted.
+  const totalSec = ms >= 1000 ? ms / 1000 : ms;
+
+  if (totalSec < 1)   return `${Math.round(totalSec * 1000)}ms`;
+  if (totalSec < 60)  return `${totalSec.toFixed(1)}s`;
+  const m = Math.floor(totalSec / 60);
+  const s = Math.round(totalSec % 60);
+  if (m < 60) return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  const h = Math.floor(m / 60);
+  const rm = m % 60;
+  return rm > 0 ? `${h}h ${rm}m` : `${h}h`;
 }
 
 // ─── Single run row ────────────────────────────────────────────────────────────
@@ -68,6 +81,8 @@ export function RunCard({ run }: { run: SyncRun }) {
             </>
           )}
           <span className="text-zinc-600">·</span>
+          <span className="text-zinc-600 capitalize">{run.triggeredBy}</span>
+          <span className="text-zinc-600">·</span>
           <span className="text-zinc-600">{formatDuration(run.duration)}</span>
         </div>
         {open
@@ -102,7 +117,7 @@ export function RunCard({ run }: { run: SyncRun }) {
           </div>
 
           {/* Table header - hidden on mobile, shown from sm up */}
-          <div className="hidden sm:grid grid-cols-[1fr_1.5fr_60px_auto] gap-3 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-600 border-b border-border/10">
+          <div className="hidden sm:grid grid-cols-[140px_minmax(0,1fr)_70px_140px] gap-3 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-600 border-b border-border/10">
             <span>Source</span>
             <span>Manhwa</span>
             <span className="text-right">Ch.</span>
@@ -113,19 +128,26 @@ export function RunCard({ run }: { run: SyncRun }) {
             return (
               <div
                 key={i}
-                className="flex flex-col gap-1.5 px-4 py-2.5 text-sm border-b border-border/10 last:border-0 hover:bg-white/[0.02] sm:grid sm:grid-cols-[1fr_1.5fr_60px_auto] sm:gap-3 sm:items-start"
+                className="flex flex-col gap-1.5 px-4 py-2.5 text-sm border-b border-border/10 last:border-0 hover:bg-white/[0.02] sm:grid sm:grid-cols-[140px_minmax(0,1fr)_70px_140px] sm:gap-3 sm:items-start"
               >
-                <div className="flex items-center justify-between gap-2 sm:contents">
+                {/* Mobile-only: source + chapter on one line. Hidden from sm up, where
+                    each becomes its own grid column instead — without sm:hidden here,
+                    this duplicated the chapter number next to the dedicated Ch. column
+                    at desktop widths, and `sm:contents` turned its two children into
+                    extra grid items that didn't match the 4-column template, breaking
+                    row alignment across the table. */}
+                <div className="flex items-center justify-between gap-2 sm:hidden">
                   <span className="text-zinc-400 truncate min-w-0">{row.source}</span>
-                  <span className="text-zinc-400 font-mono text-xs sm:text-sm sm:text-right shrink-0">
+                  <span className="text-zinc-400 font-mono text-xs shrink-0">
                     {row.chapterFound != null ? `ch. ${row.chapterFound}` : '—'}
                   </span>
                 </div>
+                <span className="hidden sm:block text-zinc-400 truncate min-w-0">{row.source}</span>
                 <span className="text-zinc-300 truncate min-w-0">{row.manhwaTitle}</span>
                 <span className="hidden sm:inline text-right text-zinc-400 font-mono">
                   {row.chapterFound != null ? row.chapterFound : '—'}
                 </span>
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1 min-w-0">
                   <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap w-fit ${cfg.cls}`}>
                     {cfg.icon}
                     {cfg.label}

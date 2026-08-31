@@ -15,6 +15,7 @@ export interface SyncResult {
   skippedTelegram: number;
   errors: string[];
   duration: number;
+  triggeredBy: string;
   rows: SyncSourceRow[];   // per-source breakdown for history UI
 }
 

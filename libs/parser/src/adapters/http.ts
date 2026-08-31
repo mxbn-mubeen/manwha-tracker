@@ -135,7 +135,16 @@ export async function fetchHtml(url: string): Promise<string> {
     console.warn(`[http] Cloudflare challenge detected for ${url}, attempting FlareSolverr fallback`);
     const result = await solveViaFlareSolverr(url);
     if (result.html) return result.html;
-    throw new CloudflareBlockedError(url, result.reason!);
+    
+    console.warn(`[http] FlareSolverr failed for ${url}, attempting Playwright fallback`);
+    try {
+      const { fetchRenderedHtml } = await import('./browser');
+      const html = await fetchRenderedHtml(url, { skipFlareSolverr: true });
+      return html;
+    } catch (browserErr) {
+      console.warn(`[http] Playwright fallback also failed for ${url}:`, browserErr);
+      throw new CloudflareBlockedError(url, result.reason!);
+    }
   }
 
   return body;

@@ -42,10 +42,11 @@ export const sources = pgTable('sources', {
   // to round-trip safely through the pg `integer` type.
   telegramEntityId: text('telegram_entity_id').unique(),
   telegramAccessHash: text('telegram_access_hash'),
-  // 'channel' | 'chat' | 'user' — which Api.InputPeer* variant to reconstruct.
-  // Basic groups (Api.Chat) have no accessHash at all, unlike channels/users,
-  // so this can't be inferred from the other two columns alone.
   telegramEntityType: varchar('telegram_entity_type', { length: 20 }),
+  
+  // Tracks the max chapter this source has reported, even if another source found it first
+  lastSyncedChapter: real('last_synced_chapter'),
+  lastSyncedAt: timestamp('last_synced_at'),
 }, (table) => ({
   manhwaUrlUnique: unique().on(table.manhwaId, table.url),
 }));
@@ -92,6 +93,7 @@ export const syncRuns = pgTable('sync_runs', {
   errors: jsonb('errors').$type<string[]>().notNull().default([]),
   rows: jsonb('rows').$type<any[]>().notNull().default([]),
   duration: integer('duration').notNull().default(0),
+  triggeredBy: varchar('triggered_by', { length: 50 }).notNull().default('manual'), // 'manual' | 'cron'
   runAt: timestamp('run_at').notNull().defaultNow(),
 });
 

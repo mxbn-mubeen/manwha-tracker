@@ -1,0 +1,71 @@
+name: CI
+
+# Runs on every push and PR. Deploys are NOT triggered from this workflow:
+# apps/web and apps/api already have vercel.json and deploy via Vercel's own
+# GitHub integration, and apps/worker deploys via its Dockerfile on Render's
+# own GitHub integration — both platforms auto-deploy on push independently
+# of this file. If you want deploys to actually wait on CI passing rather
+# than firing immediately on push, that has to be done on the Vercel/Render
+# side (e.g. GitHub branch protection requiring this workflow to pass before
+# merging to main, since neither platform currently gates on it).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Only libs/database, libs/parser, libs/shared, and libs/ui currently
+      # define a `typecheck` script — turbo silently skips packages that
+      # don't define a task, so apps/api, apps/worker, and apps/web are NOT
+      # typechecked by this step. They're still covered indirectly by the
+      # Build step below, since each app's `build` script runs `tsc` (or
+      # `tsc && vite build` for web), which fails on type errors too — but
+      # if you want fast typecheck-only feedback on the apps themselves,
+      # add a `"typecheck": "tsc --noEmit"` script to their package.json.
+      - name: Typecheck (libs only — see comment)
+        run: pnpm run typecheck
+
+      # Builds every workspace package, apps included. This is currently the
+      # only step that actually typechecks apps/api, apps/worker, and
+      # apps/web, since their build scripts invoke tsc directly.
+      - name: Build
+        run: pnpm run build
+
+      # Only libs/shared currently defines a `lint` script (`eslint src`) —
+      # no eslint config exists yet for apps/api, apps/worker, apps/web, or
+      # the other libs, so `turbo lint` only actually lints libs/shared right
+      # now. Not removing this step since it's harmless and will start
+      # covering more of the codebase as lint configs are added elsewhere.
+      - name: Lint (libs/shared only — see comment)
+        run: pnpm run lint
+
+      # No test suite exists anywhere in the repo yet (no *.test.ts /
+      # *.spec.ts files, no test script in any package.json). Deliberately
+      # not adding a step here that would just be a no-op — see task.md for
+      # the parser adapter-testing follow-up this should eventually cover.
+
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high
+        continue-on-error: true # advisory for now — flip to blocking once the dependency tree is audited and any existing findings are triaged

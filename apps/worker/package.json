@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "start": "node --max-old-space-size=256 dist/server.js",
     "watch:telegram": "tsx src/scripts/watcher/index.ts",
     "bot:telegram": "tsx src/scripts/bot/index.ts",

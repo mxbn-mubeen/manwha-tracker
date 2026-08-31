@@ -107,6 +107,7 @@ export class SourcesRepository {
       })
       .from(sources)
       .innerJoin(manhwa, eq(manhwa.id, sources.manhwaId))
+      .where(sql`${manhwa.status} != 'completed'`)
       .orderBy(manhwa.title);
   }
 

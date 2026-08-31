@@ -59,6 +59,13 @@ export class SyncRepository {
     await db.update(manhwa).set({ updatedAt: new Date() }).where(eq(manhwa.id, manhwaId));
   }
 
+  async updateSourceSyncStatus(sourceId: number, latestChapter: number) {
+    await db.update(sources).set({ 
+      lastSyncedChapter: latestChapter, 
+      lastSyncedAt: new Date() 
+    }).where(eq(sources.id, sourceId));
+  }
+
   async insertSyncRun(data: Omit<InsertSyncRunRow, 'id' | 'runAt'>) {
     await db.insert(syncRuns).values(data);
   }

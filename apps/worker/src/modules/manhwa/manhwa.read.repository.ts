@@ -117,19 +117,34 @@ export class ManhwaReadRepository {
 
     if (rows.length === 0) return null;
 
-    // Fetch per-source stats: the highest chapter each source has delivered and
-    // when it last delivered one. Joins on source_id so chapters are attributed
-    // to the exact source that found them — not all chapters for the manhwa.
+    // Per-source stats: what's the highest chapter each source has actually found.
+    // We use the new `lastSyncedChapter` column on the source to know what chapter
+    // it returned on its last successful sync, rather than relying on `chapters` table
+    // joins (which only record which source found a chapter *first*).
+    // Telegram sources still join on `chapters` because they push chapters live and 
+    // we don't actively "sync" their max chapter via adapter.
     const sourceMetadata = await db
       .select({
         url: sources.url,
-        latestChapterNum: sql<number>`MAX(${chapters.chapterNum})`.as('latestChapterNum'),
-        lastDiscoveredAt: sql<Date>`MAX(${chapters.discoveredAt})`.as('lastDiscoveredAt'),
+        latestChapterNum: sql<number>`
+          COALESCE(
+            ${sources.lastSyncedChapter},
+            MAX(${chapters.chapterNum})
+          )
+        `.as('latestChapterNum'),
+        lastDiscoveredAt: sql<Date>`
+          COALESCE(
+            ${sources.lastSyncedAt},
+            MAX(${chapters.discoveredAt})
+          )
+        `.as('lastDiscoveredAt'),
       })
       .from(sources)
       .leftJoin(chapters, and(eq(chapters.sourceId, sources.id), eq(chapters.manhwaId, id)))
       .where(eq(sources.manhwaId, id))
-      .groupBy(sources.url);
+      .groupBy(sources.url, sources.id);
+
+
 
     const first = rows[0];
     if (!first) return null;
