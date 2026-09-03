@@ -16,8 +16,9 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
 
   const { data: all = [] } = trpc.manhwa.getAll.useQuery();
 
-  const results = query.trim().length < 1 ? [] : all.filter(m =>
-    m.title.toLowerCase().includes(query.toLowerCase())
+  const searchStr = query.trim().toLowerCase();
+  const results = searchStr.length < 1 ? [] : all.filter(m =>
+    m.title.toLowerCase().includes(searchStr)
   ).slice(0, 8);
 
   // Focus input when opened

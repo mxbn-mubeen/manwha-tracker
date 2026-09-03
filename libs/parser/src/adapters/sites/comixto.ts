@@ -1,9 +1,6 @@
 import type { WebsiteAdapter } from "@manhwa-tracker/shared";
 import { fetchRenderedHtml } from "../browser";
-import {
-  detectTitleFromHtml,
-  extractChaptersFromHtml,
-} from "../utils/chapter-extract";
+import { detectTitleFromHtml, extractChaptersFromHtml, debugExtractChapters } from "../utils/chapter-extract";
 
 /**
  * comix.to is a client-side-rendered SPA — confirmed earlier that a plain
@@ -25,12 +22,28 @@ export const comixToAdapter: WebsiteAdapter = {
     return detectTitleFromHtml(html);
   },
 
+  extractLatestChapterNum() {
+    // SPA rendered via browser; slug-scoped scan is reliable after rendering.
+    // No known chapter-count issues.
+    return null;
+  },
+
   async chapterList(url) {
     const html = await fetchRenderedHtml(url, {
       waitForSelector: "[class*=chapter], a[href*=chapter]",
       skipFlareSolverr: true,
     });
-    return extractChaptersFromHtml(html, url);
+    return extractChaptersFromHtml(html, url, {
+      resolveLatestReference: (found, h) => this.extractLatestChapterNum(h, url),
+    });
+  },
+
+  async debugChapterList(url) {
+    const html = await fetchRenderedHtml(url, {
+      waitForSelector: "[class*=chapter], a[href*=chapter]",
+      skipFlareSolverr: true,
+    });
+    return debugExtractChapters(html, url);
   },
 
   async latestChapter(url) {

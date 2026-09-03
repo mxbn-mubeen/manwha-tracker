@@ -28,7 +28,7 @@ export function SyncHistorySection() {
             <p className="text-sm">No syncs yet this session.</p>
           </div>
         ) : (
-          history.map((run, i) => <RunCard key={i} run={run as SyncRun} />)
+          history.map((run, i) => <RunCard key={i} run={run as SyncRun} onClose={() => {}} />)
         )}
       </div>
     </section>

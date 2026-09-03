@@ -4,15 +4,14 @@ import { detectTitleFromHtml, extractChaptersFromHtml, debugExtractChapters } fr
 import { extractDeclaredChapterCount } from "../utils/extract-declared-count";
 
 /**
- * mgeko.com serves a bot-detection redirect page to plain HTTP fetchers —
- * the actual chapter list never appears in the static response.
- * We use the full browser renderer so the JS runs and the real page loads.
- * Mgeko uses a Madara-style theme where chapters are listed as <a> links once rendered.
+ * VortexScans (vortexscans.org) — Madara-style WordPress theme.
+ * Uses JS-rendered chapter lists. Some chapters are marked as "Premium"
+ * (locked/subscriber-only) and should be excluded from the sync.
  */
-export const mgekoAdapter: WebsiteAdapter = {
-  key: "mgeko",
-  name: "Mgeko",
-  urlPatterns: [/mgeko\.cc/i, /mgeko\.com/i, /mgeko\.net/i],
+export const vortexScansAdapter: WebsiteAdapter = {
+  key: "vortexscans",
+  name: "Vortexscans",
+  urlPatterns: [/vortexscans\.org/i, /vortexscans\.com/i],
 
   async detectTitle(url) {
     const html = await fetchRenderedHtml(url, { waitForSelector: "h1" });
@@ -20,18 +19,27 @@ export const mgekoAdapter: WebsiteAdapter = {
   },
 
   extractLatestChapterNum(html) {
-    // Mgeko renders a chapter count stat like "150-eng-li" — the regex in
-    // extract-declared-count.ts is not anchored at the end so it correctly
-    // reads "150" from this string. This is the most reliable signal because
-    // Mgeko also renders a "Read First Chapter" CTA at the top of the page
-    // which used to fool the DOM-order heuristic into thinking Ch. 1 was latest.
+    // VortexScans uses Madara's standard chapter count stat widget.
     return extractDeclaredChapterCount(html);
+  },
+
+  isChapterLocked(outerHtml, text) {
+    // VortexScans marks premium/paywalled chapters with a lock icon SVG,
+    // a "Premium" label, or a lock emoji (🔒).
+    return (
+      outerHtml.includes('data-premium') ||
+      outerHtml.includes('class="premium') ||
+      outerHtml.includes('"premium"') ||
+      outerHtml.includes('d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75') || // Lock SVG path
+      /premium|🔒|locked/i.test(text)
+    );
   },
 
   async chapterList(url) {
     const html = await fetchRenderedHtml(url, { waitForSelector: "a[href*='chapter']" });
     return extractChaptersFromHtml(html, url, {
       resolveLatestReference: (found, h) => this.extractLatestChapterNum(h, url),
+      isChapterLocked: (outerHtml, text) => this.isChapterLocked!(outerHtml, text),
     });
   },
 

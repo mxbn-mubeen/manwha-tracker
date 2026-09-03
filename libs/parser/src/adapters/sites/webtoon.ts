@@ -1,6 +1,6 @@
 import type { WebsiteAdapter } from "@manhwa-tracker/shared";
 import { fetchHtml } from "../http";
-import { detectTitleFromHtml, extractChaptersFromHtml } from "../utils/chapter-extract";
+import { detectTitleFromHtml, extractChaptersFromHtml, debugExtractChapters } from "../utils/chapter-extract";
 
 export const webtoonAdapter: WebsiteAdapter = {
   key: "webtoon",
@@ -12,11 +12,22 @@ export const webtoonAdapter: WebsiteAdapter = {
     return detectTitleFromHtml(html);
   },
 
+  extractLatestChapterNum() {
+    // Webtoon lists episodes rather than chapters — the generic extractor
+    // also matches "Episode"/"Ep" link text. No known count issues.
+    return null;
+  },
+
   async chapterList(url) {
     const html = await fetchHtml(url);
-    // Webtoon lists episodes rather than "chapters" — the generic extractor
-    // also matches "Episode"/"Ep" so it covers this site's link text too.
-    return extractChaptersFromHtml(html, url);
+    return extractChaptersFromHtml(html, url, {
+      resolveLatestReference: (found, h) => this.extractLatestChapterNum(h, url),
+    });
+  },
+
+  async debugChapterList(url) {
+    const html = await fetchHtml(url);
+    return debugExtractChapters(html, url);
   },
 
   async latestChapter(url) {

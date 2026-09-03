@@ -42,19 +42,31 @@ function Navbar() {
       // Refresh library/dashboard data so any newly-discovered chapters show up
       await utils.manhwa.getAll.invalidate()
 
+      // result can be undefined if the HTTP connection timed out mid-sync
+      if (!result) {
+        toast.info('Sync is still running in the background. Check Sync History for results.')
+        return
+      }
+
       if (result.errors.length > 0) {
-        // Show all errors — each on its own line so every failing title is
-        // visible, not just the first one.
+        // Limit to first 3 errors so the toast doesn't fill the entire screen
+        const maxErrors = 3;
+        const displayErrors = result.errors.slice(0, maxErrors);
+        const hasMore = result.errors.length > maxErrors;
+
         const errorDescription = (
-          <ul className="mt-1 space-y-0.5 text-xs">
-            {result.errors.map((e: string, i: number) => (
-              <li key={i} className="truncate opacity-90">{e}</li>
-            ))}
-          </ul>
+          <div className="mt-1 flex flex-col gap-1 text-xs">
+            <ul className="space-y-0.5">
+              {displayErrors.map((e: string, i: number) => (
+                <li key={i} className="truncate opacity-90">{e}</li>
+              ))}
+            </ul>
+            {hasMore && <span className="opacity-70 mt-0.5 italic">...and {result.errors.length - maxErrors} more. Check Sync History for full details.</span>}
+          </div>
         )
         toast.warning(
           `Sync finished with ${result.errors.length} issue(s). Found ${result.newChapters} new chapter(s).`,
-          { description: errorDescription }
+          { description: errorDescription, duration: 5000 }
         )
       } else if (result.newChapters > 0) {
         toast.success(

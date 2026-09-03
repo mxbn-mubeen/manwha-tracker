@@ -63,6 +63,12 @@ export function LibraryPage() {
     return matchesSearch && matchesFilter;
   });
 
+  const total = manhwas?.length ?? 0;
+  const ongoing = manhwas?.filter((m) => m.status === 'ongoing').length ?? 0;
+  const completed = manhwas?.filter((m) => m.status === 'completed').length ?? 0;
+  const hiatus = manhwas?.filter((m) => m.status === 'hiatus').length ?? 0;
+  const dropped = manhwas?.filter((m) => m.status === 'dropped').length ?? 0;
+
   return (
     <div className="space-y-6 pb-10">
       <div>
@@ -70,8 +76,38 @@ export function LibraryPage() {
           Library
         </h1>
 
-        <p className="text-muted-foreground">
-          {manhwas?.length ?? 0} titles in your collection
+        <p className="text-muted-foreground flex items-center flex-wrap gap-2">
+          <span>{total} titles in your collection</span>
+          {total > 0 && (
+            <span className="flex items-center gap-1.5 flex-wrap">
+              <button
+                onClick={() => applyFilter('Reading')}
+                className="text-xs font-medium px-2.5 py-0.5 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/25 hover:bg-emerald-500/20 transition-colors"
+              >
+                {ongoing} Ongoing
+              </button>
+              <button
+                onClick={() => applyFilter('Completed')}
+                className="text-xs font-medium px-2.5 py-0.5 rounded-full border bg-purple-500/10 text-purple-400 border-purple-500/25 hover:bg-purple-500/20 transition-colors"
+              >
+                {completed} Completed
+              </button>
+              <button
+                onClick={() => applyFilter('Hiatus')}
+                className="text-xs font-medium px-2.5 py-0.5 rounded-full border bg-amber-500/10 text-amber-400 border-amber-500/25 hover:bg-amber-500/20 transition-colors"
+              >
+                {hiatus} Hiatus
+              </button>
+              {dropped > 0 && (
+                <button
+                  onClick={() => applyFilter('Dropped')}
+                  className="text-xs font-medium px-2.5 py-0.5 rounded-full border bg-red-500/10 text-red-400 border-red-500/25 hover:bg-red-500/20 transition-colors"
+                >
+                  {dropped} Dropped
+                </button>
+              )}
+            </span>
+          )}
         </p>
       </div>
 

@@ -62,14 +62,20 @@ type FlareSolverrResult = { html: string; reason?: undefined } | { html: null; r
  * Configure via FLARESOLVERR_URL, e.g. http://localhost:8191/v1.
  */
 export async function solveViaFlareSolverr(url: string): Promise<FlareSolverrResult> {
-  const endpoint = process.env.FLARESOLVERR_URL;
+  let endpoint = process.env.FLARESOLVERR_URL;
   if (!endpoint) {
     console.warn(`[http] FlareSolverr fallback skipped for ${url} — FLARESOLVERR_URL is not set`);
     return { html: null, reason: "not-configured" };
   }
 
-  try {
-    const res = await fetch(endpoint, {
+  // FlareSolverr's API is at /v1, so auto-append it if the user just provided the host (e.g. http://localhost:8191)
+  // Otherwise, a POST to / returns a 405 Method Not Allowed.
+  if (!endpoint.endsWith('/v1')) {
+    endpoint = endpoint.replace(/\/$/, '') + '/v1';
+  }
+
+  const doRequest = async (): Promise<Response> =>
+    fetch(endpoint!, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -80,9 +86,21 @@ export async function solveViaFlareSolverr(url: string): Promise<FlareSolverrRes
       signal: AbortSignal.timeout(65_000),
     });
 
+  try {
+    let res = await doRequest();
+
+    // Retry once on transient server-side errors (429, 5xx) after a brief wait.
+    if (!res.ok && (res.status === 429 || res.status >= 500)) {
+      console.warn(`[http] FlareSolverr ${res.status} for ${url} — retrying in 5s`);
+      await new Promise(r => setTimeout(r, 5_000));
+      res = await doRequest();
+    }
     if (!res.ok) {
+      // 429 = rate limited, 5xx = FlareSolverr temporarily overloaded.
+      // These are transient — mark the reason distinctly so callers can retry.
       console.warn(`[http] FlareSolverr responded ${res.status} for ${url}`);
-      return { html: null, reason: "unsolved" };
+      const isTransient = res.status === 429 || res.status >= 500;
+      return { html: null, reason: isTransient ? 'transient' as any : "unsolved" };
     }
 
     const data = await res.json() as any;
@@ -122,13 +140,18 @@ export async function fetchHtml(url: string): Promise<string> {
       headers: DEFAULT_HEADERS,
       timeout: { request: 30_000 },
       retry: { limit: 2 },
+      throwHttpErrors: false, // Don't throw on 503/403 so we can check for Cloudflare challenge pages
     });
 
     body = response.body;
+    
+    // If it's a bad status and NOT a Cloudflare challenge, throw normally
+    if (response.statusCode >= 400 && !looksLikeCloudflareChallenge(body)) {
+      throw new Error(`Failed to fetch ${url}: ${response.statusCode} ${response.statusMessage || ''}`);
+    }
   } catch (err: any) {
-    const status = err?.response?.statusCode || 'Unknown Status';
-    const message = err?.response?.statusMessage || err.message;
-    throw new Error(`Failed to fetch ${url}: ${status} ${message}`);
+    const message = err?.message || 'Unknown network error';
+    throw new Error(`Failed to fetch ${url}: ${message}`);
   }
 
   if (looksLikeCloudflareChallenge(body)) {

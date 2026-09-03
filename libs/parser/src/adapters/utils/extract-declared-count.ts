@@ -9,11 +9,14 @@ const DECLARED_COUNT_COMBINED_REGEX = /^(\d+(?:\.\d+)?)\s*K?\+?\s*chapters?$/i;
 // A label element containing only the word itself — "Chapters", "Chapter".
 const CHAPTERS_LABEL_REGEX = /^chapters?$/i;
 
-// A value element containing only a bare number — "7", "1.5K", "172+".
-const BARE_NUMBER_REGEX = /^(\d+(?:\.\d+)?)\s*(K)?\+?$/i;
+// A value element that STARTS with a number — "7", "1.5K", "172+", or a site
+// oddity like mgeko's "150-eng-li" (chapter count glued to a language tag
+// with no separating space). Intentionally not anchored at the end: we only
+// trust the leading number, since anything trailing it isn't part of the count.
+const BARE_NUMBER_REGEX = /^(\d+(?:\.\d+)?)\s*(K)?\+?/i;
 
 function parseStatNumber(raw: string): number | null {
-  const match = raw.match(/^(\d+(?:\.\d+)?)\s*(K)?\+?$/i);
+  const match = raw.match(BARE_NUMBER_REGEX);
   if (!match || !match[1]) return null;
   const num = parseFloat(match[1]);
   if (Number.isNaN(num)) return null;

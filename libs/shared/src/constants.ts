@@ -12,7 +12,6 @@ export const ADAPTER_KEYS = [
   'manhuaus',
   'mgeko',
   'reaperscans',
-  'roliascan',
   'thunderscans',
   'ultimateofallages',
   'webtoon',

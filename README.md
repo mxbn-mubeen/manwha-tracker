@@ -276,8 +276,8 @@ The **Unified Sources** page (`/sources`) lets you manage every source in one pl
 | `infinitelevelup` | Emerald |
 | `mgeko` | Pink |
 | `arenascans` | Cyan |
-| `roliascan` | Lime |
 | `comixto` | Fuchsia |
+| `mgread` | Rose |
 | `ultimateofallages` | Teal |
 | `telegram` | Blue |
 | `generic` | Zinc |

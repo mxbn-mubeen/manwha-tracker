@@ -1,6 +1,6 @@
 import type { WebsiteAdapter } from "@manhwa-tracker/shared";
 import { fetchHtml } from "../http";
-import { detectTitleFromHtml, extractChaptersFromHtml } from "../utils/chapter-extract";
+import { detectTitleFromHtml, extractChaptersFromHtml, debugExtractChapters } from "../utils/chapter-extract";
 
 export const infiniteLevelUpAdapter: WebsiteAdapter = {
   key: "infinitelevelup",
@@ -12,9 +12,22 @@ export const infiniteLevelUpAdapter: WebsiteAdapter = {
     return detectTitleFromHtml(html);
   },
 
+  extractLatestChapterNum(html, url) {
+    // infinitelevelup.com has "dummy" chapters at the top — stub pages with
+    // only ~4 share buttons and no real images. The real chapter filtering
+    // happens in chapterList() by fetching each candidate chapter to count
+    // its images. For the reference number we just take the max from the
+    // shared pipeline's scan — the dummy chapter gets removed by chapterList()
+    // before any decisions are made, so this reference is only used to cap
+    // the outlier filter, not to select the final result.
+    return null; // let shared heuristic run; chapterList() handles dummy removal
+  },
+
   async chapterList(url) {
     const html = await fetchHtml(url);
-    const list = extractChaptersFromHtml(html, url);
+    const list = await (async () => extractChaptersFromHtml(html, url, {
+      resolveLatestReference: (found, h) => this.extractLatestChapterNum(h, url),
+    }))();
 
     // Filter out dummy chapters at the top (like Chapter 277)
     // A real chapter will have dozens of images, while a dummy has only ~4 share buttons.
@@ -27,24 +40,27 @@ export const infiniteLevelUpAdapter: WebsiteAdapter = {
 
       try {
         const chapterHtml = await fetchHtml(topChapter.url);
-        // Count rough <img occurrences
         const imgCount = (chapterHtml.match(/<img/gi) || []).length;
         if (imgCount > 10) {
-          // Found a real chapter with images!
-          break;
+          break; // Found a real chapter with images!
         }
-        // Dummy chapter, remove it and check the next one
         console.log(`[infinitelevelup] Skipping dummy chapter: ${topChapter.chapterNum}`);
         list.shift();
       } catch (err) {
-        // If fetch fails, we can either break or skip. Skipping is safer for one-off broken links,
-        // but breaking is safer to not accidentally skip a real chapter that's just rate-limited.
         console.warn(`[infinitelevelup] Failed to verify chapter ${topChapter.chapterNum}, assuming real`);
         break;
       }
     }
 
     return list;
+  },
+
+  async debugChapterList(url) {
+    const html = await fetchHtml(url);
+    // Returns the shared extraction breakdown only — not re-running the
+    // dummy-chapter filtering loop above, since that's this adapter's own
+    // extra logic, not part of the shared pipeline this diagnostic covers.
+    return debugExtractChapters(html, url);
   },
 
   async latestChapter(url) {

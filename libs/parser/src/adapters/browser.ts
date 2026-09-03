@@ -84,6 +84,13 @@ export async function fetchRenderedHtml(
     if (fsResult.html) {
       return fsResult.html;
     }
+    // If FlareSolverr returned a transient server error (502/503/429) after retry,
+    // do NOT fall through to local Playwright — on Render there is no Chromium
+    // installed, so Playwright will just hang for 60 s and waste the whole timeout slot.
+    // Throw immediately so the sync loop records a fast failure instead.
+    if ((fsResult as any).reason === 'transient') {
+      throw new Error(`FlareSolverr temporarily unavailable (server overloaded) for ${url}`);
+    }
   }
   
   // If FlareSolverr is not configured (or failed), fallback to local Playwright.

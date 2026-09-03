@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { trpc } from '@/lib/trpc';
 import { CheckCircle2, AlertTriangle, XCircle, Sparkles, Clock, ChevronDown, ChevronRight } from 'lucide-react';
@@ -43,7 +44,7 @@ export function formatDuration(ms: number): string {
 
 // ─── Single run row ────────────────────────────────────────────────────────────
 
-export function RunCard({ run }: { run: SyncRun }) {
+export function RunCard({ run, onClose }: { run: SyncRun, onClose: () => void }) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'new' | 'issues'>('all');
   
@@ -137,14 +138,31 @@ export function RunCard({ run }: { run: SyncRun }) {
                     at desktop widths, and `sm:contents` turned its two children into
                     extra grid items that didn't match the 4-column template, breaking
                     row alignment across the table. */}
-                <div className="flex items-center justify-between gap-2 sm:hidden">
+                <div className="flex items-start justify-between gap-2 sm:hidden">
                   <span className="text-zinc-400 truncate min-w-0">{row.source}</span>
-                  <span className="text-zinc-400 font-mono text-xs shrink-0">
-                    {row.chapterFound != null ? `ch. ${row.chapterFound}` : '—'}
+                  <span className="flex flex-col items-end shrink-0 gap-0.5">
+                    <span className="text-zinc-400 font-mono text-xs">
+                      {row.chapterFound != null ? `ch. ${row.chapterFound}` : '—'}
+                    </span>
+                    {row.durationMs != null && (
+                      <span className="text-zinc-600 font-mono text-[10px]">
+                        {formatDuration(row.durationMs)}
+                      </span>
+                    )}
                   </span>
                 </div>
                 <span className="hidden sm:block text-zinc-400 truncate min-w-0">{row.source}</span>
-                <span className="text-zinc-300 truncate min-w-0">{row.manhwaTitle}</span>
+                {row.manhwaId ? (
+                  <Link 
+                    to={`/manhwa/${row.manhwaId}`} 
+                    onClick={onClose}
+                    className="text-zinc-300 hover:text-amber-300 transition-colors truncate min-w-0"
+                  >
+                    {row.manhwaTitle}
+                  </Link>
+                ) : (
+                  <span className="text-zinc-300 truncate min-w-0">{row.manhwaTitle}</span>
+                )}
                 <span className="hidden sm:inline text-right text-zinc-400 font-mono">
                   {row.chapterFound != null ? row.chapterFound : '—'}
                 </span>
@@ -212,7 +230,7 @@ export function SyncHistoryDrawer({ open, onClose }: SyncHistoryDrawerProps) {
               <p className="text-xs opacity-60">Run a sync to see results here.</p>
             </div>
           ) : (
-            history.map((run, i) => <RunCard key={i} run={run as SyncRun} />)
+            history.map((run, i) => <RunCard key={i} run={run as SyncRun} onClose={onClose} />)
           )}
         </div>
       </SheetContent>

@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Ping Worker Health (Render)
         env:
-          WORKER_URL: "https://manwha-tracker-worker.onrender.com"
+          WORKER_URL: "https://manhwa-tracker-worker.onrender.com"
         run: |
           # Keeps the Render worker awake so the Telegram watcher stays running
           # and sync.run doesn't cold-start from zero.

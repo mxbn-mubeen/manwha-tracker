@@ -1,6 +1,7 @@
 import type { WebsiteAdapter } from "@manhwa-tracker/shared";
 import { fetchHtml } from "../http";
-import { detectTitleFromHtml, extractChaptersFromHtml } from "../utils/chapter-extract";
+import { detectTitleFromHtml, extractChaptersFromHtml, debugExtractChapters } from "../utils/chapter-extract";
+import { extractDeclaredChapterCount } from "../utils/extract-declared-count";
 
 export const manhuausAdapter: WebsiteAdapter = {
   key: "manhuaus",
@@ -12,9 +13,22 @@ export const manhuausAdapter: WebsiteAdapter = {
     return detectTitleFromHtml(html);
   },
 
+  extractLatestChapterNum(html) {
+    // No known quirks on this site, but declaring this explicitly means any
+    // future site-specific issue can be fixed here without touching shared code.
+    return extractDeclaredChapterCount(html);
+  },
+
   async chapterList(url) {
     const html = await fetchHtml(url);
-    return extractChaptersFromHtml(html, url);
+    return extractChaptersFromHtml(html, url, {
+      resolveLatestReference: (found, h) => this.extractLatestChapterNum(h, url),
+    });
+  },
+
+  async debugChapterList(url) {
+    const html = await fetchHtml(url);
+    return debugExtractChapters(html, url);
   },
 
   async latestChapter(url) {

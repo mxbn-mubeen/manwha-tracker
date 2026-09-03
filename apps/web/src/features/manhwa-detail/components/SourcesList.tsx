@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { StatusBadge, computeStatus, timeAgo } from './SourceStatusBadge';
+import { getAdapterBadgeClass } from '@/features/sources/utils/adapterColors';
 
 interface Source {
   url: string | null;
@@ -54,6 +55,36 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
           if (!source.url || !source.type) return null;
           const isTelegram = source.type === 'telegram';
 
+          // Derive adapter key from URL for icon coloring
+          const adapterKey = (() => {
+            if (isTelegram) return 'telegram';
+            try {
+              const host = new URL(source.url.startsWith('http') ? source.url : 'https://' + source.url).hostname.replace('www.', '').split('.')[0];
+              // Map hostname to adapter key
+              const hostMap: Record<string, string> = {
+                'asurascans': 'asurascans', 'asuracomic': 'asurascans',
+                'reaperscans': 'reaperscans',
+                'webtoon': 'webtoon',
+                'thunderscans': 'thunderscans', 'en-thunderscans': 'thunderscans',
+                'manhuaus': 'manhuaus',
+                'mgeko': 'mgeko',
+                'mgread': 'mgread',
+                'arenascan': 'arenascans', 'arenascans': 'arenascans',
+                'comixto': 'comixto',
+                'vortexscans': 'vortexscans',
+                'infinitelevelup': 'infinitelevelup',
+                'theultimateofallages': 'ultimateofallages',
+              };
+              return hostMap[host ?? ''] ?? 'generic';
+            } catch { return 'generic'; }
+          })();
+
+          // Extract the Tailwind text and bg class from the badge class string
+          const badgeCls = getAdapterBadgeClass(adapterKey);
+          // e.g. "bg-orange-500/20 text-orange-400 border-orange-500/30" → text-orange-400 + bg-orange-500/20
+          const iconBg = badgeCls.split(' ').find(c => c.startsWith('bg-')) ?? 'bg-emerald-500/10';
+          const iconText = badgeCls.split(' ').find(c => c.startsWith('text-')) ?? 'text-emerald-400';
+
           let displayName = 'Unknown';
           try {
             displayName = isTelegram
@@ -72,7 +103,7 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
               <a href={source.url} target="_blank" rel="noopener noreferrer" className="block">
                 <Card className="bg-[#161719] border-border/30 p-4 rounded-xl group-hover/source:border-amber-500/30 transition-colors pr-14">
                   <div className="flex items-start gap-4">
-                    <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isTelegram ? 'bg-blue-500/10 text-blue-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                    <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isTelegram ? 'bg-blue-500/10 text-blue-400' : `${iconBg} ${iconText}`}`}>
                       {isTelegram ? (
                         <Send size={18} className="-ml-0.5" />
                       ) : (
@@ -87,6 +118,9 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
                       <div className="flex items-baseline gap-2 flex-wrap">
                         <h4 className="font-semibold text-white truncate max-w-[200px] sm:max-w-[300px]">{displayName}</h4>
                         <span className="text-xs text-muted-foreground shrink-0">{isTelegram ? 'Telegram' : 'Website'}</span>
+                        {!isTelegram && adapterKey !== 'generic' && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded border font-mono shrink-0 ${badgeCls}`}>{adapterKey}</span>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 mt-1 flex-wrap">
                         <span className="text-sm font-medium text-zinc-300">

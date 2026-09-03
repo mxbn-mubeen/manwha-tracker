@@ -30,7 +30,7 @@ export function DashboardPage() {
 
   // Calculate unread
   const unreadCount = manhwasList.reduce((acc, m) => {
-    const unread = (m.progress?.latestChapter ?? 0) - (m.progress?.lastChapter ?? 0);
+    const unread = Math.ceil((m.progress?.latestChapter ?? 0) - (m.progress?.lastChapter ?? 0));
     return acc + (unread > 0 ? unread : 0);
   }, 0);
 
@@ -42,12 +42,12 @@ export function DashboardPage() {
   const continueReading = manhwasList
     .filter(m => {
       if (m.status === 'completed') return false;
-      const unread = (m.progress?.latestChapter ?? 0) - (m.progress?.lastChapter ?? 0);
+      const unread = Math.ceil((m.progress?.latestChapter ?? 0) - (m.progress?.lastChapter ?? 0));
       return unread > 0;
     })
     .sort((a, b) => {
-      const unreadA = (a.progress?.latestChapter ?? 0) - (a.progress?.lastChapter ?? 0);
-      const unreadB = (b.progress?.latestChapter ?? 0) - (b.progress?.lastChapter ?? 0);
+      const unreadA = Math.ceil((a.progress?.latestChapter ?? 0) - (a.progress?.lastChapter ?? 0));
+      const unreadB = Math.ceil((b.progress?.latestChapter ?? 0) - (b.progress?.lastChapter ?? 0));
       return unreadB - unreadA;
     })
     .slice(0, 6);

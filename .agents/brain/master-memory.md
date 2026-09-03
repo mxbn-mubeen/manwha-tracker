@@ -135,8 +135,10 @@ functionality is needed, it has to be written from scratch.
   2. FlareSolverr (if `FLARESOLVERR_URL` set)
   3. Playwright headless browser (`browser.ts`)
   Gated by `looksLikeCloudflareChallenge()`. Playwright timeout (30s) maps to a user-friendly error.
+  FlareSolverr transient errors (429/502) now fast-fail to prevent 60s timeouts on Render.
 - **Completed manhwa filtering** (2026-08-31): Dashboard Continue Reading and sources.repository.ts
   `getActiveSources` both exclude `status = 'completed'` manhwa.
+- **Sync concurrency reduced to 1** (2026-09-03) because FlareSolverr OOMs on Render free tier when handling multiple Chromium tabs simultaneously.
 
 ## Tech Stack
 

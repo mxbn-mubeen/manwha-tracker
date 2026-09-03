@@ -22,6 +22,17 @@ jobs:
     # else completed a run. See apps/worker/src/modules/sync/sync.service.ts's
     # stale-lock self-heal, added alongside this, for the other half of the fix.
     timeout-minutes: 25
+
+    # Spin up a local FlareSolverr container just for this workflow run.
+    # This avoids needing to host a public FlareSolverr instance just for GitHub Actions.
+    services:
+      flaresolverr:
+        image: ghcr.io/flaresolverr/flaresolverr:latest
+        ports:
+          - 8191:8191
+        env:
+          LOG_LEVEL: info
+
     steps:
       - uses: actions/checkout@v4
 
@@ -42,4 +53,5 @@ jobs:
         working-directory: apps/worker
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          FLARESOLVERR_URL: http://localhost:8191/v1
         run: pnpm run cron:sync

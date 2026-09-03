@@ -4,7 +4,6 @@ import { webtoonAdapter } from "./sites/webtoon";
 import { reaperScansAdapter } from "./sites/reaperscans";
 import { manhuausAdapter } from "./sites/manhuaus";
 import { comixToAdapter } from "./sites/comixto";
-import { roliascanAdapter } from "./sites/roliascan";
 import { thunderscansAdapter } from "./sites/thunderscans";
 import { arenaScansAdapter } from "./sites/arenascans";
 import { ultimateOfAllAgesAdapter } from "./sites/ultimateofallages";
@@ -12,6 +11,7 @@ import { mgekoAdapter } from "./sites/mgeko";
 import { mgreadAdapter } from "./sites/mgread";
 import { genericAdapter } from "./sites/generic";
 import { infiniteLevelUpAdapter } from "./sites/infinitelevelup";
+import { vortexScansAdapter } from "./sites/vortexscans";
 
 /** Ordered by specificity — generic (matches everything) is never in this list. */
 const SITE_ADAPTERS: WebsiteAdapter[] = [
@@ -20,13 +20,13 @@ const SITE_ADAPTERS: WebsiteAdapter[] = [
   reaperScansAdapter,
   manhuausAdapter,
   comixToAdapter,
-  roliascanAdapter,
   thunderscansAdapter,
   arenaScansAdapter,
   ultimateOfAllAgesAdapter,
   mgekoAdapter,
   mgreadAdapter,
   infiniteLevelUpAdapter,
+  vortexScansAdapter,
 ];
 
 const ADAPTERS_BY_KEY: Record<string, WebsiteAdapter> = Object.fromEntries(
@@ -52,4 +52,4 @@ export function getAdapter(adapterKey: string | null | undefined, url: string): 
   return ADAPTERS_BY_KEY[detectedKey] ?? genericAdapter;
 }
 
-export { asuraScansAdapter, webtoonAdapter, reaperScansAdapter, manhuausAdapter, comixToAdapter, roliascanAdapter, thunderscansAdapter, ultimateOfAllAgesAdapter, mgekoAdapter, mgreadAdapter, infiniteLevelUpAdapter, genericAdapter };
+export { asuraScansAdapter, webtoonAdapter, reaperScansAdapter, manhuausAdapter, comixToAdapter, thunderscansAdapter, ultimateOfAllAgesAdapter, mgekoAdapter, mgreadAdapter, infiniteLevelUpAdapter, vortexScansAdapter, genericAdapter };

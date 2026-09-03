@@ -1,6 +1,7 @@
 import type { WebsiteAdapter } from "@manhwa-tracker/shared";
 import { fetchRenderedHtml } from "../browser";
-import { detectTitleFromHtml, extractChaptersFromHtml } from "../utils/chapter-extract";
+import { detectTitleFromHtml, extractChaptersFromHtml, debugExtractChapters } from "../utils/chapter-extract";
+import { extractDeclaredChapterCount } from "../utils/extract-declared-count";
 
 export const asuraScansAdapter: WebsiteAdapter = {
   key: "asurascans",
@@ -12,12 +13,32 @@ export const asuraScansAdapter: WebsiteAdapter = {
     return detectTitleFromHtml(html);
   },
 
+  extractLatestChapterNum(html) {
+    // AsuraScans uses a split "N / Chapters" stat widget near the series header.
+    // This is far more reliable than DOM-order because AsuraScans injects
+    // EARLY ACCESS tags dynamically and uses rotating URL slugs that prevent
+    // slug-scoped scanning from working. The declared count has no such issues.
+    return extractDeclaredChapterCount(html);
+  },
+
+  isChapterLocked(outerHtml, text) {
+    return /early access/i.test(text);
+  },
+
   async chapterList(url) {
-    // We use fetchRenderedHtml here because AsuraScans injects "EARLY ACCESS" 
-    // tags dynamically via JS. By letting the browser render the page, the 
-    // LOCKED_CHAPTER_INDICATOR in chapter-extract.ts naturally filters them out.
+    // fetchRenderedHtml lets the browser run JS so EARLY ACCESS tags appear
+    // in the DOM — the LOCKED_CHAPTER_INDICATOR in chapter-extract.ts then
+    // filters them out naturally.
     const html = await fetchRenderedHtml(url, { waitForSelector: "a[href*='chapter']" });
-    return extractChaptersFromHtml(html, url);
+    return extractChaptersFromHtml(html, url, {
+      resolveLatestReference: (found, h) => this.extractLatestChapterNum(h, url),
+      isChapterLocked: (outerHtml, text) => this.isChapterLocked!(outerHtml, text),
+    });
+  },
+
+  async debugChapterList(url) {
+    const html = await fetchRenderedHtml(url, { waitForSelector: "a[href*='chapter']" });
+    return debugExtractChapters(html, url);
   },
 
   async latestChapter(url) {
@@ -25,4 +46,3 @@ export const asuraScansAdapter: WebsiteAdapter = {
     return list[0] ?? null;
   },
 };
-
