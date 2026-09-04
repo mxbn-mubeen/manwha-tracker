@@ -40,22 +40,22 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Only libs/database, libs/parser, libs/shared, and libs/ui currently
-      # define a `typecheck` script — turbo silently skips packages that
-      # don't define a task, so apps/api, apps/worker, and apps/web are NOT
-      # typechecked by this step. They're still covered indirectly by the
-      # Build step below, since each app's `build` script runs `tsc` (or
-      # `tsc && vite build` for web), which fails on type errors too — but
-      # if you want fast typecheck-only feedback on the apps themselves,
-      # add a `"typecheck": "tsc --noEmit"` script to their package.json.
-      - name: Typecheck (libs only — see comment)
-        run: pnpm run typecheck
-
       # Builds every workspace package, apps included. This is currently the
       # only step that actually typechecks apps/api, apps/worker, and
       # apps/web, since their build scripts invoke tsc directly.
       - name: Build
         run: pnpm run build
+
+      # Only libs/database, libs/parser, libs/shared, and libs/ui currently
+      # define a `typecheck` script — turbo silently skips packages that
+      # don't define a task, so apps/api, apps/worker, and apps/web are NOT
+      # typechecked by this step. They're still covered indirectly by the
+      # Build step above, since each app's `build` script runs `tsc` (or
+      # `tsc && vite build` for web), which fails on type errors too — but
+      # if you want fast typecheck-only feedback on the apps themselves,
+      # add a `"typecheck": "tsc --noEmit"` script to their package.json.
+      - name: Typecheck (libs only — see comment)
+        run: pnpm run typecheck
 
       # Only libs/shared currently defines a `lint` script (`eslint src`) —
       # no eslint config exists yet for apps/api, apps/worker, apps/web, or

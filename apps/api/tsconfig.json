@@ -4,9 +4,10 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "module": "CommonJS",
-    "moduleResolution": "node10",
+    "moduleResolution": "Node",
     "target": "ES2020",
     "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
     "strict": true
   },
   "include": ["src/**/*"]
