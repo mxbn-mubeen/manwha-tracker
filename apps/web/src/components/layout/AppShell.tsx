@@ -107,22 +107,22 @@ function Navbar() {
   return (
     <>
       <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="max-w-7xl mx-auto flex h-16 items-center px-4 sm:px-6 lg:px-8 justify-between">
-          <div className="flex items-center gap-3 sm:gap-6">
-            <Link to="/dashboard" className="flex items-center gap-2">
+        <div className="max-w-7xl mx-auto flex h-16 items-center px-4 sm:px-6 lg:px-8 justify-between gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex items-center gap-3 sm:gap-6 shrink-0">
+            <Link to="/dashboard" className="flex items-center gap-2 shrink-0">
               <div className="bg-amber-500 text-amber-950 font-bold h-8 w-8 flex items-center justify-center rounded-md shrink-0">
                 M
               </div>
               <span className="font-bold text-lg hidden sm:inline-block">Manhwa</span>
             </Link>
             
-            <nav className="flex items-center gap-1 sm:gap-4 text-sm font-medium text-muted-foreground">
+            <nav className="flex items-center gap-1 sm:gap-4 text-sm font-medium text-muted-foreground shrink-0">
               <Link 
                 to="/dashboard" 
-                className={`transition-colors hover:text-foreground ${location.pathname === '/dashboard' ? 'text-foreground bg-white/5 px-2 sm:px-3 py-1.5 rounded-md' : 'px-2 sm:px-3 py-1.5'}`}
+                className={`transition-colors hover:text-foreground shrink-0 ${location.pathname === '/dashboard' ? 'text-foreground bg-white/5 px-2 sm:px-3 py-1.5 rounded-md' : 'px-2 sm:px-3 py-1.5'}`}
               >
                 <div className="flex items-center gap-2">
-                  <span className="grid grid-cols-2 gap-0.5 w-4 h-4">
+                  <span className="grid grid-cols-2 gap-0.5 w-4 h-4 shrink-0">
                     <div className="bg-current rounded-[1px]" />
                     <div className="bg-current rounded-[1px]" />
                     <div className="bg-current rounded-[1px]" />
@@ -133,40 +133,40 @@ function Navbar() {
               </Link>
               <Link 
                 to="/library" 
-                className={`transition-colors hover:text-foreground ${location.pathname === '/library' ? 'text-foreground bg-white/5 px-2 sm:px-3 py-1.5 rounded-md' : 'px-2 sm:px-3 py-1.5'}`}
+                className={`transition-colors hover:text-foreground shrink-0 ${location.pathname === '/library' ? 'text-foreground bg-white/5 px-2 sm:px-3 py-1.5 rounded-md' : 'px-2 sm:px-3 py-1.5'}`}
               >
                 <div className="flex items-center gap-2">
-                  <span>|\</span>
+                  <span className="shrink-0">|\</span>
                   <span className="hidden sm:inline">Library</span>
                 </div>
               </Link>
               <Link 
                 to="/sources" 
-                className={`transition-colors hover:text-foreground ${location.pathname === '/sources' ? 'text-foreground bg-white/5 px-2 sm:px-3 py-1.5 rounded-md' : 'px-2 sm:px-3 py-1.5'}`}
+                className={`transition-colors hover:text-foreground shrink-0 ${location.pathname === '/sources' ? 'text-foreground bg-white/5 px-2 sm:px-3 py-1.5 rounded-md' : 'px-2 sm:px-3 py-1.5'}`}
               >
                 <div className="flex items-center gap-2">
-                  <Globe className="w-4 h-4" />
+                  <Globe className="w-4 h-4 shrink-0" />
                   <span className="hidden sm:inline">Sources</span>
                 </div>
               </Link>
               <Link 
                 to="/stats" 
-                className={`transition-colors hover:text-foreground ${location.pathname === '/stats' ? 'text-foreground bg-white/5 px-2 sm:px-3 py-1.5 rounded-md' : 'px-2 sm:px-3 py-1.5'}`}
+                className={`transition-colors hover:text-foreground shrink-0 ${location.pathname === '/stats' ? 'text-foreground bg-white/5 px-2 sm:px-3 py-1.5 rounded-md' : 'px-2 sm:px-3 py-1.5'}`}
               >
                 <div className="flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4" />
+                  <BarChart3 className="w-4 h-4 shrink-0" />
                   <span className="hidden sm:inline">Stats</span>
                 </div>
               </Link>
             </nav>
           </div>
 
-          <div className="flex items-center gap-1 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {/* Global search trigger */}
             <Button
               variant="ghost"
               size="sm"
-              className="flex gap-2 px-2 sm:px-3 text-muted-foreground hover:text-foreground"
+              className="flex gap-2 px-2 sm:px-3 text-muted-foreground hover:text-foreground shrink-0"
               onClick={() => setSearchOpen(true)}
             >
               <Search className="h-4 w-4 shrink-0" />
@@ -177,23 +177,23 @@ function Navbar() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-9 w-9 text-muted-foreground hover:text-foreground"
+              className="h-9 w-9 text-muted-foreground hover:text-foreground shrink-0"
               onClick={() => setHistoryOpen(true)}
               title="Sync history"
             >
-              <History className="h-4 w-4" />
+              <History className="h-4 w-4 shrink-0" />
             </Button>
 
             {/* Sync button */}
             <Button 
               variant="ghost" 
               size="sm" 
-              className="flex gap-2 px-2 sm:px-3"
+              className="flex gap-2 px-2 sm:px-3 shrink-0"
               onClick={handleSync}
               disabled={isSyncing}
             >
               <RefreshCw className={`h-4 w-4 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span className={isSyncing ? "inline text-xs sm:text-sm" : "hidden sm:inline"}>
+              <span className={isSyncing ? "inline text-xs sm:text-sm whitespace-nowrap" : "hidden sm:inline whitespace-nowrap"}>
                 {isSyncing
                   ? syncProgress
                     ? `Syncing ${syncProgress.completed}/${syncProgress.total}…`
@@ -211,15 +211,15 @@ function Navbar() {
               asChild
             >
               <Link to="/settings" aria-label="Settings">
-                <Settings className="h-4 w-4" />
+                <Settings className="h-4 w-4 shrink-0" />
               </Link>
             </Button>
 
             {/* Add Manhwa */}
-            <Button size="sm" className="gap-2 rounded-full px-3 sm:px-4" asChild>
+            <Button size="sm" className="gap-2 rounded-full px-3 sm:px-4 shrink-0" asChild>
               <Link to="/add">
-                <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Add Manhwa</span>
+                <Plus className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline whitespace-nowrap">Add Manhwa</span>
               </Link>
             </Button>
           </div>
@@ -232,4 +232,3 @@ function Navbar() {
     </>
   )
 }
-
