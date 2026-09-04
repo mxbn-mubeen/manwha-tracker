@@ -24,13 +24,17 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
+        # No explicit `version:` here — package.json's "packageManager" field
+        # already pins pnpm@9.0.0, and this action reads that automatically.
+        # Setting a version here too causes a hard error even when it agrees
+        # with package.json (confirmed in CI: "Multiple versions of pnpm
+        # specified" — pnpm/action-setup@v4 treats having both as a conflict,
+        # not just checking they match).
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
