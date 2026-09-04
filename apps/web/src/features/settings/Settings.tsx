@@ -1,6 +1,7 @@
 import { TelegramSection } from '@/features/settings/components/TelegramSection';
 import { SyncHistorySection } from '@/features/settings/components/SyncHistorySection';
 import { RecentlyDeletedSection } from '@/features/settings/components/RecentlyDeletedSection';
+import { SystemSection } from '@/features/settings/components/SystemSection';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -18,6 +19,7 @@ export function SettingsPage() {
           <TabsTrigger value="telegram">Telegram Bot</TabsTrigger>
           <TabsTrigger value="sync">Sync History</TabsTrigger>
           <TabsTrigger value="deleted">Recently Deleted</TabsTrigger>
+          <TabsTrigger value="system">System</TabsTrigger>
         </TabsList>
         <TabsContent value="telegram">
           <TelegramSection />
@@ -27,6 +29,9 @@ export function SettingsPage() {
         </TabsContent>
         <TabsContent value="deleted">
           <RecentlyDeletedSection />
+        </TabsContent>
+        <TabsContent value="system">
+          <SystemSection />
         </TabsContent>
       </Tabs>
     </div>

@@ -13,7 +13,8 @@ A personal, single-user Manhwa/Manga reading tracker. Automatically monitors cha
 - 🔧 **Fix Adapter Keys** — one-click button to re-detect and correct stale adapter keys across all website sources
 - 🎨 **Dark theme** — sleek dark manhwa-focused UI built with Tailwind v4 + shadcn/ui
 - ➕ **Manual add** — add any manhwa manually with cover, genres, status, and chapter progress
-- 📊 **Dashboard** — stats, Continue Reading (excludes completed), Recent Activity
+- 📊 **Stats Page** — dedicated dashboard for library insights, unread chapter counts, status charts, and source distribution
+- 📈 **Dashboard** — quick stats, Continue Reading (excludes completed), Recent Activity
 - ✅ **Completed manhwa filtering** — dashboard Continue Reading and Library Unread views automatically hide completed titles
 
 ## Tech Stack
@@ -38,61 +39,246 @@ A personal, single-user Manhwa/Manga reading tracker. Automatically monitors cha
 ## Project Structure
 
 ```
-manhwa-tracker/
+manwha-tracker/
+├── .agents/
+│   └── brain/                Project brain files
+├── .github/
+│   └── workflows/
+│       ├── ci.yml            CI workflow
+│       ├── keep-alive.yml    Keeps Render worker alive
+│       └── sync-cron.yml     GitHub Actions cron for website sync
 ├── apps/
-│   ├── web/              # Vite + React frontend
-│   │   └── src/
-│   │       ├── features/
-│   │       │   ├── manhwa-detail/components/
-│   │       │   │   ├── EditManhwaModal.tsx         # Edit form
-│   │       │   │   ├── ManageChaptersSection.tsx   # Expandable chapters list (extracted)
-│   │       │   │   ├── SourcesList.tsx             # Sources list + add-source form
-│   │       │   │   └── SourceStatusBadge.tsx       # StatusBadge + pure helpers (extracted)
-│   │       │   ├── settings/components/
-│   │       │   │   ├── TelegramSection.tsx         # Status card + wires wizard
-│   │       │   │   └── TelegramLoginWizard.tsx     # Phone/OTP/2FA step UI (extracted)
-│   │       │   └── sources/                        # Unified Sources page
-│   │       │       ├── SourcesPage.tsx
-│   │       │       ├── components/
-│   │       │       │   ├── SourceRow.tsx           # Desktop table row with inline URL editing
-│   │       │       │   └── SourceCard.tsx          # Mobile card with inline URL editing
-│   │       │       └── utils/
-│   │       │           └── adapterColors.ts        # Adapter key → badge colour mapping
-│   │       ├── components/
-│   │       │   ├── layout/   # AppShell, Navbar
-│   │       │   └── ui/       # shadcn/ui components
-│   │       └── lib/
-│   │           └── trpc.ts   # tRPC client
-│   ├── api/              # Express + tRPC API server (Vercel Serverless)
-│   │   └── src/
-│   │       └── modules/
-│   │           ├── manhwa/   # manhwa router
-│   │           ├── sync/     # sync router (queries only)
-│   │           └── settings/
-│   │               ├── settings.router.ts          # CRUD get/set/delete
-│   │               └── telegram-auth.procedures.ts # In-app Telegram login flow
-│   └── worker/           # Background Docker service (Render)
-│       └── src/
-│           ├── modules/
-│           │   └── sync/
-│           │       ├── sync.service.ts     # Orchestration only (lock, scope, DB history)
-│           │       ├── sync.website.ts     # Website loop: FlareSolverr wake-up, per-source scraping
-│           │       └── sync.repository.ts
-│           └── scripts/
-│               ├── watcher/
-│               │   ├── index.ts            # Client lifecycle, connect, event handlers
-│               │   └── intervals.ts        # Health check, watchdog, reconcile, scheduled rebuild
-│               ├── bot/
-│               │   ├── handlers.ts         # Simple commands (/start, /help, /list, /create…)
-│               │   └── channel-registration.ts  # Multi-step channel add & conflict flow
-│               └── cron/                   # Website sync runner (cron-sync.ts)
+│   ├── api/                  Express 4 + tRPC v11 — port 3001 (Vercel Serverless)
+│   │   ├── src/
+│   │   │   ├── modules/
+│   │   │   │   ├── manhwa/
+│   │   │   │   │   ├── manhwa.read.repository.ts
+│   │   │   │   │   ├── manhwa.repository.ts
+│   │   │   │   │   ├── manhwa.router.ts
+│   │   │   │   │   ├── manhwa.service.ts
+│   │   │   │   │   ├── progress.repository.ts
+│   │   │   │   │   └── sources.repository.ts
+│   │   │   │   ├── settings/
+│   │   │   │   │   ├── settings.router.ts
+│   │   │   │   │   └── telegram-auth.procedures.ts
+│   │   │   │   ├── stats/
+│   │   │   │   │   └── stats.router.ts
+│   │   │   │   ├── sync/
+│   │   │   │   │   ├── sync.router.ts
+│   │   │   │   │   └── sync.service.ts
+│   │   │   │   └── telegram/
+│   │   │   │       └── telegram.repository.ts
+│   │   │   ├── routes/
+│   │   │   │   ├── health.ts
+│   │   │   │   └── proxy.ts
+│   │   │   ├── types/
+│   │   │   │   └── input.d.ts
+│   │   │   ├── utils/
+│   │   │   │   ├── telegram-client.ts
+│   │   │   │   └── trpc-error.ts
+│   │   │   ├── env.ts
+│   │   │   ├── root.ts
+│   │   │   ├── server.ts
+│   │   │   ├── trpc.ts
+│   │   │   └── vercel.ts
+│   │   ├── package.json
+│   │   ├── tsconfig.json
+│   │   └── vercel.json
+│   ├── web/                  Vite 5 + React 19 — port 3000
+│   │   ├── src/
+│   │   │   ├── components/
+│   │   │   │   ├── layout/
+│   │   │   │   │   └── AppShell.tsx
+│   │   │   │   └── ui/       shadcn/ui components (badge, button, card, input, sheet, tabs)
+│   │   │   ├── features/
+│   │   │   │   ├── dashboard/
+│   │   │   │   │   ├── components/
+│   │   │   │   │   │   ├── ContinueReading.tsx
+│   │   │   │   │   │   ├── RecentActivity.tsx
+│   │   │   │   │   │   └── StatCard.tsx
+│   │   │   │   │   └── Dashboard.tsx
+│   │   │   │   ├── manhwa/
+│   │   │   │   │   ├── components/
+│   │   │   │   │   │   ├── AddManhwaForm.tsx
+│   │   │   │   │   │   └── ManhwaCard.tsx
+│   │   │   │   │   ├── AddManhwa.tsx
+│   │   │   │   │   └── Library.tsx
+│   │   │   │   ├── manhwa-detail/
+│   │   │   │   │   ├── components/
+│   │   │   │   │   │   ├── EditManhwaModal.tsx
+│   │   │   │   │   │   ├── ManageChaptersSection.tsx
+│   │   │   │   │   │   ├── ManhwaHeader.tsx
+│   │   │   │   │   │   ├── ManhwaPoster.tsx
+│   │   │   │   │   │   ├── ProgressCard.tsx
+│   │   │   │   │   │   ├── SourceStatusBadge.tsx
+│   │   │   │   │   │   ├── SourcesList.tsx
+│   │   │   │   │   │   └── UnreadManhwaStrip.tsx
+│   │   │   │   │   └── ManhwaDetail.tsx
+│   │   │   │   ├── search/
+│   │   │   │   │   └── GlobalSearch.tsx
+│   │   │   │   ├── settings/
+│   │   │   │   │   ├── components/
+│   │   │   │   │   │   ├── RecentlyDeletedSection.tsx
+│   │   │   │   │   │   ├── SyncHistorySection.tsx
+│   │   │   │   │   │   ├── SystemSection.tsx
+│   │   │   │   │   │   ├── TelegramLoginWizard.tsx
+│   │   │   │   │   │   └── TelegramSection.tsx
+│   │   │   │   │   └── Settings.tsx
+│   │   │   │   ├── sources/
+│   │   │   │   │   ├── components/
+│   │   │   │   │   │   ├── FixAdapterKeysButton.tsx
+│   │   │   │   │   │   ├── SourceCard.tsx
+│   │   │   │   │   │   ├── SourceRow.tsx
+│   │   │   │   │   │   ├── SourcesPanels.tsx
+│   │   │   │   │   │   ├── TelegramPanel.tsx
+│   │   │   │   │   │   └── WebsiteFilterPanel.tsx
+│   │   │   │   │   ├── utils/
+│   │   │   │   │   │   ├── adapterColors.ts
+│   │   │   │   │   │   └── sourceHelpers.ts
+│   │   │   │   │   └── SourcesPage.tsx
+│   │   │   │   ├── stats/
+│   │   │   │   │   └── StatsPage.tsx
+│   │   │   │   └── sync/
+│   │   │   │       ├── RunCard.tsx
+│   │   │   │       └── SyncHistoryDrawer.tsx
+│   │   │   ├── lib/
+│   │   │   │   ├── trpc.ts
+│   │   │   │   ├── usePageTitle.ts
+│   │   │   │   └── utils.ts
+│   │   │   ├── utils/
+│   │   │   │   └── image.ts
+│   │   │   ├── App.tsx
+│   │   │   ├── index.css
+│   │   │   ├── main.tsx
+│   │   │   └── providers.tsx
+│   │   ├── .env.example
+│   │   ├── index.html
+│   │   ├── package.json
+│   │   ├── tsconfig.json
+│   │   ├── vercel.json
+│   │   └── vite.config.ts
+│   └── worker/                 Express 4 — port 3002 (Docker service, Render)
+│       ├── src/
+│       │   ├── modules/
+│       │   │   ├── manhwa/
+│       │   │   │   ├── manhwa.read.repository.ts
+│       │   │   │   ├── manhwa.repository.ts
+│       │   │   │   ├── manhwa.service.ts
+│       │   │   │   ├── progress.repository.ts
+│       │   │   │   └── sources.repository.ts
+│       │   │   ├── settings/
+│       │   │   ├── sync/
+│       │   │   │   ├── sync.service.ts
+│       │   │   │   ├── sync.utils.ts
+│       │   │   │   └── sync.website.ts
+│       │   │   └── telegram/
+│       │   │       └── telegram.repository.ts
+│       │   ├── scripts/
+│       │   │   ├── bot/
+│       │   │   │   ├── api.ts
+│       │   │   │   ├── channel-registration.ts
+│       │   │   │   ├── handlers.ts
+│       │   │   │   ├── index.ts
+│       │   │   │   └── poll.ts
+│       │   │   ├── cron/
+│       │   │   │   └── cron-sync.ts
+│       │   │   └── watcher/
+│       │   │       ├── channel-map.ts
+│       │   │       ├── handlers.ts
+│       │   │       ├── index.ts
+│       │   │       ├── intervals.ts
+│       │   │       ├── reconcile.ts
+│       │   │       └── session.ts
+│       │   ├── utils/
+│       │   │   ├── bot-alert.ts
+│       │   │   └── telegram-client.ts
+│       │   ├── env.ts
+│       │   └── server.ts
+│       ├── Dockerfile
+│       ├── package.json
+│       └── tsconfig.json
 ├── libs/
-│   ├── database/         # Drizzle schema + Neon client singleton + SettingsRepository (shared by api & worker)
-│   ├── parser/           # Website adapters (AsuraScans, Webtoon, Reaper, manhuaus, Arena Scans, Comix.to, Mgeko, RoliaScan, Thunder Scans, Ultimate of All Ages, generic)
-│   └── shared/           # Shared TypeScript types + constants (ADAPTER_KEYS, MANHWA_STATUS, etc.)
-└── .github/
-    └── workflows/
-        └── sync-cron.yml # GitHub Actions cron for website sync
+│   ├── database/
+│   │   ├── src/
+│   │   │   ├── migrations/
+│   │   │   ├── schema/
+│   │   │   │   └── index.ts
+│   │   │   ├── db.ts
+│   │   │   ├── index.ts
+│   │   │   ├── settings.repository.ts
+│   │   │   └── sync.repository.ts
+│   │   ├── drizzle.config.ts
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   ├── parser/
+│   │   ├── src/
+│   │   │   ├── adapters/
+│   │   │   │   ├── sites/
+│   │   │   │   │   ├── arenascans.ts
+│   │   │   │   │   ├── asurascans.ts
+│   │   │   │   │   ├── comixto.ts
+│   │   │   │   │   ├── generic.ts
+│   │   │   │   │   ├── infinitelevelup.ts
+│   │   │   │   │   ├── manhuaus.ts
+│   │   │   │   │   ├── mgeko.ts
+│   │   │   │   │   ├── mgread.ts
+│   │   │   │   │   ├── reaperscans.ts
+│   │   │   │   │   ├── roliascan.ts
+│   │   │   │   │   ├── thunderscans.ts
+│   │   │   │   │   ├── ultimateofallages.ts
+│   │   │   │   │   ├── vortexscans.ts
+│   │   │   │   │   └── webtoon.ts
+│   │   │   │   ├── utils/
+│   │   │   │   │   ├── chapter-extract.ts
+│   │   │   │   │   ├── derive-slug.ts
+│   │   │   │   │   ├── detect-title.ts
+│   │   │   │   │   ├── drop-outliers.ts
+│   │   │   │   │   ├── extract-chapter-number.ts
+│   │   │   │   │   └── extract-declared-count.ts
+│   │   │   │   ├── browser.ts
+│   │   │   │   ├── esm-interop.ts
+│   │   │   │   ├── factory.ts
+│   │   │   │   ├── http.ts
+│   │   │   │   └── index.ts
+│   │   │   ├── cover-lookup.ts
+│   │   │   ├── index.ts
+│   │   │   └── metadata.ts
+│   │   ├── package.json
+│   │   ├── scratch.js
+│   │   └── tsconfig.json
+│   ├── shared/
+│   │   ├── src/
+│   │   │   ├── schemas/
+│   │   │   │   ├── manhwa.ts
+│   │   │   │   ├── progress.ts
+│   │   │   │   └── sync.ts
+│   │   │   ├── types/
+│   │   │   │   ├── adapter.ts
+│   │   │   │   ├── chapter.ts
+│   │   │   │   ├── manhwa.ts
+│   │   │   │   ├── notification.ts
+│   │   │   │   ├── progress.ts
+│   │   │   │   ├── source.ts
+│   │   │   │   └── sync.ts
+│   │   │   ├── constants.ts
+│   │   │   └── index.ts
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   ├── ui/
+│   │   └── package.json
+│   └── utils/
+│       ├── src/
+│       │   └── index.ts
+│       ├── package.json
+│       └── tsconfig.json
+├── .env.example
+├── .gitignore
+├── README.md
+├── package.json
+├── pnpm-lock.yaml
+├── pnpm-workspace.yaml
+├── tsconfig.base.json
+└── turbo.json
 ```
 
 ## Getting Started

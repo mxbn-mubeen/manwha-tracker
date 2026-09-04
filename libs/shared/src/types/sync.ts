@@ -15,6 +15,7 @@ export interface SyncResult {
   newChapters: number;
   updatedManhwa: number;
   skippedTelegram: number;
+  skippedSchedule: number;
   errors: string[];
   duration: number;
   triggeredBy: string;

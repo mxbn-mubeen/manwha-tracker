@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { createTRPCRouter, publicProcedure } from '../../trpc';
-import { getSyncHistory, getIsSyncing, getSyncProgress } from './sync.service';
+import { getSyncHistory, getIsSyncing, getSyncProgress, setIsSyncing, clearSyncProgress } from './sync.service';
 import type { SyncResult } from '@manhwa-tracker/shared';
 import { TRPCError } from '@trpc/server';
 
@@ -19,6 +19,13 @@ export const syncRouter = createTRPCRouter({
 
   /** Returns live progress { completed, total } while a sync runs, or null when idle. */
   getProgress: publicProcedure.query(async () => await getSyncProgress()),
+
+  /** Force-clears the sync lock. Use when a sync was killed mid-run and the UI is stuck. */
+  clearLock: publicProcedure.mutation(async () => {
+    await setIsSyncing(false);
+    await clearSyncProgress();
+    return { ok: true };
+  }),
 
   /**
    * The actual sync.run execution happens on the Render worker via a splitLink in the frontend.

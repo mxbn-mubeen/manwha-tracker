@@ -100,6 +100,7 @@ export class SourcesRepository {
         id: sources.id,
         manhwaId: sources.manhwaId,
         manhwaTitle: manhwa.title,
+        manhwaCover: manhwa.coverUrl,
         type: sources.type,
         url: sources.url,
         adapterKey: sources.adapterKey,

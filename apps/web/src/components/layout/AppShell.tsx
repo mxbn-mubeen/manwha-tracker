@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom"
-import { RefreshCw, Plus, Settings, History, Search, Globe } from "lucide-react"
+import { RefreshCw, Plus, Settings, History, Search, Globe, BarChart3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { trpc } from "@/lib/trpc"
@@ -149,6 +149,15 @@ function Navbar() {
                   <span className="hidden sm:inline">Sources</span>
                 </div>
               </Link>
+              <Link 
+                to="/stats" 
+                className={`transition-colors hover:text-foreground ${location.pathname === '/stats' ? 'text-foreground bg-white/5 px-2 sm:px-3 py-1.5 rounded-md' : 'px-2 sm:px-3 py-1.5'}`}
+              >
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Stats</span>
+                </div>
+              </Link>
             </nav>
           </div>
 
@@ -184,7 +193,7 @@ function Navbar() {
               disabled={isSyncing}
             >
               <RefreshCw className={`h-4 w-4 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">
+              <span className={isSyncing ? "inline text-xs sm:text-sm" : "hidden sm:inline"}>
                 {isSyncing
                   ? syncProgress
                     ? `Syncing ${syncProgress.completed}/${syncProgress.total}…`

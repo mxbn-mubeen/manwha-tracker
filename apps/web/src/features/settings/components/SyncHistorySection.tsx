@@ -1,6 +1,6 @@
 import { trpc } from '@/lib/trpc';
 import { Clock } from 'lucide-react';
-import { RunCard } from '@/features/sync/SyncHistoryDrawer';
+import { RunCard } from '@/features/sync/RunCard';
 import type { SyncRun } from '@manhwa-tracker/shared';
 
 export function SyncHistorySection() {

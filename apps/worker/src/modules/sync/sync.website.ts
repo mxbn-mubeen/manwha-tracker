@@ -19,81 +19,12 @@ export async function clearSyncProgress(): Promise<void> {
   await repo.delete(SYNC_PROGRESS_KEY);
 }
 
-export type SourceOutcome = {
-  manhwaId: number;
-  sourceUrl: string;
-  manhwaTitle: string;
-  status: 'success' | 'blocked' | 'error';
-  chaptersFound: number;
-  newChapters: number;
-  reason: string | null;
-  durationMs: number;
-};
-
-/** "https://comix.to/title/..." -> "Comix". Falls back to hostname if parsing fails. */
-export function humanizeSourceName(url: string): string {
-  try {
-    const host = new URL(url.startsWith('http') ? url : `https://${url}`).hostname;
-    const base = host.replace(/^www\./, '').split('.')[0] || host;
-    return base.charAt(0).toUpperCase() + base.slice(1);
-  } catch {
-    return url;
-  }
-}
-
-/**
- * Per-source sync failures come straight from the site adapter — `result.errors[0]`
- * is shown verbatim in the navbar Sync button's toast (AppShell.tsx), so raw
- * driver text should never end up there.
- */
-export function describeSourceError(err: unknown): string {
-  const message = err instanceof Error ? err.message : String(err);
-
-  if (err instanceof Error && err.name === 'CloudflareBlockedError') {
-    const reason = (err as { reason?: 'not-configured' | 'unsolved' }).reason;
-    return reason === 'not-configured'
-      ? 'Cloudflare challenge (FlareSolverr not configured)'
-      : 'Cloudflare challenge (FlareSolverr could not solve it)';
-  }
-
-  if (/timed? ?out|ETIMEDOUT/i.test(message)) return 'Site took too long to respond.';
-  if (/ENOTFOUND|ECONNREFUSED|fetch failed/i.test(message)) return 'Could not reach the site.';
-  if (/403|forbidden/i.test(message)) return 'Site blocked the request (403).';
-  if (/404|not found/i.test(message)) return 'Page no longer exists (404).';
-  if (/cannot read propert|undefined is not|null is not/i.test(message)) {
-    return "Site layout changed — couldn't find chapters.";
-  }
-  return 'Failed to check for updates.';
-}
-
-/**
- * Formats milliseconds into a human-readable string: "800ms", "1.2s", "1m 5s"
- */
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  const totalSeconds = Math.floor(ms / 1000);
-  if (totalSeconds < 60) return `${(ms / 1000).toFixed(1)}s`;
-  const m = Math.floor(totalSeconds / 60);
-  const s = totalSeconds % 60;
-  return `${m}m ${s}s`;
-}
-
-/**
- * Prints one source's outcome as a labeled block, matching the same shape
- * shown on the source's card in the UI.
- */
-export function logSourceOutcome(outcome: SourceOutcome): void {
-  const lines = [
-    `${humanizeSourceName(outcome.sourceUrl)} (${outcome.sourceUrl})`,
-    `Manhwa ID: ${outcome.manhwaId}`,
-  ];
-  if (outcome.status === 'success') lines.push(`New chapters: ${outcome.newChapters}`);
-  if (outcome.reason) lines.push(`Reason: ${outcome.reason}`);
-  lines.push(`Time taken: ${formatDuration(outcome.durationMs)}`);
-  const logFn = outcome.status === 'success' ? console.log : console.warn;
-  logFn(`[sync] ${outcome.manhwaTitle}\n${lines.map(l => `  ${l}`).join('\n')}`);
-}
-
+import { 
+  type SourceOutcome,
+  humanizeSourceName,
+  describeSourceError,
+  logSourceOutcome 
+} from './sync.utils';
 /** Wake up FlareSolverr before the sync loop so cold starts don't eat per-source timeouts. */
 async function wakeFlareSolverr(): Promise<void> {
   const flareSolverrUrl = process.env.FLARESOLVERR_URL;
@@ -119,174 +50,201 @@ export async function runWebsiteSync(
   result: SyncResult,
 ): Promise<void> {
   const { getAdapter } = await import('@manhwa-tracker/parser');
-  const webSources = await repo.getActiveSources('website');
-  result.scannedSources = webSources.length;
+  const webSourcesGrouped = await repo.getActiveSourcesGroupedByManhwa('website');
+  
+  let totalSourcesCount = 0;
+  for (const sources of webSourcesGrouped.values()) {
+    totalSourcesCount += sources.length;
+  }
+  result.scannedSources = totalSourcesCount;
 
   await wakeFlareSolverr();
-  const CONCURRENCY = 1;
   const updatedManhwaIds = new Set<number>();
   let completedCount = 0;
 
   // Write "0/total" immediately so the UI shows a real count right away
-  await setSyncProgress(0, webSources.length);
+  await setSyncProgress(0, webSourcesGrouped.size);
 
-  /** Process a single source and push its outcome into result. */
-  async function processSource(source: (typeof webSources)[number]): Promise<void> {
-    let outcome: SourceOutcome;
-    const startMs = Date.now();
+  async function processManhwaSources(manhwaId: number, sources: any[]): Promise<void> {
+    const manhwaTitle = sources[0].manhwaTitle;
+    let winnerSourceId: number | null = null;
+    
+    // Check Cadence (Skip Schedule)
+    const recentDates = await repo.getChapterReleaseDates(manhwaId);
+    if (recentDates.length >= 3) {
+      let totalDiffMs = 0;
+      for (let i = 1; i < recentDates.length; i++) {
+        const d1 = recentDates[i];
+        const d0 = recentDates[i - 1];
+        if (d1 && d0) {
+          totalDiffMs += d1.getTime() - d0.getTime();
+        }
+      }
+      const medianIntervalMs = totalDiffMs / (recentDates.length - 1);
+      
+      const lastRelease = recentDates[recentDates.length - 1];
+      const lastReleaseTime = lastRelease ? lastRelease.getTime() : Date.now();
+      const nextExpectedTime = lastReleaseTime + medianIntervalMs;
+      
+      // If it's not due yet (and we haven't passed double the interval in case it's late)
+      if (Date.now() < nextExpectedTime && Date.now() < lastReleaseTime + (medianIntervalMs * 2)) {
+        result.skippedSchedule += sources.length;
+        console.log(`[sync] Skipping ${manhwaTitle} — not due yet (next expected in ${Math.round((nextExpectedTime - Date.now()) / (1000 * 60 * 60 * 24))} days)`);
+        return;
+      }
+    }
 
-    try {
-      const adapter = getAdapter(source.adapterKey, source.url);
-      const chapters = await Promise.race([
-        adapter.chapterList(source.url),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Sync operation timed out after 60 seconds.')), 60000)
-        ),
-      ]);
+    const existingNums = await repo.getExistingChapterNums(manhwaId);
+    const existingMax = existingNums.size > 0 ? Math.max(...existingNums) : 0;
 
-      if (chapters.length === 0) {
-        outcome = {
-          manhwaId: source.manhwaId,
-          sourceUrl: source.url,
-          manhwaTitle: source.manhwaTitle,
-          status: 'error',
-          chaptersFound: 0,
-          newChapters: 0,
-          reason: 'Got a response but found no chapters — site may be blocking the request.',
-          durationMs: Date.now() - startMs,
-        };
-      } else {
-        const existingNums = await repo.getExistingChapterNums(source.manhwaId);
-        const maxChapter = Math.max(...chapters.map(c => c.chapterNum));
+    // Process sources sequentially based on priority
+    for (const source of sources) {
+      let outcome: SourceOutcome;
+      const startMs = Date.now();
 
-        // Cross-reference against what this manhwa is already known to have.
-        // Real chapter counts don't go backwards — a site can't legitimately
-        // un-publish 148 chapters between syncs. If a scrape's max chapter
-        // is implausibly far below the highest chapter number already on
-        // record, treat it as a parsing failure rather than silently deleting.
-        const existingMax = existingNums.size > 0 ? Math.max(...existingNums) : 0;
-        const REGRESSION_THRESHOLD = 0.5; // 50 %
-        if (
-          existingMax > 0 &&
-          chapters.length > 0 &&
-          maxChapter < existingMax * REGRESSION_THRESHOLD
-        ) {
-          // Log a diagnostic fetch to help debug the regression.
-          try {
-            const debug = await adapter.debugChapterList?.(source.url);
-            if (debug) {
-              console.warn(
-                `[sync] regression guard fired for ${source.manhwaTitle} (${humanizeSourceName(source.url)}):\n` +
-                `  rawFoundNums (first 10): ${debug.rawFoundNums.slice(0, 10).join(', ')}${debug.rawFoundNums.length > 10 ? '...' : ''}\n` +
-                `  afterOutlierTrim (first 10): ${debug.afterOutlierTrim.slice(0, 10).join(', ')}${debug.afterOutlierTrim.length > 10 ? '...' : ''}\n` +
-                `  declaredCount: ${debug.declaredCount}\n` +
-                `  finalNums (first 10): ${debug.finalNums.slice(0, 10).join(', ')}${debug.finalNums.length > 10 ? '...' : ''}\n` +
-                `  usedSlugScopedScan: ${debug.usedSlugScopedScan}, slug: ${debug.slug}`
-              );
-            }
-          } catch (debugErr) {
-            console.warn(`[sync] debugChapterList also failed for ${source.manhwaTitle}:`, debugErr);
-          }
+      try {
+        const adapter = getAdapter(source.adapterKey, source.url);
+        let timeoutId: NodeJS.Timeout;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error('Sync operation timed out after 60 seconds.')), 60000);
+        });
 
+        let chapters: any[] = [];
+        try {
+          const fetchPromise = adapter.chapterList(source.url);
+          fetchPromise.catch(() => {}); 
+          chapters = await Promise.race([fetchPromise, timeoutPromise]);
+        } finally {
+          clearTimeout(timeoutId!);
+        }
+
+        if (chapters.length === 0) {
           outcome = {
             manhwaId: source.manhwaId,
             sourceUrl: source.url,
             manhwaTitle: source.manhwaTitle,
             status: 'error',
-            chaptersFound: chapters.length,
+            chaptersFound: 0,
             newChapters: 0,
-            reason: `Detected chapter ${maxChapter} but ${existingMax} chapters already exist for this manhwa — likely a parsing failure, skipped this result.`,
+            reason: 'Got a response but found no chapters — site may be blocking the request.',
             durationMs: Date.now() - startMs,
           };
         } else {
-          const newChapters = chapters.filter(c => !existingNums.has(c.chapterNum));
+          const maxChapter = Math.max(...chapters.map((c: any) => c.chapterNum));
 
-          let insertedCount = 0;
-          if (newChapters.length > 0) {
-            const chaptersToInsert = newChapters.map(chapter => ({
+          const REGRESSION_THRESHOLD = 0.5; // 50 %
+          if (
+            existingMax > 0 &&
+            chapters.length > 0 &&
+            maxChapter < existingMax * REGRESSION_THRESHOLD
+          ) {
+            outcome = {
               manhwaId: source.manhwaId,
-              sourceId: source.sourceId,
-              chapterNum: chapter.chapterNum,
-              title: chapter.title,
-              url: chapter.url,
-            }));
-            insertedCount = await repo.insertChaptersBulk(chaptersToInsert);
+              sourceUrl: source.url,
+              manhwaTitle: source.manhwaTitle,
+              status: 'error',
+              chaptersFound: chapters.length,
+              newChapters: 0,
+              reason: `Detected chapter ${maxChapter} but ${existingMax} chapters already exist for this manhwa — likely a parsing failure, skipped this result.`,
+              durationMs: Date.now() - startMs,
+            };
+          } else {
+            const newChapters = chapters.filter((c: any) => !existingNums.has(c.chapterNum));
 
-            if (insertedCount > 0) {
-              result.newChapters += insertedCount;
-              if (!updatedManhwaIds.has(source.manhwaId)) {
-                updatedManhwaIds.add(source.manhwaId);
-                await repo.touchManhwaUpdatedAt(source.manhwaId);
+            let insertedCount = 0;
+            if (newChapters.length > 0) {
+              const chaptersToInsert = newChapters.map((chapter: any) => ({
+                manhwaId: source.manhwaId,
+                sourceId: source.sourceId,
+                chapterNum: chapter.chapterNum,
+                title: chapter.title,
+                url: chapter.url,
+              }));
+              insertedCount = await repo.insertChaptersBulk(chaptersToInsert);
+
+              if (insertedCount > 0) {
+                result.newChapters += insertedCount;
+                if (!updatedManhwaIds.has(source.manhwaId)) {
+                  updatedManhwaIds.add(source.manhwaId);
+                  await repo.touchManhwaUpdatedAt(source.manhwaId);
+                }
               }
             }
+
+            await repo.updateSourceSyncStatus(source.sourceId, maxChapter);
+
+            outcome = {
+              manhwaId: source.manhwaId,
+              sourceUrl: source.url,
+              manhwaTitle: source.manhwaTitle,
+              status: 'success',
+              chaptersFound: chapters.length,
+              newChapters: insertedCount,
+              reason: null,
+              durationMs: Date.now() - startMs,
+            };
+            
+            if (!winnerSourceId && maxChapter > existingMax) {
+               winnerSourceId = source.sourceId; // First to find new chapters wins
+            }
           }
-
-          await repo.updateSourceSyncStatus(source.sourceId, maxChapter);
-
-          outcome = {
-            manhwaId: source.manhwaId,
-            sourceUrl: source.url,
-            manhwaTitle: source.manhwaTitle,
-            status: 'success',
-            chaptersFound: chapters.length,
-            newChapters: insertedCount,
-            reason: null,
-            durationMs: Date.now() - startMs,
-          };
         }
+      } catch (err) {
+        const isBlocked = err instanceof Error && err.name === 'CloudflareBlockedError';
+        outcome = {
+          manhwaId: source.manhwaId,
+          sourceUrl: source.url,
+          manhwaTitle: source.manhwaTitle,
+          status: isBlocked ? 'blocked' : 'error',
+          chaptersFound: 0,
+          newChapters: 0,
+          reason: describeSourceError(err),
+          durationMs: Date.now() - startMs,
+        };
       }
-    } catch (err) {
-      const isBlocked = err instanceof Error && err.name === 'CloudflareBlockedError';
-      outcome = {
-        manhwaId: source.manhwaId,
-        sourceUrl: source.url,
-        manhwaTitle: source.manhwaTitle,
-        status: isBlocked ? 'blocked' : 'error',
-        chaptersFound: 0,
-        newChapters: 0,
-        reason: describeSourceError(err),
-        durationMs: Date.now() - startMs,
-      };
-      if (outcome.reason === 'Failed to check for updates.') {
-        console.debug(`[sync] raw error for ${source.manhwaTitle} (${source.url}):`, err);
+
+      logSourceOutcome(outcome);
+
+      const rowStatus: SyncSourceRow['status'] =
+        outcome.status === 'blocked' ? 'failed'
+        : outcome.status === 'error' ? 'issue'
+        : outcome.newChapters > 0 ? 'new'
+        : 'no_new';
+
+      result.rows.push({
+        source: humanizeSourceName(outcome.sourceUrl),
+        manhwaId: outcome.manhwaId,
+        manhwaTitle: outcome.manhwaTitle,
+        chapterFound: outcome.status === 'success' ? outcome.chaptersFound : null,
+        status: rowStatus,
+        reason: outcome.reason || null,
+        durationMs: outcome.durationMs,
+      });
+
+      // Break logic: if this source was successful, and its chapter count
+      // is at least as high as what we historically know about, it's "leading".
+      // We don't need to check backup sources for this manhwa.
+      if (outcome.status === 'success' && outcome.chaptersFound > 0 && Math.max(0, existingMax) <= outcome.chaptersFound) {
+        break; // Skip remaining backup sources
       }
     }
-
-    logSourceOutcome(outcome);
-
-    const rowStatus: SyncSourceRow['status'] =
-      outcome.status === 'blocked' ? 'failed'
-      : outcome.status === 'error' ? 'issue'
-      : outcome.newChapters > 0 ? 'new'
-      : 'no_new';
-
-    // These mutations are synchronous so no race condition between concurrent workers
-    result.rows.push({
-      source: humanizeSourceName(outcome.sourceUrl),
-      manhwaId: outcome.manhwaId,
-      manhwaTitle: outcome.manhwaTitle,
-      chapterFound: outcome.status === 'success' ? outcome.chaptersFound : null,
-      status: rowStatus,
-      reason: outcome.reason,
-      durationMs: outcome.durationMs,
-    });
-
-    if (outcome.status !== 'success') {
-      result.errors.push(`${source.manhwaTitle}: ${outcome.reason}`);
+    
+    // After checking sources, promote the winner (if any source found more than existingMax)
+    if (winnerSourceId) {
+       await repo.promoteLeadingSource(manhwaId, winnerSourceId);
     }
-
-    // Update live progress counter in DB — cheap write, gives the UI something real to show
-    completedCount += 1;
-    await setSyncProgress(completedCount, webSources.length);
   }
 
-  // Run in batches of CONCURRENCY at a time instead of fully sequential.
-  // Each batch runs concurrently; we wait for the full batch before starting the next.
-  // This keeps FlareSolverr (which handles one Chrome session at a time) from being
-  // overwhelmed while still running non-Cloudflare sources in true parallel.
-  for (let i = 0; i < webSources.length; i += CONCURRENCY) {
-    const batch = webSources.slice(i, i + CONCURRENCY);
-    await Promise.allSettled(batch.map(processSource));
+  // Iterate over each manhwa sequentially
+  const entries = Array.from(webSourcesGrouped.entries());
+  for (const [manhwaId, sources] of entries) {
+    try {
+      await processManhwaSources(manhwaId, sources);
+    } catch (e: any) {
+      result.errors.push(`Group processing failed for manhwa ${manhwaId}: ${e.message}`);
+    }
+    completedCount++;
+    await setSyncProgress(completedCount, webSourcesGrouped.size);
   }
 
   result.updatedManhwa = updatedManhwaIds.size;

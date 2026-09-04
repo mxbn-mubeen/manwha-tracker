@@ -4,15 +4,9 @@ import type { SyncRun } from '@manhwa-tracker/shared';
 const IS_SYNCING_KEY = 'sys_is_syncing';
 const SYNC_PROGRESS_KEY = 'sys_sync_progress';
 
-// If a sync claims to still be running after this long, treat the lock as
-// abandoned rather than trust it forever. A legitimate run finishes well
-// under this — sequential per-source sync caps each source at 60s and the
-// FlareSolverr wake-up at 70s, so even a large library shouldn't approach
-// 15 minutes. This exists because the lock is only released by a `finally`
-// block in `run()` on the worker, which never executes if the process is
-// killed mid-run — without this check, a single killed run leaves every
-// future page load showing "Syncing..." forever.
-const STALE_LOCK_MS = 15 * 60 * 1000;
+// If a sync claims to still be running after this long with no signs of progress,
+// treat the lock as abandoned rather than trust it forever.
+const STALE_LOCK_MS = 30 * 60 * 1000;
 
 /**
  * Reads the DB lock that the worker sets when a sync is running.
@@ -24,16 +18,34 @@ export async function getIsSyncing(): Promise<boolean> {
   const val = await repo.get(IS_SYNCING_KEY);
   if (val !== 'true') return false;
 
-  const updatedAt = await repo.getUpdatedAt(IS_SYNCING_KEY);
-  if (updatedAt && Date.now() - updatedAt.getTime() > STALE_LOCK_MS) {
+  // Check the progress key for the most recent sign of life, as the isSyncing
+  // key is only set once at the start of the run.
+  let lastActiveAt = await repo.getUpdatedAt(SYNC_PROGRESS_KEY);
+  if (!lastActiveAt) {
+    lastActiveAt = await repo.getUpdatedAt(IS_SYNCING_KEY);
+  }
+
+  if (lastActiveAt && Date.now() - lastActiveAt.getTime() > STALE_LOCK_MS) {
     console.warn(
-      `[sync] sys_is_syncing has been true since ${updatedAt.toISOString()} — ` +
+      `[sync] sys_is_syncing has been true but inactive since ${lastActiveAt.toISOString()} — ` +
       'treating as an abandoned lock from a killed run and clearing it.',
     );
     await repo.set(IS_SYNCING_KEY, 'false');
     return false;
   }
   return true;
+}
+
+/** Force-clear the sync lock (use when a run was killed and the lock is stuck). */
+export async function setIsSyncing(value: boolean): Promise<void> {
+  const repo = new SettingsRepository();
+  await repo.set(IS_SYNCING_KEY, value ? 'true' : 'false');
+}
+
+/** Force-clear the progress counter. */
+export async function clearSyncProgress(): Promise<void> {
+  const repo = new SettingsRepository();
+  await repo.delete(SYNC_PROGRESS_KEY);
 }
 
 /**

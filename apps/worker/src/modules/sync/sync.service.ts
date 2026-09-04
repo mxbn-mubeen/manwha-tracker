@@ -57,23 +57,30 @@ export class SyncService {
         newChapters: 0,
         updatedManhwa: 0,
         skippedTelegram: 0,
+        skippedSchedule: 0,
         errors: [],
         duration: 0,
         triggeredBy,
         rows: [],
       };
 
-      const includeWebsites = scope === 'websites' || scope === 'all';
-      const includeTelegram = scope === 'telegram' || scope === 'all';
+      try {
+        const includeWebsites = scope === 'websites' || scope === 'all';
+        const includeTelegram = scope === 'telegram' || scope === 'all';
 
-      if (includeTelegram) {
-        const telegramSources = await this.repo.getActiveSources('telegram');
-        result.skippedTelegram = telegramSources.length;
-        // Telegram sources are handled by the background watcher process (watch:telegram).
-      }
+        if (includeTelegram) {
+          const telegramSources = await this.repo.getActiveSources('telegram');
+          result.skippedTelegram = telegramSources.length;
+          // Telegram sources are handled by the background watcher process (watch:telegram).
+        }
 
-      if (includeWebsites) {
-        await runWebsiteSync(this.repo, result);
+        if (includeWebsites) {
+          await runWebsiteSync(this.repo, result);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        result.errors.push(`Sync aborted due to critical error: ${message}`);
+        console.error('[sync] Critical error during run:', err);
       }
 
       result.duration = Date.now() - start;

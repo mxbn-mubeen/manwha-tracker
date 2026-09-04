@@ -4,6 +4,7 @@ import { DashboardPage } from './features/dashboard/Dashboard';
 import { LibraryPage } from './features/manhwa/Library';
 import { AddManhwaPage } from './features/manhwa/AddManhwa';
 import { ManhwaDetailPage } from './features/manhwa-detail/ManhwaDetail';
+import { StatsPage } from './features/stats/StatsPage';
 import { SettingsPage } from './features/settings/Settings';
 import { SourcesPage } from './features/sources/SourcesPage';
 
@@ -17,6 +18,7 @@ export function App() {
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/add" element={<AddManhwaPage />} />
           <Route path="/sources" element={<SourcesPage />} />
+          <Route path="/stats" element={<StatsPage />} />
           <Route path="/manhwa/:id" element={<ManhwaDetailPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

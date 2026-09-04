@@ -64,11 +64,6 @@ Last updated: 2026-08-28
       drift like the one just fixed would be a compile error instead of silent.
 - [ ] `apps/web/package.json` lists `zustand` as a dependency but nothing in `apps/web/src` imports
       it — confirm whether it's dead weight to remove or whether some planned feature still needs it.
-- [ ] Validate all 10 website adapters against their real, current site markup — several were
-      written/updated without live network access to the sandbox; the false-positive protections
-      (drop-outliers, declared-count) are a reasoned response to one confirmed failure
-      ("My Slain Dragon Bride", see decisions.md 2026-07-21), not exhaustively tested against
-      every adapter.
 - [ ] Confirm `pnpm run build --filter worker` and `working-directory: apps/worker` actually succeed
       in GitHub Actions now that the workflow was repointed away from `apps/api` — the fix was made
       from the zip's contents, not verified against a live Actions run yet.

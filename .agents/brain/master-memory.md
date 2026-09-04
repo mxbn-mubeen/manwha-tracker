@@ -1,7 +1,7 @@
 # Manhwa Tracker — Master Memory
 
 project_root: F:\manwha-tracker
-last_brain_review: 2026-08-31
+last_brain_review: 2026-09-05
 
 ## What This Project Does
 
@@ -15,7 +15,8 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 
 - Unified library of tracked manhwa titles
 - Reading progress tracking (last read chapter per title)
-- Dashboard: stats (total, reading, completed), Continue Reading, Recent Activity
+- **Dedicated Stats page** (`/stats`): deep library insights (total series, total chapters, unread chapters, animated status chart, source distribution, top 5 longest series)
+- Dashboard: quick stats, Continue Reading, Recent Activity
 - Library: cover grid, search, status filters, add manhwa from URL
 - **Unified Sources page** (`/sources`): manage all website + Telegram sources in one place.
   - Two tabs (Websites / Telegram)
@@ -99,6 +100,7 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 | `delete` / `recover` / `getDeleted` | mutation/mutation/query | Soft-delete manhwa, undo it, and list soft-deleted manhwa |
 | `getTelegramCount` | query | Count of active Telegram sources |
 | `getChapters` / `deleteChapter` | query/mutation | List and remove discovered chapters for a manhwa |
+| `getOverview` | query | Library metrics (total, unread, status counts, source stats) *(stats router)* |
 
 `syncRouter.run` on `apps/api` is a stub that throws `NOT_IMPLEMENTED` — the frontend's splitLink
 routes the real call to the worker's `POST /trpc/sync.run` instead (see Deployment Architecture above).
@@ -121,7 +123,8 @@ functionality is needed, it has to be written from scratch.
 - Telegram watcher is live and functioning correctly (event-driven + reconciliation, tested in production).
 - Website adapter sync covers 11 real sites now — several need browser rendering via Playwright/FlareSolverr chain.
 - Settings page includes Telegram login/status, sync history, and recently-deleted sections.
-- **Unified Sources page** built at `/sources` (2026-08-29).
+- **Unified Sources page** built at `/sources` (2026-08-29) and fully refactored into modular components (`WebsiteFilterPanel`, `TelegramPanel`, `FixAdapterKeysButton`) to maintain the 230-line limit (2026-09-05).
+- **Library Stats page** built at `/stats` (2026-09-05) leveraging in-memory map-reduce on `ManhwaService.getAll()` for instant aggregate metrics.
 - **230-line refactor complete (2026-08-31)** — files extracted:
   - `watcher/intervals.ts` — health check, watchdog, reconcile, scheduled rebuild intervals
   - `bot/channel-registration.ts` — multi-step channel add flow + conflict resolution

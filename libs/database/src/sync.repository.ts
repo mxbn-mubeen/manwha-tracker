@@ -30,6 +30,66 @@ export class SyncRepository {
       ));
   }
 
+  /**
+   * Same as getActiveSources, but groups them by manhwaId.
+   * Sorted by priority ASC so the leading source (priority=1) is first in the array.
+   */
+  async getActiveSourcesGroupedByManhwa(type: 'telegram' | 'website') {
+    const rows = await db
+      .select({
+        sourceId: sources.id,
+        manhwaId: sources.manhwaId,
+        manhwaTitle: manhwa.title,
+        url: sources.url,
+        type: sources.type,
+        adapterKey: sources.adapterKey,
+        priority: sources.priority,
+      })
+      .from(sources)
+      .innerJoin(manhwa, eq(manhwa.id, sources.manhwaId))
+      .where(and(
+        eq(sources.isActive, true),
+        eq(sources.type, type),
+        sql`${manhwa.status} NOT IN ('completed', 'dropped', 'hiatus')`,
+      ))
+      .orderBy(sql`${sources.manhwaId} ASC`, sql`${sources.priority} ASC`);
+
+    const grouped = new Map<number, Array<typeof rows[0]>>();
+    for (const row of rows) {
+      if (!grouped.has(row.manhwaId)) {
+        grouped.set(row.manhwaId, []);
+      }
+      grouped.get(row.manhwaId)!.push(row);
+    }
+    return grouped;
+  }
+
+  /**
+   * Gets the last 10 chapter discovery dates for a manhwa, to calculate release cadence.
+   */
+  async getChapterReleaseDates(manhwaId: number): Promise<Date[]> {
+    const rows = await db
+      .select({ 
+        date: sql<Date>`COALESCE(${chapters.publishedAt}, ${chapters.discoveredAt})` 
+      })
+      .from(chapters)
+      .where(eq(chapters.manhwaId, manhwaId))
+      .orderBy(desc(chapters.chapterNum))
+      .limit(10);
+    // Return in ascending order (oldest to newest among the last 10)
+    return rows.map(r => r.date).reverse();
+  }
+
+  /**
+   * Promotes the specified source to priority 1, demotes all other sources for
+   * this manhwa to priority 10.
+   */
+  async promoteLeadingSource(manhwaId: number, winnerSourceId: number) {
+    await db.update(sources)
+      .set({ priority: sql`CASE WHEN id = ${winnerSourceId} THEN 1 ELSE 10 END` })
+      .where(eq(sources.manhwaId, manhwaId));
+  }
+
   async getExistingChapterNums(manhwaId: number): Promise<Set<number>> {
     const rows = await db
       .select({ chapterNum: chapters.chapterNum })

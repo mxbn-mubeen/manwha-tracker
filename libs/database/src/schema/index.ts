@@ -90,6 +90,7 @@ export const syncRuns = pgTable('sync_runs', {
   newChapters: integer('new_chapters').notNull().default(0),
   updatedManhwa: integer('updated_manhwa').notNull().default(0),
   skippedTelegram: integer('skipped_telegram').notNull().default(0),
+  skippedSchedule: integer('skipped_schedule').notNull().default(0),
   errors: jsonb('errors').$type<string[]>().notNull().default([]),
   rows: jsonb('rows').$type<any[]>().notNull().default([]),
   duration: integer('duration').notNull().default(0),

@@ -8,9 +8,11 @@ export const TriggerSyncSchema = z.object({
 export type TriggerSyncInput = z.infer<typeof TriggerSyncSchema>;
 
 export const LegacySyncResultSchema = z.object({
-  newChapters: z.number(),
-  updatedSources: z.number(),
-  errors: z.array(z.string()),
+  newChapters: z.number().default(0),
+  updatedManhwa: z.number().default(0),
+  skippedTelegram: z.number().default(0),
+  skippedSchedule: z.number().default(0),
+  errors: z.array(z.string()).default([]),
   duration: z.number(), // ms
 });
 
