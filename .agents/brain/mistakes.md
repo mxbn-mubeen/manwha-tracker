@@ -355,3 +355,19 @@ Append-only log. Never delete entries.
 - Fix: Code is already correct after the regex fix. A manual sync self-corrects: mgeko now extracts 150 chapters correctly, the regression guard does NOT fire (150 is not < 73), and updateSourceSyncStatus(sourceId, 150) is called.
 - Status: Open — trigger a manual sync to resolve
 - Date: 2026-09-01
+
+---
+
+- Problem: "Unable to transform response from server" toast on every sync trigger after making sync.run async.
+- Cause: The worker returned `null` as the tRPC result data (`res.json([{ result: { data: null } }])`). The tRPC + superjson transformer on the frontend expected a valid `SyncResult` object and crashed trying to deserialize null.
+- Fix: Worker now returns a valid SyncResult skeleton with `startedAsync: true` immediately. Frontend checks `result.startedAsync` and shows an info toast instead of the error toast. Also added a `409` guard so double-triggering returns a proper error instead of silently spawning two syncs.
+- Status: Resolved
+- Date: 2026-09-04
+
+---
+
+- Problem: GitHub CI `@manhwa-tracker/parser#typecheck` failing with TS2307 "Cannot find module '@manhwa-tracker/shared'" and TS7006 implicit any errors. Passes locally.
+- Cause: `libs/parser/tsconfig.json` had `moduleResolution: Node` which can't resolve workspace packages that only expose `src/index.ts` as their types (not a compiled dist). GitHub Actions environment does not have the local dist files built. The base tsconfig uses `moduleResolution: bundler` which handles this correctly.
+- Fix: Changed `libs/parser/tsconfig.json` to `module: ESNext, moduleResolution: Bundler` to match the base config. Also added explicit `: string` type annotations to implicit-any parameters in `mgread.ts` that were newly surfaced after the stricter resolution.
+- Status: Resolved
+- Date: 2026-09-04

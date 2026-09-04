@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { createTRPCRouter, publicProcedure } from '../../trpc';
-import { getSyncHistory, getIsSyncing } from './sync.service';
+import { getSyncHistory, getIsSyncing, getSyncProgress } from './sync.service';
 import type { SyncResult } from '@manhwa-tracker/shared';
 import { TRPCError } from '@trpc/server';
 
@@ -16,6 +16,9 @@ export const syncRouter = createTRPCRouter({
   /** Returns whether a sync is currently running. State is stored in the DB
    *  (key: sys_is_syncing) so both this API and the worker share the same lock. */
   isSyncing: publicProcedure.query(async () => await getIsSyncing()),
+
+  /** Returns live progress { completed, total } while a sync runs, or null when idle. */
+  getProgress: publicProcedure.query(async () => await getSyncProgress()),
 
   /**
    * The actual sync.run execution happens on the Render worker via a splitLink in the frontend.

@@ -48,6 +48,12 @@ function Navbar() {
         return
       }
 
+      // Worker fired sync in background and returned immediately — show info toast
+      if ((result as any).startedAsync) {
+        toast.info('🔄 Sync started in the background. The Syncing indicator will clear when done.')
+        return
+      }
+
       if (result.errors.length > 0) {
         // Limit to first 3 errors so the toast doesn't fill the entire screen
         const maxErrors = 3;
@@ -88,6 +94,12 @@ function Navbar() {
 
   const { data: serverIsSyncing = false } = trpc.sync.isSyncing.useQuery(undefined, {
     refetchInterval: 2000,
+  });
+
+  const { data: syncProgress } = trpc.sync.getProgress.useQuery(undefined, {
+    // Only poll for progress while something is syncing
+    refetchInterval: serverIsSyncing ? 2000 : false,
+    enabled: serverIsSyncing,
   });
 
   const isSyncing = syncMutation.isPending || serverIsSyncing;
@@ -172,7 +184,14 @@ function Navbar() {
               disabled={isSyncing}
             >
               <RefreshCw className={`h-4 w-4 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync'}</span>
+              <span className="hidden sm:inline">
+                {isSyncing
+                  ? syncProgress
+                    ? `Syncing ${syncProgress.completed}/${syncProgress.total}…`
+                    : 'Syncing…'
+                  : 'Sync'
+                }
+              </span>
             </Button>
 
             {/* Settings */}

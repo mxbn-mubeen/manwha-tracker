@@ -8,7 +8,7 @@ export const mgreadAdapter: WebsiteAdapter = {
   name: "MGRead",
   urlPatterns: [/mgread\.io/i],
 
-  async detectTitle(url) {
+  async detectTitle(url: string) {
     const html = await fetchHtml(url);
     return detectTitleFromHtml(html);
   },
@@ -31,7 +31,7 @@ export const mgreadAdapter: WebsiteAdapter = {
     return max;
   },
 
-  async chapterList(url) {
+  async chapterList(url: string) {
     const html = await fetchHtml(url);
     const $ = cheerio.load(html);
     const chapters: ChapterInfo[] = [];

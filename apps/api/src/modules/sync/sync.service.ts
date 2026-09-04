@@ -2,6 +2,7 @@ import { SyncRepository, SettingsRepository } from '@manhwa-tracker/database';
 import type { SyncRun } from '@manhwa-tracker/shared';
 
 const IS_SYNCING_KEY = 'sys_is_syncing';
+const SYNC_PROGRESS_KEY = 'sys_sync_progress';
 
 // If a sync claims to still be running after this long, treat the lock as
 // abandoned rather than trust it forever. A legitimate run finishes well
@@ -43,4 +44,19 @@ export async function getSyncHistory(): Promise<SyncRun[]> {
   const repo = new SyncRepository();
   const runs = await repo.getRecentSyncRuns(20);
   return runs as any[];
+}
+
+/**
+ * Returns live sync progress as { completed, total } while a sync is running,
+ * or null if no sync is in progress (key is cleared when sync finishes).
+ */
+export async function getSyncProgress(): Promise<{ completed: number; total: number } | null> {
+  const repo = new SettingsRepository();
+  const val = await repo.get(SYNC_PROGRESS_KEY);
+  if (!val) return null;
+  const [completedStr, totalStr] = val.split('/');
+  const completed = parseInt(completedStr ?? '0', 10);
+  const total = parseInt(totalStr ?? '0', 10);
+  if (isNaN(completed) || isNaN(total) || total === 0) return null;
+  return { completed, total };
 }

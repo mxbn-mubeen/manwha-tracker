@@ -2,8 +2,22 @@
  * Website sync loop — separated from SyncService to stay under the 230-line limit.
  * Handles: FlareSolverr wake-up, per-source scraping, chapter insertion, and building result rows.
  */
-import { SyncRepository } from '@manhwa-tracker/database';
+import { SyncRepository, SettingsRepository } from '@manhwa-tracker/database';
 import type { SyncResult, SyncSourceRow } from '@manhwa-tracker/shared';
+
+export const SYNC_PROGRESS_KEY = 'sys_sync_progress';
+
+/** Write "N/total" to the settings table so the API can expose live progress. */
+export async function setSyncProgress(completed: number, total: number): Promise<void> {
+  const repo = new SettingsRepository();
+  await repo.set(SYNC_PROGRESS_KEY, `${completed}/${total}`);
+}
+
+/** Clear progress so the UI shows "Syncing…" not stale numbers. */
+export async function clearSyncProgress(): Promise<void> {
+  const repo = new SettingsRepository();
+  await repo.delete(SYNC_PROGRESS_KEY);
+}
 
 export type SourceOutcome = {
   manhwaId: number;
@@ -111,6 +125,10 @@ export async function runWebsiteSync(
   await wakeFlareSolverr();
   const CONCURRENCY = 1;
   const updatedManhwaIds = new Set<number>();
+  let completedCount = 0;
+
+  // Write "0/total" immediately so the UI shows a real count right away
+  await setSyncProgress(0, webSources.length);
 
   /** Process a single source and push its outcome into result. */
   async function processSource(source: (typeof webSources)[number]): Promise<void> {
@@ -256,6 +274,10 @@ export async function runWebsiteSync(
     if (outcome.status !== 'success') {
       result.errors.push(`${source.manhwaTitle}: ${outcome.reason}`);
     }
+
+    // Update live progress counter in DB — cheap write, gives the UI something real to show
+    completedCount += 1;
+    await setSyncProgress(completedCount, webSources.length);
   }
 
   // Run in batches of CONCURRENCY at a time instead of fully sequential.
@@ -268,4 +290,7 @@ export async function runWebsiteSync(
   }
 
   result.updatedManhwa = updatedManhwaIds.size;
+
+  // Clear progress key so isSyncing=false and progress=null appear atomically
+  await clearSyncProgress();
 }

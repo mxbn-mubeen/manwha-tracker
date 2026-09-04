@@ -70,12 +70,31 @@ app.post('/trpc/sync.run', async (req, res) => {
   const scope = input?.scope ?? 'all';
 
   try {
+    const isCurrentlySyncing = await import('./modules/sync/sync.service').then(m => m.getIsSyncing());
+    if (isCurrentlySyncing) {
+      res.status(409).json([{ error: { message: 'Sync is already running in the background' } }]);
+      return;
+    }
+
     // Fire the sync in the background so the HTTP request doesn't timeout after 60s
-    syncService.run(scope).catch((err) => {
+    syncService.run(scope).catch((err: unknown) => {
       console.error('[worker] Async sync run failed:', err);
     });
-    // Return null immediately. The frontend handles this by showing an info toast.
-    res.json([{ result: { data: null } }]);
+
+    // Return a valid SyncResult skeleton immediately.
+    // The frontend will show "Sync is still running..." info toast and poll isSyncing.
+    const startedResult = {
+      scannedSources: 0,
+      newChapters: 0,
+      updatedManhwa: 0,
+      skippedTelegram: 0,
+      errors: [],
+      duration: 0,
+      triggeredBy: 'manual',
+      rows: [],
+      startedAsync: true,
+    };
+    res.json([{ result: { data: startedResult } }]);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     res.status(500).json([{ error: { message } }]);
