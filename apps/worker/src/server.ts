@@ -70,8 +70,12 @@ app.post('/trpc/sync.run', async (req, res) => {
   const scope = input?.scope ?? 'all';
 
   try {
-    const result = await syncService.run(scope);
-    res.json([{ result: { data: result } }]);
+    // Fire the sync in the background so the HTTP request doesn't timeout after 60s
+    syncService.run(scope).catch((err) => {
+      console.error('[worker] Async sync run failed:', err);
+    });
+    // Return null immediately. The frontend handles this by showing an info toast.
+    res.json([{ result: { data: null } }]);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     res.status(500).json([{ error: { message } }]);
