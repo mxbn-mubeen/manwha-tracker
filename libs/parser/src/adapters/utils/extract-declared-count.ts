@@ -80,8 +80,13 @@ export function extractDeclaredChapterCount(html: string): number | null {
         const prevText = prev.text().trim();
         const num = parseStatNumber(prevText);
         if (num !== null) return num;
-        break; // found a preceding sibling but it wasn't a bare number —
-        // don't keep climbing past it, it's not this kind of widget
+      }
+      
+      const next = node.next();
+      if (next.length) {
+        const nextText = next.text().trim();
+        const num = parseStatNumber(nextText);
+        if (num !== null) return num;
       }
       const parent = node.parent();
       if (!parent.length) break;
