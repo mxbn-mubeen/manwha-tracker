@@ -371,3 +371,11 @@ Append-only log. Never delete entries.
 - Fix: Changed `libs/parser/tsconfig.json` to `module: ESNext, moduleResolution: Bundler` to match the base config. Also added explicit `: string` type annotations to implicit-any parameters in `mgread.ts` that were newly surfaced after the stricter resolution.
 - Status: Resolved
 - Date: 2026-09-04
+
+---
+
+- Problem: Manhwa syncing appeared to do zero work (sync runs finished in seconds with 171 sources scanned but 0 results/rows) with no visible errors in the UI.
+- Cause: `sql<Date>` in Drizzle ORM is only a compile-time type hint. When using the `neon-http` driver, raw SQL fragment results are returned as plain strings, not native `Date` objects. `getChapterReleaseDates` was returning an array of strings, and when `sync.website.ts` ran its "check cadence" logic, calling `date.getTime()` threw a `TypeError`. This exception wasn't caught locally, so it fell through to the outer loop's catch block, aborting the entire manhwa's sync before a single chapter check occurred. The exception was logged to `result.errors`, but the UI in `RunCard.tsx` never rendered `result.errors`.
+- Fix: 1) Wrapped `sql<Date>` results in `new Date(...)` in `sync.repository.ts`. 2) Added a defensive `try/catch` block strictly around the cadence check in `sync.website.ts` so an error in the optimization never prevents a real sync. 3) Updated `RunCard.tsx` to surface `run.errors` in a new Errors tab so silent failures are visible.
+- Status: Resolved
+- Date: 2026-09-05

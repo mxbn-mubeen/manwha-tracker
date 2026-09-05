@@ -34,10 +34,16 @@ export function formatDuration(ms: number): string {
 
 export function RunCard({ run, onClose }: { run: SyncRun, onClose: () => void }) {
   const [open, setOpen] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'new' | 'issues'>('all');
+  const [filter, setFilter] = useState<'all' | 'new' | 'issues' | 'errors'>('all');
   
   const newCount    = run.rows.filter((r: SyncSourceRow) => r.status === 'new').length;
   const issueCount  = run.rows.filter((r: SyncSourceRow) => r.status === 'issue' || r.status === 'failed').length;
+  // Top-level errors — e.g. a whole manhwa group's processing throwing before
+  // any per-source row could even be pushed — are distinct from per-row
+  // issues/failures above and were previously written to the DB but never
+  // shown anywhere in this UI, so a run could report "0 new, 0 issues" while
+  // having failed entirely, with zero indication anything was wrong.
+  const runErrors = run.errors ?? [];
 
   const filteredRows = run.rows.filter((r: SyncSourceRow) => {
     if (filter === 'new') return r.status === 'new';
@@ -74,6 +80,20 @@ export function RunCard({ run, onClose }: { run: SyncRun, onClose: () => void })
               <span className="text-zinc-400">Skipped {run.skippedSchedule} (schedule)</span>
             </>
           )}
+          {runErrors.length > 0 && (
+            <>
+              <span className="text-zinc-600">·</span>
+              <span className="text-red-400 font-medium">{runErrors.length} error{runErrors.length > 1 ? 's' : ''}</span>
+            </>
+          )}
+          {run.rows.length === 0 && runErrors.length === 0 && run.skippedSchedule === 0 && run.scannedSources > 0 && (
+            <>
+              <span className="text-zinc-600">·</span>
+              <span className="text-red-400 font-medium" title="scannedSources is set before processing starts — this usually means the run failed before reaching any source, but somehow left no error message either.">
+                No sources actually processed
+              </span>
+            </>
+          )}
           <span className="text-zinc-600">·</span>
           <span className="text-zinc-600 capitalize">{run.triggeredBy}</span>
           <span className="text-zinc-600">·</span>
@@ -106,8 +126,26 @@ export function RunCard({ run, onClose }: { run: SyncRun, onClose: () => void })
             >
               Issues ({issueCount})
             </button>
+            {runErrors.length > 0 && (
+              <button 
+                onClick={() => setFilter('errors')}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'errors' ? 'bg-red-500/20 text-red-400' : 'text-zinc-500 hover:text-red-400 hover:bg-red-500/10'}`}
+              >
+                Errors ({runErrors.length})
+              </button>
+            )}
           </div>
 
+          {filter === 'errors' ? (
+            <div className="px-4 py-3 space-y-2">
+              {runErrors.map((err: string, i: number) => (
+                <div key={i} className="text-xs text-red-400/90 bg-red-500/5 border border-red-500/20 rounded-lg px-3 py-2 break-words">
+                  {err}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
           <div className="hidden sm:grid grid-cols-[140px_minmax(0,1fr)_70px_50px_140px] gap-3 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-600 border-b border-border/10">
             <span>Source</span>
             <span>Manhwa</span>
@@ -170,6 +208,8 @@ export function RunCard({ run, onClose }: { run: SyncRun, onClose: () => void })
             <div className="px-4 py-8 text-center text-sm text-zinc-500">
               No sources match this filter.
             </div>
+          )}
+          </>
           )}
         </div>
       )}

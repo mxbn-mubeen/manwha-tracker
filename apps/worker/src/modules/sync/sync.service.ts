@@ -90,6 +90,7 @@ export class SyncService {
         newChapters: result.newChapters,
         updatedManhwa: result.updatedManhwa,
         skippedTelegram: result.skippedTelegram,
+        skippedSchedule: result.skippedSchedule,
         errors: result.errors,
         rows: result.rows,
         duration: result.duration,

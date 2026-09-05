@@ -139,6 +139,7 @@ manwha-tracker/
 │       │   │   │   └── sources.repository.ts
 │       │   │   ├── settings/
 │       │   │   ├── sync/
+│       │   │   │   ├── sync.processor.ts
 │       │   │   │   ├── sync.service.ts
 │       │   │   │   ├── sync.utils.ts
 │       │   │   │   └── sync.website.ts

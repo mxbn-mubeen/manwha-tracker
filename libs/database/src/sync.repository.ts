@@ -76,8 +76,17 @@ export class SyncRepository {
       .where(eq(chapters.manhwaId, manhwaId))
       .orderBy(desc(chapters.chapterNum))
       .limit(10);
-    // Return in ascending order (oldest to newest among the last 10)
-    return rows.map(r => r.date).reverse();
+    // sql<Date> above is a TypeScript-only annotation — it does NOT convert the
+    // runtime value. Neon's HTTP transport returns raw sql`` fragment results
+    // as plain strings, not Date instances (unlike typed column selects, where
+    // drizzle's schema definitions handle the conversion). Without this
+    // explicit `new Date(...)`, every date here was actually a string at
+    // runtime, and calling `.getTime()` on it in the cadence calculation threw
+    // a TypeError for essentially every manhwa with 3+ known chapters — which
+    // aborted that manhwa's entire sync before any real chapter check ran,
+    // silently, since the caller's error only ends up in a field the UI never
+    // displays. `new Date(...)` is a safe no-op if the value is already a Date.
+    return rows.map(r => new Date(r.date as unknown as string | number | Date)).reverse();
   }
 
   /**
