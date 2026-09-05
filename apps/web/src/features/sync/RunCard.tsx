@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, ChevronDown, ChevronRight, CheckCircle2, AlertTriangle, XCircle, Sparkles } from 'lucide-react';
+import { Clock, ChevronDown, ChevronRight, CheckCircle2, AlertTriangle, XCircle, Sparkles, FastForward } from 'lucide-react';
 import type { SyncRun, SyncSourceRow } from '@manhwa-tracker/shared';
 
 export const STATUS_CONFIG: Record<SyncSourceRow['status'], { icon: React.ReactNode; label: string; cls: string }> = {
@@ -8,6 +8,7 @@ export const STATUS_CONFIG: Record<SyncSourceRow['status'], { icon: React.ReactN
   no_new: { icon: <CheckCircle2 className="h-3.5 w-3.5" />,  label: '✓ No new chapter', cls: 'text-zinc-400 bg-zinc-400/10' },
   issue:  { icon: <AlertTriangle className="h-3.5 w-3.5" />, label: '⚠ Issue',           cls: 'text-amber-400 bg-amber-400/10' },
   failed: { icon: <XCircle className="h-3.5 w-3.5" />,       label: '✕ Failed',         cls: 'text-red-400 bg-red-400/10' },
+  skipped: { icon: <FastForward className="h-3.5 w-3.5" />,  label: '⏭ Skipped',        cls: 'text-zinc-400 bg-zinc-400/10' },
 };
 
 export function formatRelative(date: Date): string {
@@ -34,10 +35,11 @@ export function formatDuration(ms: number): string {
 
 export function RunCard({ run, onClose }: { run: SyncRun, onClose: () => void }) {
   const [open, setOpen] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'new' | 'issues' | 'errors'>('all');
+  const [filter, setFilter] = useState<'all' | 'new' | 'issues' | 'errors' | 'skipped'>('all');
   
   const newCount    = run.rows.filter((r: SyncSourceRow) => r.status === 'new').length;
   const issueCount  = run.rows.filter((r: SyncSourceRow) => r.status === 'issue' || r.status === 'failed').length;
+  const skippedCount = run.rows.filter((r: SyncSourceRow) => r.status === 'skipped').length;
   // Top-level errors — e.g. a whole manhwa group's processing throwing before
   // any per-source row could even be pushed — are distinct from per-row
   // issues/failures above and were previously written to the DB but never
@@ -48,6 +50,7 @@ export function RunCard({ run, onClose }: { run: SyncRun, onClose: () => void })
   const filteredRows = run.rows.filter((r: SyncSourceRow) => {
     if (filter === 'new') return r.status === 'new';
     if (filter === 'issues') return r.status === 'issue' || r.status === 'failed';
+    if (filter === 'skipped') return r.status === 'skipped';
     return true;
   });
 
@@ -120,12 +123,22 @@ export function RunCard({ run, onClose }: { run: SyncRun, onClose: () => void })
             >
               New ({newCount})
             </button>
-            <button 
-              onClick={() => setFilter('issues')}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'issues' ? 'bg-amber-500/20 text-amber-400' : 'text-zinc-500 hover:text-amber-400 hover:bg-amber-500/10'}`}
-            >
-              Issues ({issueCount})
-            </button>
+            {issueCount > 0 && (
+              <button 
+                onClick={() => setFilter('issues')}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'issues' ? 'bg-amber-500/20 text-amber-400' : 'text-zinc-500 hover:text-amber-400 hover:bg-amber-500/10'}`}
+              >
+                Issues ({issueCount})
+              </button>
+            )}
+            {skippedCount > 0 && (
+              <button 
+                onClick={() => setFilter('skipped')}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'skipped' ? 'bg-zinc-700/50 text-zinc-300' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700/30'}`}
+              >
+                Skipped ({skippedCount})
+              </button>
+            )}
             {runErrors.length > 0 && (
               <button 
                 onClick={() => setFilter('errors')}

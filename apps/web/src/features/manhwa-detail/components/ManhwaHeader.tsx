@@ -11,6 +11,7 @@ interface ManhwaHeaderProps {
   genres: string[] | null;
   description: string | null;
   latestChapter: number;
+  nextExpectedAt: string | Date | null;
 }
 
 const STATUS_DOT_COLOR: Record<string, string> = {
@@ -20,7 +21,7 @@ const STATUS_DOT_COLOR: Record<string, string> = {
   dropped: 'bg-red-500',
 };
 
-export function ManhwaHeader({ id, title, status, genres, description, latestChapter }: ManhwaHeaderProps) {
+export function ManhwaHeader({ id, title, status, genres, description, latestChapter, nextExpectedAt }: ManhwaHeaderProps) {
   const utils = trpc.useUtils();
 
   const updateStatusMutation = trpc.manhwa.updateStatus.useMutation({
@@ -127,6 +128,22 @@ export function ManhwaHeader({ id, title, status, genres, description, latestCha
         <p className="text-muted-foreground leading-relaxed mb-4">
           {description}
         </p>
+      )}
+
+      {nextExpectedAt && (
+        <div className="flex items-center gap-2 text-sm mb-3">
+          <span className="text-muted-foreground">Next chapter expected:</span>
+          <span className="text-zinc-300 font-medium">
+            {(() => {
+              const diffMs = new Date(nextExpectedAt).getTime() - Date.now();
+              const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+              if (diffDays < 0) return 'overdue';
+              if (diffDays === 0) return 'today';
+              if (diffDays === 1) return 'tomorrow';
+              return `in ${diffDays} days`;
+            })()}
+          </span>
+        </div>
       )}
 
       <div className="flex items-center gap-2 text-sm">

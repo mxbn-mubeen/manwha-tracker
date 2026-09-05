@@ -43,6 +43,17 @@ export async function processManhwaSources(
         console.log(
           `[sync] Skipping ${manhwaTitle} — not due yet (next expected in ${Math.round((nextExpectedTime - Date.now()) / (1000 * 60 * 60 * 24))} days)`
         );
+        for (const source of sources) {
+          result.rows.push({
+            source: humanizeSourceName(source.url),
+            manhwaId: source.manhwaId,
+            manhwaTitle: source.manhwaTitle,
+            chapterFound: null,
+            status: "skipped",
+            reason: `Skipped by cadence check (next expected in ${Math.round((nextExpectedTime - Date.now()) / (1000 * 60 * 60 * 24))} days)`,
+            durationMs: 0,
+          });
+        }
         return;
       }
     }

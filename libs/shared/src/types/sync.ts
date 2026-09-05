@@ -5,7 +5,7 @@ export type SyncSourceRow = {
   manhwaId: number;        // for linking to the manhwa page from history
   manhwaTitle: string;     // e.g. "Solo Leveling"
   chapterFound: number | null; // null when failed/issue
-  status: 'new' | 'no_new' | 'issue' | 'failed';
+  status: 'new' | 'no_new' | 'issue' | 'failed' | 'skipped';
   reason: string | null;   // detail for issue/failed rows
   durationMs?: number;     // latency in milliseconds
 };
