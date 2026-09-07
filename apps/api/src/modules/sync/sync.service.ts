@@ -31,6 +31,9 @@ export async function getIsSyncing(): Promise<boolean> {
       'treating as an abandoned lock from a killed run and clearing it.',
     );
     await repo.set(IS_SYNCING_KEY, 'false');
+    // Also clear stale progress data — otherwise the Settings page keeps showing
+    // a ghost "Syncing N/M" counter long after the lock has self-healed.
+    await repo.delete(SYNC_PROGRESS_KEY);
     return false;
   }
   return true;

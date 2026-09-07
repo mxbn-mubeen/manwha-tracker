@@ -8,6 +8,25 @@ proxyRouter.get("/", async (req, res) => {
     res.status(400).send("No url provided");
     return;
   }
+  
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      res.status(400).send("Invalid protocol");
+      return;
+    }
+    
+    const hostname = parsed.hostname;
+    // Reject explicit internal/loopback IPs
+    if (hostname === 'localhost' || hostname.startsWith('127.') || hostname.startsWith('169.254.') || hostname.startsWith('10.') || hostname.startsWith('192.168.')) {
+      res.status(400).send("Invalid hostname");
+      return;
+    }
+  } catch (err) {
+    res.status(400).send("Invalid url format");
+    return;
+  }
+
   try {
     // Use a dynamic ESM import for `got-scraping`. Importing the bare
     // specifier lets Node resolve the package via its ESM `exports` map

@@ -26,7 +26,7 @@ export const infiniteLevelUpAdapter: WebsiteAdapter = {
   async chapterList(url) {
     const html = await fetchHtml(url);
     const list = await (async () => extractChaptersFromHtml(html, url, {
-      resolveLatestReference: (found, h) => this.extractLatestChapterNum(h, url),
+      resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
     }))();
 
     // Filter out dummy chapters at the top (like Chapter 277)
@@ -57,10 +57,11 @@ export const infiniteLevelUpAdapter: WebsiteAdapter = {
 
   async debugChapterList(url) {
     const html = await fetchHtml(url);
-    // Returns the shared extraction breakdown only — not re-running the
-    // dummy-chapter filtering loop above, since that's this adapter's own
-    // extra logic, not part of the shared pipeline this diagnostic covers.
-    return debugExtractChapters(html, url);
+    // Note: does NOT re-run the dummy-chapter filtering loop above, since that's
+    // this adapter's own post-processing, not part of the shared pipeline.
+    return debugExtractChapters(html, url, {
+      resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
+    });
   },
 
   async latestChapter(url) {

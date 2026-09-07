@@ -86,6 +86,7 @@ export const settings = pgTable('settings', {
 // ── sync history ──────────────────────────────────────────────────────────────
 export const syncRuns = pgTable('sync_runs', {
   id: serial('id').primaryKey(),
+  status: varchar('status', { length: 20 }).notNull().default('completed'), // 'running' | 'completed' | 'failed'
   scannedSources: integer('scanned_sources').notNull().default(0),
   newChapters: integer('new_chapters').notNull().default(0),
   updatedManhwa: integer('updated_manhwa').notNull().default(0),

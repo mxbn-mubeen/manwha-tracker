@@ -1,4 +1,5 @@
-import { db, manhwa, progress, chapters } from '@manhwa-tracker/database';
+import { db } from './db';
+import { manhwa, progress, chapters } from './schema';
 import { eq, sql, and, gt, isNull, inArray, desc } from 'drizzle-orm';
 
 // Re-export so existing imports of ManhwaRepository still resolve.
@@ -34,7 +35,16 @@ export class ManhwaRepository {
     lastChapter?: number;
     latestChapter?: number;
   }) {
-    const slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    let baseSlug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    let slug = baseSlug;
+    let suffix = 1;
+
+    let existingManhwa = await db.select({ id: manhwa.id }).from(manhwa).where(eq(manhwa.slug, slug)).limit(1);
+    while (existingManhwa.length > 0) {
+      slug = `${baseSlug}-${suffix}`;
+      suffix++;
+      existingManhwa = await db.select({ id: manhwa.id }).from(manhwa).where(eq(manhwa.slug, slug)).limit(1);
+    }
 
     const [newManhwa] = await db
       .insert(manhwa)
@@ -45,16 +55,6 @@ export class ManhwaRepository {
         description: data.description,
         genres: data.genres ?? [],
         status: (data.status as 'ongoing' | 'completed' | 'hiatus' | 'dropped') ?? 'ongoing',
-      })
-      .onConflictDoUpdate({
-        target: manhwa.slug,
-        set: {
-          title: data.title,
-          coverUrl: data.coverUrl,
-          description: data.description,
-          genres: data.genres ?? [],
-          status: (data.status as 'ongoing' | 'completed' | 'hiatus' | 'dropped') ?? 'ongoing',
-        }
       })
       .returning();
 

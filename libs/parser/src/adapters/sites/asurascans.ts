@@ -31,14 +31,17 @@ export const asuraScansAdapter: WebsiteAdapter = {
     // filters them out naturally.
     const html = await fetchRenderedHtml(url, { waitForSelector: "a[href*='chapter']" });
     return extractChaptersFromHtml(html, url, {
-      resolveLatestReference: (found, h) => this.extractLatestChapterNum(h, url),
+      resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
       isChapterLocked: (outerHtml, text) => this.isChapterLocked!(outerHtml, text),
     });
   },
 
   async debugChapterList(url) {
     const html = await fetchRenderedHtml(url, { waitForSelector: "a[href*='chapter']" });
-    return debugExtractChapters(html, url);
+    return debugExtractChapters(html, url, {
+      resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
+      isChapterLocked: (outerHtml, text) => this.isChapterLocked!(outerHtml, text),
+    });
   },
 
   async latestChapter(url) {

@@ -37,20 +37,22 @@ export function looksLikeCloudflareChallenge(html: string): boolean {
  * instead of a vague "found no chapters" toast.
  */
 export class CloudflareBlockedError extends Error {
-  readonly reason: "not-configured" | "unsolved";
+  readonly reason: "not-configured" | "unsolved" | "transient";
 
-  constructor(url: string, reason: "not-configured" | "unsolved") {
+  constructor(url: string, reason: "not-configured" | "unsolved" | "transient") {
     const detail =
       reason === "not-configured"
         ? "FlareSolverr is not configured (set FLARESOLVERR_URL)"
-        : "FlareSolverr could not solve the challenge";
+        : reason === "transient"
+          ? "FlareSolverr returned a transient error (rate-limited or overloaded)"
+          : "FlareSolverr could not solve the challenge";
     super(`Cloudflare blocked ${url}: ${detail}`);
     this.name = "CloudflareBlockedError";
     this.reason = reason;
   }
 }
 
-type FlareSolverrResult = { html: string; reason?: undefined } | { html: null; reason: "not-configured" | "unsolved" };
+type FlareSolverrResult = { html: string; reason?: undefined } | { html: null; reason: "not-configured" | "unsolved" | "transient" };
 
 /**
  * Ask a running FlareSolverr instance (https://github.com/FlareSolverr/FlareSolverr)
@@ -100,7 +102,7 @@ export async function solveViaFlareSolverr(url: string): Promise<FlareSolverrRes
       // These are transient — mark the reason distinctly so callers can retry.
       console.warn(`[http] FlareSolverr responded ${res.status} for ${url}`);
       const isTransient = res.status === 429 || res.status >= 500;
-      return { html: null, reason: isTransient ? 'transient' as any : "unsolved" };
+      return { html: null, reason: isTransient ? 'transient' : "unsolved" };
     }
 
     const data = await res.json() as any;

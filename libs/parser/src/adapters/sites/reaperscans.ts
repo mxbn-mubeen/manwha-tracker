@@ -20,13 +20,15 @@ export const reaperScansAdapter: WebsiteAdapter = {
   async chapterList(url) {
     const html = await fetchHtml(url);
     return extractChaptersFromHtml(html, url, {
-      resolveLatestReference: (found, h) => this.extractLatestChapterNum(h, url),
+      resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
     });
   },
 
   async debugChapterList(url) {
     const html = await fetchHtml(url);
-    return debugExtractChapters(html, url);
+    return debugExtractChapters(html, url, {
+      resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
+    });
   },
 
   async latestChapter(url) {

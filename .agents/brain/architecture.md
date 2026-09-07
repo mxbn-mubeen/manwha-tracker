@@ -1,14 +1,19 @@
 # Architecture — Manhwa Tracker
 
 project_root: F:\manwha-tracker
-last_updated: 2026-08-31
+last_updated: 2026-09-07
 
-## Monorepo Structure (Actual as of 2026-08-28)
+## Monorepo Structure (Actual as of 2026-09-07)
 
 The project split the original single `apps/api` into two separate apps: a
 lightweight `apps/api` (fast tRPC queries, deployed to Vercel Serverless) and
 a long-running `apps/worker` (Telegram watcher, Telegram bot, website sync —
 deployed as a Docker service). `apps/web` is unchanged.
+
+As of the 2026-09-07 audit, **`ManhwaRepository`, `ManhwaReadRepository`, and
+`TelegramRepository` were moved from per-app module folders into `libs/database`**
+so both `apps/api` and `apps/worker` import them from `@manhwa-tracker/database`
+instead of maintaining separate duplicated copies.
 
 manwha-tracker/
 ├── .agents/
@@ -23,10 +28,8 @@ manwha-tracker/
 │   │   ├── src/
 │   │   │   ├── modules/
 │   │   │   │   ├── manhwa/
-│   │   │   │   │   ├── manhwa.read.repository.ts
-│   │   │   │   │   ├── manhwa.repository.ts
 │   │   │   │   │   ├── manhwa.router.ts
-│   │   │   │   │   ├── manhwa.service.ts
+│   │   │   │   │   ├── manhwa.service.ts    (uses ManhwaRepository from @manhwa-tracker/database)
 │   │   │   │   │   ├── progress.repository.ts
 │   │   │   │   │   └── sources.repository.ts
 │   │   │   │   ├── settings/
@@ -34,14 +37,12 @@ manwha-tracker/
 │   │   │   │   │   └── telegram-auth.procedures.ts
 │   │   │   │   ├── stats/
 │   │   │   │   │   └── stats.router.ts
-│   │   │   │   ├── sync/
-│   │   │   │   │   ├── sync.router.ts
-│   │   │   │   │   └── sync.service.ts
-│   │   │   │   └── telegram/
-│   │   │   │       └── telegram.repository.ts
+│   │   │   │   └── sync/
+│   │   │   │       ├── sync.router.ts
+│   │   │   │       └── sync.service.ts
 │   │   │   ├── routes/
 │   │   │   │   ├── health.ts
-│   │   │   │   └── proxy.ts
+│   │   │   │   └── proxy.ts          SSRF-protected image proxy (allowlist-based)
 │   │   │   ├── types/
 │   │   │   │   └── input.d.ts
 │   │   │   ├── utils/
@@ -132,19 +133,15 @@ manwha-tracker/
 │       ├── src/
 │       │   ├── modules/
 │       │   │   ├── manhwa/
-│       │   │   │   ├── manhwa.read.repository.ts
-│       │   │   │   ├── manhwa.repository.ts
-│       │   │   │   ├── manhwa.service.ts
+│       │   │   │   ├── manhwa.service.ts    (uses ManhwaRepository from @manhwa-tracker/database)
 │       │   │   │   ├── progress.repository.ts
 │       │   │   │   └── sources.repository.ts
 │       │   │   ├── settings/
-│       │   │   ├── sync/
-│       │   │   │   ├── sync.processor.ts
-│       │   │   │   ├── sync.service.ts
-│       │   │   │   ├── sync.utils.ts
-│       │   │   │   └── sync.website.ts
-│       │   │   └── telegram/
-│       │   │       └── telegram.repository.ts
+│       │   │   └── sync/
+│       │   │       ├── sync.processor.ts
+│       │   │       ├── sync.service.ts
+│       │   │       ├── sync.utils.ts
+│       │   │       └── sync.website.ts
 │       │   ├── scripts/
 │       │   │   ├── bot/
 │       │   │   │   ├── api.ts
@@ -170,15 +167,18 @@ manwha-tracker/
 │       ├── package.json
 │       └── tsconfig.json
 ├── libs/
-│   ├── database/
+│   ├── database/             @manhwa-tracker/database — shared by both api and worker
 │   │   ├── src/
 │   │   │   ├── migrations/
 │   │   │   ├── schema/
 │   │   │   │   └── index.ts
 │   │   │   ├── db.ts
-│   │   │   ├── index.ts
+│   │   │   ├── index.ts                  re-exports all repositories
+│   │   │   ├── manhwa.read.repository.ts  (was duplicated per-app; now canonical here)
+│   │   │   ├── manhwa.repository.ts       (was duplicated per-app; now canonical here)
 │   │   │   ├── settings.repository.ts
-│   │   │   └── sync.repository.ts
+│   │   │   ├── sync.repository.ts
+│   │   │   └── telegram.repository.ts     (was duplicated per-app; now canonical here)
 │   │   ├── drizzle.config.ts
 │   │   ├── package.json
 │   │   └── tsconfig.json
@@ -195,7 +195,6 @@ manwha-tracker/
 │   │   │   │   │   ├── mgeko.ts
 │   │   │   │   │   ├── mgread.ts
 │   │   │   │   │   ├── reaperscans.ts
-│   │   │   │   │   ├── roliascan.ts
 │   │   │   │   │   ├── thunderscans.ts
 │   │   │   │   │   ├── ultimateofallages.ts
 │   │   │   │   │   ├── vortexscans.ts
@@ -216,7 +215,6 @@ manwha-tracker/
 │   │   │   ├── index.ts
 │   │   │   └── metadata.ts
 │   │   ├── package.json
-│   │   ├── scratch.js
 │   │   └── tsconfig.json
 │   ├── shared/
 │   │   ├── src/
@@ -259,12 +257,12 @@ Driver: `drizzle-orm/neon-http` — **no relational queries, no transactions**
 
 | Table | Key Columns |
 |-------|-------------|
-| manhwa | id, slug, title, cover_url, status (ongoing\|completed\|hiatus\|dropped), genres[], description, created_at, updated_at, deleted_at |
-| sources | id, manhwa_id, type (telegram\|website), url, adapter_key, priority, is_active, created_at, telegram_entity_id (unique), telegram_access_hash, telegram_entity_type |
+| manhwa | id, slug (unique), title, cover_url, status (ongoing\|completed\|hiatus\|dropped), genres[], description, created_at, updated_at, deleted_at |
+| sources | id, manhwa_id, type (telegram\|website), url, adapter_key, priority, is_active, created_at, telegram_entity_id (unique), telegram_access_hash, telegram_entity_type, last_synced_chapter, last_synced_at |
 | chapters | id, manhwa_id, source_id, chapter_num (real), title, url, published_at, discovered_at |
 | progress | id, manhwa_id (unique), chapter_id, last_read_at, is_completed |
 | settings | id, key (unique), value (jsonb), updated_at |
-| sync_runs | id, scanned_sources, new_chapters, updated_manhwa, skipped_telegram, errors (jsonb), rows (jsonb), duration, run_at |
+| sync_runs | id, **status** (running\|completed\|failed — default 'completed'), scanned_sources, new_chapters, updated_manhwa, skipped_telegram, skipped_schedule, errors (jsonb), rows (jsonb), duration, triggered_by, run_at |
 
 No user_id — single user app. There is no `notifications` table in the current schema.
 
@@ -333,12 +331,14 @@ Telegram login flow: `startTelegramLogin` (send OTP) → `verifyTelegramCode` (v
 - ✅ `db.insert().onConflictDoUpdate()` — use for all upserts
 - ✅ Sequential plain inserts/updates — for multi-step writes (no atomicity guarantee)
 
-## Worker Architecture (apps/worker) — long-running jobs
+### Worker Architecture (apps/worker) — long-running jobs
 
-Separate Express app (port 3002 locally; Docker container, e.g. Render, in production). Deliberately
-has **no cross-app imports** from `apps/api` — its `modules/manhwa`, `modules/sync`, `modules/settings`,
-and `modules/telegram` are worker-local copies of the same file layout, not shared code, so the worker
-can be deployed independently of the API.
+Separate Express app (port 3002 locally; Docker container, e.g. Render, in production).
+`apps/api` and `apps/worker` share no cross-app imports. Domain-specific logic
+(progress, sources) remains per-app since it's tightly coupled to each app's business layer.
+Shared stateless repositories (`ManhwaRepository`, `ManhwaReadRepository`,
+`TelegramRepository`, `SettingsRepository`, `SyncRepository`) live in `@manhwa-tracker/database`
+and are imported by both.
 
 `server.ts` responsibilities:
 - Starts the Telegram watcher (`scripts/watcher`) when `TELEGRAM_API_ID` is set and
@@ -388,6 +388,11 @@ prompt if the manhwa already has one).
   - Wakes FlareSolverr (if configured) before syncing, since it sleeps when idle.
   - Per-source failures are caught individually so one bad source doesn't abort the whole run.
   - Writes a row to `sync_runs` per invocation (see Database Schema) for the frontend's sync-history UI.
+- **Sync robustness** — `sync.service.ts` now calls `startSyncRun()` at the start of a run (inserts
+  a `status='running'` row) and `finishSyncRun()` in a `finally` block, so killed syncs still appear
+  in history. A keep-alive ping interval prevents Render from sleeping during active syncs.
+- **Cadence skip** uses a **true median** of inter-release gaps (not mean) with a 3× overdue grace
+  period, so one irregular date doesn't skew the skip logic.
 - `cron-sync.ts` is the entry point invoked by `pnpm run cron:sync` (called from
   `.github/workflows/sync-cron.yml` on a 30-minute schedule) — runs one full sync and exits.
 - The worker's `POST /trpc/sync.run` route (see above) is the path the in-app "Sync" button uses;
@@ -417,10 +422,14 @@ that's the only procedure the API's stub can't actually perform.
 ## Website Adapters (libs/parser/src/adapters/)
 
 Implements the `WebsiteAdapter` interface from `libs/shared/src/types/adapter.ts`
-(`key`, `name`, `urlPatterns`, `detectTitle`, `latestChapter`, `chapterList`). `key` is typed as
-plain `string` — nothing enforces that adapter keys match `ADAPTER_KEYS` in
-`libs/shared/src/constants.ts`, so that list needs to be kept in sync by hand (fixed 2026-08-28,
-see decisions.md).
+(`key`, `name`, `urlPatterns`, `detectTitle`, `latestChapter`, `chapterList`, `debugChapterList`).
+`key` is now typed as `AdapterKey` (a const union of `ADAPTER_KEYS` from
+`libs/shared/src/constants.ts`), so adding an adapter without registering its key is a
+compile-time error (fixed 2026-09-07).
+
+All adapters pass their site-specific `resolveLatestReference` and `isChapterLocked` hooks
+into both `extractChaptersFromHtml` **and** `debugExtractChapters`, so the debug output
+exactly mirrors the actual sync pipeline (fixed 2026-09-07).
 
 | Site | Adapter key | Needs browser rendering? |
 |------|------------|------|
@@ -429,10 +438,11 @@ see decisions.md).
 | Comix.to | `comixto` | yes |
 | manhuaus.com | `manhuaus` | no |
 | Mgeko | `mgeko` | yes |
+| MGRead | `mgread` | no |
 | Reaper Scans | `reaperscans` | no |
-| RoliaScan | `roliascan` | yes |
 | Thunder Scans | `thunderscans` | no |
 | Ultimate of All Ages | `ultimateofallages` | yes |
+| Vortex Scans | `vortexscans` | no |
 | Webtoon | `webtoon` | no |
 | Generic (catch-all) | `generic` | no |
 
@@ -468,24 +478,27 @@ source to scrape a cover from.
 ## Design Patterns Used
 
 - Repository Pattern (db layer — class-based):
-  - `SettingsRepository` — **canonical copy in `@manhwa-tracker/database`**, imported by both `apps/api` and `apps/worker`
-  - `manhwa.read.repository.ts` + `manhwa.repository.ts` + `sources.repository.ts` + `progress.repository.ts` + `telegram.repository.ts` — **duplicated** between `apps/api` and `apps/worker` because these are tightly coupled to each app's business logic and keeping them separate avoids cross-app imports
-  - `sync.repository.ts` — duplicated (same reason); the API copy backs the read-only `getHistory`/`isSyncing` queries; the worker copy backs the full `SyncService.run()`
-- Service Pattern (business logic — `manhwa.service.ts`, `sync.service.ts`):
-  - `apps/api/src/modules/sync/sync.service.ts` — **read-only**: only `getIsSyncing()` and `getSyncHistory()`
-  - `apps/worker/src/modules/sync/sync.service.ts` — **full**: `SyncService.run()` + the above read helpers
+  - `SettingsRepository`, `SyncRepository`, `ManhwaRepository`, `ManhwaReadRepository`,
+    `TelegramRepository` — **canonical copies in `@manhwa-tracker/database`**, imported by
+    both `apps/api` and `apps/worker`. No per-app duplicates.
+  - `progress.repository.ts` + `sources.repository.ts` — remain per-app (tightly coupled
+    to each app's business logic; keeping them separate avoids cross-app imports)
+  - `sync.service.ts` — split: API copy is **read-only** (`getHistory`/`isSyncing`/`getProgress`);
+    worker copy is **full** (`SyncService.run()` + read helpers)
+- Service Pattern (business logic — `manhwa.service.ts`, `sync.service.ts`)
 - Adapter Pattern (website connectors in `libs/parser`)
 - Singleton (Neon DB connection in `libs/database/src/db.ts`)
-- Upsert Pattern (onConflictDoUpdate instead of transactions)
-- Client-side Status Derivation (per-source Leading/Synced/Behind computed in SourcesList.tsx from API data)
+- Upsert Pattern (`onConflictDoUpdate` instead of transactions)
+- Client-side Status Derivation (per-source Leading/Synced/Behind computed in `SourcesList.tsx`)
 
 ## Dependencies Worth Knowing
 
 - Telegram MTProto library is **`teleproto`**, not GramJS — older docs/comments in this repo may
-  still say GramJS; that's stale, not a second library in use.
+  still say GramJS; that's stale.
 - `apps/api` and `apps/worker` deliberately do not import from each other. Shared code lives in
-  `libs/` (`database`, `parser`, `shared`, `ui`, `utils`). `SettingsRepository` was moved to
-  `@manhwa-tracker/database` as it is truly stateless and used identically in both apps.
-  Domain-specific repositories (manhwa, sync, telegram) remain duplicated per-app.
+  `libs/` (`database`, `parser`, `shared`, `ui`, `utils`).
 - `big-integer` is required by `apps/worker` (teleproto's BigInt entity handling) — added to
   `apps/worker/package.json` 2026-08-28.
+- `zustand` was removed from `apps/web` in 2026-09-07 audit — state is managed entirely
+  via TanStack Query.
+- `.editorconfig` added to repo root (2026-09-07) to enforce LF line endings across IDEs.

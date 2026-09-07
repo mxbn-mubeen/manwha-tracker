@@ -15,34 +15,25 @@ export const arenaScansAdapter: WebsiteAdapter = {
     return detectTitleFromHtml(html);
   },
 
-  extractLatestChapterNum(html, url) {
-    // Arena Scans has had reversed button order — a "Read Chapter 1" CTA link
-    // appears before the real chapter list in DOM order. Taking the max of the
-    // first 5 DOM-order slug-scoped links bypasses this CTA safely.
-    const $ = cheerio.load(html);
-    const slug = deriveSlug(url);
-    const nums: number[] = [];
-    $('a').each((_, el) => {
-      if (nums.length >= 5) return false;
-      const href = $(el).attr('href') ?? '';
-      if (slug && !`${href}`.toLowerCase().includes(slug.toLowerCase())) return;
-      const text = $(el).text().trim();
-      const num = extractChapterNumber(`${text} ${href}`);
-      if (num != null && !Number.isNaN(num)) nums.push(num);
-    });
-    return nums.length > 0 ? Math.max(...nums) : null;
+  extractLatestChapterNum() {
+    // No custom override needed — the shared pipeline's generic heuristic
+    // (max of first 5 slug-scoped links) already handles the Arena Scans CTA
+    // ordering correctly. Returning null falls through to that shared logic.
+    return null;
   },
 
   async chapterList(url) {
     const html = await fetchHtml(url);
     return extractChaptersFromHtml(html, url, {
-      resolveLatestReference: (found, h) => this.extractLatestChapterNum(h, url),
+      resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
     });
   },
 
   async debugChapterList(url) {
     const html = await fetchHtml(url);
-    return debugExtractChapters(html, url);
+    return debugExtractChapters(html, url, {
+      resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
+    });
   },
 
   async latestChapter(url) {

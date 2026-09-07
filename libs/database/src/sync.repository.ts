@@ -139,6 +139,28 @@ export class SyncRepository {
     await db.insert(syncRuns).values(data);
   }
 
+  /**
+   * Insert a 'running' placeholder row at the start of a sync run.
+   * Returns the new row's id so it can be updated with the final result.
+   * Solves the problem of killed syncs vanishing from history entirely.
+   */
+  async startSyncRun(triggeredBy: 'manual' | 'cron'): Promise<number> {
+    const [row] = await db
+      .insert(syncRuns)
+      .values({ status: 'running', triggeredBy })
+      .returning({ id: syncRuns.id });
+    if (!row) throw new Error('Failed to start sync run record');
+    return row.id;
+  }
+
+  /**
+   * Finalize a sync run record started with startSyncRun.
+   * Call in a finally block so even a failed/killed run gets a row.
+   */
+  async finishSyncRun(id: number, data: Omit<InsertSyncRunRow, 'id' | 'runAt' | 'status'>, status: 'completed' | 'failed' = 'completed') {
+    await db.update(syncRuns).set({ ...data, status }).where(eq(syncRuns.id, id));
+  }
+
   async getRecentSyncRuns(limit: number = 20) {
     return await db.select().from(syncRuns).orderBy(desc(syncRuns.runAt)).limit(limit);
   }

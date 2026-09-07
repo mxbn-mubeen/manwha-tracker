@@ -37,7 +37,7 @@ export const thunderscansAdapter: WebsiteAdapter = {
     $('.lastend').remove();
     const cleanedHtml = $.html();
     return extractChaptersFromHtml(cleanedHtml, url, {
-      resolveLatestReference: (found, h) => this.extractLatestChapterNum(h, url),
+      resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
       isChapterLocked: (outerHtml, text) => this.isChapterLocked!(outerHtml, text),
     });
   },
@@ -46,7 +46,10 @@ export const thunderscansAdapter: WebsiteAdapter = {
     const html = await fetchHtml(url);
     const $ = cheerio.load(html);
     $('.lastend').remove(); // mirror chapterList()'s DOM surgery so the diagnostic reflects the same input
-    return debugExtractChapters($.html(), url);
+    return debugExtractChapters($.html(), url, {
+      resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
+      isChapterLocked: (outerHtml, text) => this.isChapterLocked!(outerHtml, text),
+    });
   },
 
   async latestChapter(url) {

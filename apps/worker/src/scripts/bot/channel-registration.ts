@@ -6,7 +6,7 @@
  */
 import { db, manhwa, sources } from '@manhwa-tracker/database';
 import { eq } from 'drizzle-orm';
-import { TelegramRepository } from '../../modules/telegram/telegram.repository';
+import { TelegramRepository } from '@manhwa-tracker/database';
 import { sendText } from './api';
 
 const repo = new TelegramRepository();
@@ -148,11 +148,18 @@ export async function handleConflictReply(chatId: number, text: string): Promise
   }
 
   if (reply === 'replace' || reply === '/replace') {
-    const updated = await repo.updateTelegramSourceEntity(
-      conflict.existingSourceId,
-      conflict.entityId,
-      conflict.entityType,
-    );
+    let updated;
+    try {
+      updated = await repo.updateTelegramSourceEntity(
+        conflict.existingSourceId,
+        conflict.entityId,
+        conflict.entityType,
+      );
+    } catch (err: any) {
+      pendingConflicts.delete(chatId);
+      await sendText(chatId, '❌ Could not update the source. This channel is already linked to a different manhwa.');
+      return true;
+    }
     pendingConflicts.delete(chatId);
 
     if (!updated) {

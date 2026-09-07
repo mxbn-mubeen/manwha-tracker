@@ -18,6 +18,7 @@ export const ADAPTER_KEYS = [
   'telegram',
   'infinitelevelup',
   'mgread',
+  'vortexscans',
 ] as const;
 
 export type AdapterKey = typeof ADAPTER_KEYS[number];

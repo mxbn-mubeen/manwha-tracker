@@ -48,13 +48,15 @@ export const ultimateOfAllAgesAdapter: WebsiteAdapter = {
   async chapterList(url) {
     const html = await fetchRenderedHtml(url, { waitForSelector: "a[href*='chapter']" });
     return extractChaptersFromHtml(html, url, {
-      resolveLatestReference: (found, h) => this.extractLatestChapterNum(h, url),
+      resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
     });
   },
 
   async debugChapterList(url) {
     const html = await fetchRenderedHtml(url, { waitForSelector: "a[href*='chapter']" });
-    return debugExtractChapters(html, url);
+    return debugExtractChapters(html, url, {
+      resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
+    });
   },
 
   async latestChapter(url) {

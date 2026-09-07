@@ -50,6 +50,20 @@ export class SyncService {
       throw new Error("Sync is already running in the background");
     }
     await setIsSyncing(true);
+
+    // Write a 'running' row immediately so killed syncs appear in history
+    // rather than vanishing completely. Will be updated to 'completed'/'failed' in finally.
+    const syncRunId = await this.repo.startSyncRun(triggeredBy as 'manual' | 'cron');
+
+    // Fix #9: Self-ping to prevent Render free-tier idle-sleep from killing
+    // a long-running background sync. Fire every 8 minutes; cleared in finally.
+    const renderUrl = process.env.RENDER_EXTERNAL_URL;
+    const keepAliveInterval = renderUrl
+      ? setInterval(() => {
+          fetch(`${renderUrl}/health`).catch(() => { /* best-effort */ });
+        }, 8 * 60 * 1000)
+      : null;
+
     try {
       const start = Date.now();
       const result: SyncResult = {
@@ -64,6 +78,7 @@ export class SyncService {
         rows: [],
       };
 
+      let runStatus: 'completed' | 'failed' = 'completed';
       try {
         const includeWebsites = scope === 'websites' || scope === 'all';
         const includeTelegram = scope === 'telegram' || scope === 'all';
@@ -81,24 +96,30 @@ export class SyncService {
         const message = err instanceof Error ? err.message : String(err);
         result.errors.push(`Sync aborted due to critical error: ${message}`);
         console.error('[sync] Critical error during run:', err);
+        runStatus = 'failed';
       }
 
       result.duration = Date.now() - start;
 
-      await this.repo.insertSyncRun({
-        scannedSources: result.scannedSources,
-        newChapters: result.newChapters,
-        updatedManhwa: result.updatedManhwa,
-        skippedTelegram: result.skippedTelegram,
-        skippedSchedule: result.skippedSchedule,
-        errors: result.errors,
-        rows: result.rows,
-        duration: result.duration,
-        triggeredBy: result.triggeredBy,
-      });
+      await this.repo.finishSyncRun(
+        syncRunId,
+        {
+          scannedSources: result.scannedSources,
+          newChapters: result.newChapters,
+          updatedManhwa: result.updatedManhwa,
+          skippedTelegram: result.skippedTelegram,
+          skippedSchedule: result.skippedSchedule,
+          errors: result.errors,
+          rows: result.rows,
+          duration: result.duration,
+          triggeredBy: result.triggeredBy,
+        },
+        runStatus,
+      );
 
       return result;
     } finally {
+      if (keepAliveInterval) clearInterval(keepAliveInterval);
       await setIsSyncing(false);
     }
   }

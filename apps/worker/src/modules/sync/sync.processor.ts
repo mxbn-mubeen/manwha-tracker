@@ -21,24 +21,33 @@ export async function processManhwaSources(
   try {
     const recentDates = await repo.getChapterReleaseDates(manhwaId);
     if (recentDates.length >= 3) {
-      let totalDiffMs = 0;
+      // Build gaps array (ms between consecutive releases, oldest-first)
+      const gaps: number[] = [];
       for (let i = 1; i < recentDates.length; i++) {
         const d1 = recentDates[i];
         const d0 = recentDates[i - 1];
         if (d1 && d0) {
-          totalDiffMs += d1.getTime() - d0.getTime();
+          gaps.push(d1.getTime() - d0.getTime());
         }
       }
-      const medianIntervalMs = totalDiffMs / (recentDates.length - 1);
+
+      // True median (not mean) — resistant to a single outlier date
+      const sortedGaps = [...gaps].sort((a, b) => a - b);
+      const mid = Math.floor(sortedGaps.length / 2);
+      const medianIntervalMs =
+        sortedGaps.length % 2 === 0
+          ? ((sortedGaps[mid - 1] ?? 0) + (sortedGaps[mid] ?? 0)) / 2
+          : (sortedGaps[mid] ?? 0);
 
       const lastRelease = recentDates[recentDates.length - 1];
       const lastReleaseTime = lastRelease ? lastRelease.getTime() : Date.now();
       const nextExpectedTime = lastReleaseTime + medianIntervalMs;
+      const overdueTime = lastReleaseTime + medianIntervalMs * 3;
 
-      if (
-        Date.now() < nextExpectedTime &&
-        Date.now() < lastReleaseTime + medianIntervalMs * 2
-      ) {
+      // Skip only when:
+      //  - Not yet at the predicted release time, AND
+      //  - Not yet 3× overdue (grace-period override to avoid missing real updates)
+      if (Date.now() < nextExpectedTime && Date.now() < overdueTime) {
         result.skippedSchedule += sources.length;
         console.log(
           `[sync] Skipping ${manhwaTitle} — not due yet (next expected in ${Math.round((nextExpectedTime - Date.now()) / (1000 * 60 * 60 * 24))} days)`
@@ -134,6 +143,7 @@ export async function processManhwaSources(
               chapterNum: chapter.chapterNum,
               title: chapter.title,
               url: chapter.url,
+              publishedAt: chapter.publishedAt ?? null,
             }));
             insertedCount = await repo.insertChaptersBulk(chaptersToInsert);
 

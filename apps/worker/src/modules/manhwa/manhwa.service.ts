@@ -1,4 +1,4 @@
-import { ManhwaRepository } from './manhwa.repository';
+import { ManhwaRepository } from '@manhwa-tracker/database';
 import { ProgressRepository } from './progress.repository';
 import { SourcesRepository } from './sources.repository';
 

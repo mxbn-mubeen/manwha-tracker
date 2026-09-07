@@ -83,29 +83,33 @@ let sessionDeathAlertSent = false;
  *   process.exit because that would kill the whole API server.
  */
 export function handleSessionDeath(marker: string, onShutdown?: () => void) {
-  if (sessionDeathAlertSent) return; // fire once, not on every subsequent call that hits the same dead session
-  sessionDeathAlertSent = true;
+  if (!sessionDeathAlertSent) {
+    sessionDeathAlertSent = true;
 
-  const msg =
-    `🔴 <b>Telegram Session Terminated</b>\n\n` +
-    `📛 <b>Error</b>\n${marker}\n\n` +
-    `⚠️ The session can no longer read any tracked channel.\n\n` +
-    `✅ Go to <b>Settings → Telegram</b> or run <code>npm run login:telegram</code> to generate a fresh session, then restart the watcher.`;
+    const msg =
+      `🔴 <b>Telegram Session Terminated</b>\n\n` +
+      `📛 <b>Error</b>\n${marker}\n\n` +
+      `⚠️ The session can no longer read any tracked channel.\n\n` +
+      `✅ Go to <b>Settings → Telegram</b> or run <code>npm run login:telegram</code> to generate a fresh session, then restart the watcher.`;
 
-  const embedded = !onShutdown; // running inside API server — don't exit the process
-  console.error(
-    `\n🔴 Telegram Session Terminated\n\n` +
-    `📛 Error\n${marker}\n\n` +
-    `⚠️ The session can no longer read any tracked channel.\n\n` +
-    `✅ Generate a fresh session (Settings → Telegram, or \`npm run login:telegram\`) and restart the watcher.\n` +
-    (embedded
-      ? `   The watcher will stop. The API server keeps running.\n`
-      : `   The process will now exit to prevent infinite retry loops.\n`),
-  );
+    const embedded = !onShutdown; // running inside API server — don't exit the process
+    console.error(
+      `\n🔴 Telegram Session Terminated\n\n` +
+      `📛 Error\n${marker}\n\n` +
+      `⚠️ The session can no longer read any tracked channel.\n\n` +
+      `✅ Generate a fresh session (Settings → Telegram, or \`npm run login:telegram\`) and restart the watcher.\n` +
+      (embedded
+        ? `   The watcher will stop. The API server keeps running.\n`
+        : `   The process will now exit to prevent infinite retry loops.\n`),
+    );
 
-  // Fire-and-forget: send the alert then invoke the shutdown callback.
-  const timeout = new Promise<void>((r) => setTimeout(r, 10_000));
-  Promise.race([Promise.allSettled([sendBotAlert(msg)]), timeout]).finally(() => {
+    // Fire-and-forget: send the alert then invoke the shutdown callback.
+    const timeout = new Promise<void>((r) => setTimeout(r, 10_000));
+    Promise.race([Promise.allSettled([sendBotAlert(msg)]), timeout]).finally(() => {
+      onShutdown?.();
+    });
+  } else {
+    // Alert already sent — run shutdown immediately without waiting for the alert.
     onShutdown?.();
-  });
+  }
 }

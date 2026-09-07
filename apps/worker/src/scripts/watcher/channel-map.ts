@@ -1,5 +1,5 @@
 import { TelegramClient } from 'teleproto';
-import { TelegramRepository } from '../../modules/telegram/telegram.repository';
+import { TelegramRepository } from '@manhwa-tracker/database';
 import { isSessionDeathError, handleSessionDeath, alertUnresolvable } from './session';
 
 export function normalizeEntityId(id: string): string;

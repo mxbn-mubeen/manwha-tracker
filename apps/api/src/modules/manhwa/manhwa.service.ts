@@ -1,6 +1,6 @@
-import { ManhwaRepository } from './manhwa.repository';
-import { ProgressRepository } from './progress.repository';
-import { SourcesRepository } from './sources.repository';
+import { ManhwaRepository } from "@manhwa-tracker/database";
+import { ProgressRepository } from "./progress.repository";
+import { SourcesRepository } from "./sources.repository";
 
 export class ManhwaService {
   private repo: ManhwaRepository;
@@ -14,7 +14,8 @@ export class ManhwaService {
   }
 
   async addFromUrl(url: string) {
-    const { parseMetadataFromUrl, detectAdapterKey } = await import('@manhwa-tracker/parser');
+    const { parseMetadataFromUrl, detectAdapterKey } =
+      await import("@manhwa-tracker/parser");
     const metadata = await parseMetadataFromUrl(url);
     const adapterKey = detectAdapterKey(url);
 
@@ -47,20 +48,34 @@ export class ManhwaService {
     let coverUrl = data.coverUrl;
     if (!coverUrl) {
       try {
-        const { lookupCoverUrl } = await import('@manhwa-tracker/parser');
+        const { lookupCoverUrl } = await import("@manhwa-tracker/parser");
         coverUrl = (await lookupCoverUrl(data.title)) ?? undefined;
       } catch (err) {
-        console.warn(`[manhwa.service] Failed to lookup cover URL for "${data.title}":`, err);
+        console.warn(
+          `[manhwa.service] Failed to lookup cover URL for "${data.title}":`,
+          err,
+        );
       }
     }
     return await this.repo.createManual({ ...data, coverUrl });
   }
 
-  async update(id: number, data: { title?: string; coverUrl?: string; description?: string; genres?: string[] }) {
+  async update(
+    id: number,
+    data: {
+      title?: string;
+      coverUrl?: string;
+      description?: string;
+      genres?: string[];
+    },
+  ) {
     return await this.repo.update(id, data);
   }
 
-  async updateStatus(id: number, status: 'ongoing' | 'completed' | 'hiatus' | 'dropped') {
+  async updateStatus(
+    id: number,
+    status: "ongoing" | "completed" | "hiatus" | "dropped",
+  ) {
     return await this.repo.updateStatus(id, status);
   }
 
@@ -92,7 +107,7 @@ export class ManhwaService {
     return await this.repo.getDeletedManhwa();
   }
 
-  async addSource(manhwaId: number, url: string, type: 'telegram' | 'website') {
+  async addSource(manhwaId: number, url: string, type: "telegram" | "website") {
     return await this.sourcesRepo.addSource(manhwaId, url, type);
   }
 

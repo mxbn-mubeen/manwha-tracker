@@ -1,4 +1,5 @@
-import { db, manhwa, sources, chapters, progress } from '@manhwa-tracker/database';
+import { db } from './db';
+import { manhwa, sources, chapters, progress } from './schema';
 import { eq, and, sql } from 'drizzle-orm';
 
 export class TelegramRepository {

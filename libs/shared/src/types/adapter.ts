@@ -1,12 +1,13 @@
 import type { ChapterInfo, ChapterExtractDebugInfo } from './chapter';
+import type { AdapterKey } from '../constants';
 
 /**
  * Common interface all website adapters must implement.
  * Add new adapters by implementing this interface — never modify callers.
  */
 export interface WebsiteAdapter {
-  /** Unique key identifying this adapter, e.g. 'mangadex', 'manhuaus' */
-  readonly key: string;
+  /** Unique key identifying this adapter, e.g. 'mangadex', 'manhuaus'. Must be a registered AdapterKey. */
+  readonly key: AdapterKey;
   /** Human-readable name, e.g. 'MangaDex' */
   readonly name: string;
   /** URL patterns this adapter can handle */

@@ -34,7 +34,7 @@ A personal, single-user Manhwa/Manga reading tracker. Automatically monitors cha
 | Scraping | Cheerio + FlareSolverr (for protected sites) |
 | Hosting | Vercel (frontend + fast API) + Render (background worker) |
 
-> **Note:** State management is handled entirely by TanStack Query — no Zustand or Redux.
+> **Note:** State management is handled entirely by TanStack Query — no Redux.
 
 ## Project Structure
 
@@ -52,8 +52,6 @@ manwha-tracker/
 │   │   ├── src/
 │   │   │   ├── modules/
 │   │   │   │   ├── manhwa/
-│   │   │   │   │   ├── manhwa.read.repository.ts
-│   │   │   │   │   ├── manhwa.repository.ts
 │   │   │   │   │   ├── manhwa.router.ts
 │   │   │   │   │   ├── manhwa.service.ts
 │   │   │   │   │   ├── progress.repository.ts
@@ -66,11 +64,9 @@ manwha-tracker/
 │   │   │   │   ├── sync/
 │   │   │   │   │   ├── sync.router.ts
 │   │   │   │   │   └── sync.service.ts
-│   │   │   │   └── telegram/
-│   │   │   │       └── telegram.repository.ts
 │   │   │   ├── routes/
 │   │   │   │   ├── health.ts
-│   │   │   │   └── proxy.ts
+│   │   │   │   └── proxy.ts          SSRF-protected image proxy
 │   │   │   ├── types/
 │   │   │   │   └── input.d.ts
 │   │   │   ├── utils/
@@ -161,8 +157,6 @@ manwha-tracker/
 │       ├── src/
 │       │   ├── modules/
 │       │   │   ├── manhwa/
-│       │   │   │   ├── manhwa.read.repository.ts
-│       │   │   │   ├── manhwa.repository.ts
 │       │   │   │   ├── manhwa.service.ts
 │       │   │   │   ├── progress.repository.ts
 │       │   │   │   └── sources.repository.ts
@@ -172,8 +166,6 @@ manwha-tracker/
 │       │   │   │   ├── sync.service.ts
 │       │   │   │   ├── sync.utils.ts
 │       │   │   │   └── sync.website.ts
-│       │   │   └── telegram/
-│       │   │       └── telegram.repository.ts
 │       │   ├── scripts/
 │       │   │   ├── bot/
 │       │   │   │   ├── api.ts
@@ -199,15 +191,18 @@ manwha-tracker/
 │       ├── package.json
 │       └── tsconfig.json
 ├── libs/
-│   ├── database/
+│   ├── database/             Shared DB access — imported by both api and worker
 │   │   ├── src/
 │   │   │   ├── migrations/
 │   │   │   ├── schema/
 │   │   │   │   └── index.ts
 │   │   │   ├── db.ts
 │   │   │   ├── index.ts
+│   │   │   ├── manhwa.read.repository.ts
+│   │   │   ├── manhwa.repository.ts
 │   │   │   ├── settings.repository.ts
-│   │   │   └── sync.repository.ts
+│   │   │   ├── sync.repository.ts
+│   │   │   └── telegram.repository.ts
 │   │   ├── drizzle.config.ts
 │   │   ├── package.json
 │   │   └── tsconfig.json
@@ -224,7 +219,6 @@ manwha-tracker/
 │   │   │   │   │   ├── mgeko.ts
 │   │   │   │   │   ├── mgread.ts
 │   │   │   │   │   ├── reaperscans.ts
-│   │   │   │   │   ├── roliascan.ts
 │   │   │   │   │   ├── thunderscans.ts
 │   │   │   │   │   ├── ultimateofallages.ts
 │   │   │   │   │   ├── vortexscans.ts
@@ -245,7 +239,6 @@ manwha-tracker/
 │   │   │   ├── index.ts
 │   │   │   └── metadata.ts
 │   │   ├── package.json
-│   │   ├── scratch.js
 │   │   └── tsconfig.json
 │   ├── shared/
 │   │   ├── src/
@@ -272,6 +265,7 @@ manwha-tracker/
 │       │   └── index.ts
 │       ├── package.json
 │       └── tsconfig.json
+├── .editorconfig
 ├── .env.example
 ├── .gitignore
 ├── README.md
@@ -360,6 +354,7 @@ This project uses a **hybrid hosting** strategy to stay 100% free:
 | `TELEGRAM_API_HASH` | Your Telegram API Hash |
 | `TELEGRAM_BOT_TOKEN` | Your Telegram Bot Token |
 | `ALLOWED_CHAT_ID` | Your Telegram chat ID |
+| `RENDER_EXTERNAL_URL` | Auto-set by Render (e.g. `https://your-worker.onrender.com`) — used for keep-alive self-pings during sync to prevent idle sleep |
 
 ### Environment Variables
 
@@ -391,7 +386,8 @@ How the Watcher works:
 | `sources` | Telegram/website sources per manhwa |
 | `chapters` | Discovered chapters per manhwa (from Telegram or website sync) |
 | `progress` | Single progress row per manhwa (last read chapter + timestamp) |
-| `settings` | Key-value app settings |
+| `settings` | Key-value app settings (also used as a DB-backed lock for sync state) |
+| `sync_runs` | Sync run history — includes `status` (`running`/`completed`/`failed`) so killed runs still appear |
 
 > Uses `drizzle-orm/neon-http` driver — **no transactions, no relational query API**. All queries use plain `select/insert/update/delete` with manual joins.
 
@@ -409,16 +405,17 @@ Chapter sync is powered by adapter classes in `libs/parser/src/adapters/sites/`:
 | Site | Adapter Key | URL Patterns |
 |------|------------|-------------|
 | AsuraScans | `asurascans` | `asurascans.com`, `asuracomic.net`, `asurascan.com` |
-
+| Reaper Scans | `reaperscans` | `reaperscans.com` |
+| Webtoon | `webtoon` | `webtoons.com` |
 | manhuaus.com | `manhuaus` | `manhuaus.com` |
 | Arena Scans | `arenascans` | `arenascans.net` |
 | Comix.to | `comixto` | `comix.to` |
 | Mgeko | `mgeko` | `mgeko.com`, `mgeko.cc`, `mgeko.net` |
 | MGRead | `mgread` | `mgread.io` |
-| RoliaScan | `roliascan` | `roliascan.com` |
-| Thunder Scans | `thunderscans` | `thunderscans.net` |
+| Thunder Scans | `thunderscans` | `thunderscans.com`, `en-thunderscans.com` |
 | Infinite Level Up | `infinitelevelup` | `infinitelevelup.com` |
-| Ultimate of All Ages | `ultimateofallages` | `ultimateofallages.com` |
+| Ultimate of All Ages | `ultimateofallages` | `theultimateofallages.com` |
+| Vortex Scans | `vortexscans` | `vortexscans.com` |
 | Generic (catch-all) | `generic` | any URL not matched above |
 
 Use `detectAdapterKey(url)` from `@manhwa-tracker/parser` to resolve the right adapter automatically.

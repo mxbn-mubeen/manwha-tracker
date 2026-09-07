@@ -1,4 +1,5 @@
-import { db, manhwa, progress, sources, chapters } from '@manhwa-tracker/database';
+import { db } from './db';
+import { manhwa, progress, sources, chapters } from './schema';
 import { eq, desc, sql, and } from 'drizzle-orm';
 
 /**
@@ -144,34 +145,6 @@ export class ManhwaReadRepository {
       .where(eq(sources.manhwaId, id))
       .groupBy(sources.url, sources.id);
 
-    // Calculate next expected chapter release date
-    let nextExpectedAt: Date | null = null;
-    const recentChapters = await db
-      .select({ 
-        date: sql<Date>`COALESCE(${chapters.publishedAt}, ${chapters.discoveredAt})` 
-      })
-      .from(chapters)
-      .where(eq(chapters.manhwaId, id))
-      .orderBy(desc(chapters.chapterNum))
-      .limit(10);
-      
-    const recentDates = recentChapters.map(r => new Date(r.date as unknown as string | number | Date)).reverse();
-    
-    if (recentDates.length >= 3) {
-      let totalDiffMs = 0;
-      for (let i = 1; i < recentDates.length; i++) {
-        const d1 = recentDates[i];
-        const d0 = recentDates[i - 1];
-        if (d1 && d0) {
-          totalDiffMs += d1.getTime() - d0.getTime();
-        }
-      }
-      const medianIntervalMs = totalDiffMs / (recentDates.length - 1);
-      const lastRelease = recentDates[recentDates.length - 1];
-      const lastReleaseTime = lastRelease ? lastRelease.getTime() : Date.now();
-      nextExpectedAt = new Date(lastReleaseTime + medianIntervalMs);
-    }
-
 
 
     const first = rows[0];
@@ -187,7 +160,6 @@ export class ManhwaReadRepository {
       description: first.description,
       createdAt: first.createdAt,
       updatedAt: first.updatedAt,
-      nextExpectedAt,
       progress: first.progressId ? {
         id: first.progressId,
         lastChapter: first.lastReadChapterNum ?? 0,
