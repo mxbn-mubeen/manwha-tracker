@@ -241,9 +241,17 @@ manwha-tracker/
 │   │   └── package.json
 │   └── utils/
 │       ├── src/
+│       │   ├── search/
+│       │   │   ├── normalize.ts
+│       │   │   ├── score.ts
+│       │   │   ├── search.ts
+│       │   │   ├── search.test.ts
+│       │   │   ├── similarity.ts
+│       │   │   └── tokenize.ts
 │       │   └── index.ts
 │       ├── package.json
-│       └── tsconfig.json
+│       ├── tsconfig.json
+│       └── vitest.config.ts
 ├── .env.example
 ├── .gitignore
 ├── README.md

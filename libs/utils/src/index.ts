@@ -1,3 +1,5 @@
+export * from './search/search';
+
 export function slugify(text: string): string {
   return text
     .toString()

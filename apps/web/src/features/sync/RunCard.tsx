@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, ChevronDown, ChevronRight, CheckCircle2, AlertTriangle, XCircle, Sparkles, FastForward, Search } from 'lucide-react';
 import type { SyncRun, SyncSourceRow } from '@manhwa-tracker/shared';
+import { search as utilsSearch } from '@manhwa-tracker/utils';
 
 export const STATUS_CONFIG: Record<SyncSourceRow['status'], { icon: React.ReactNode; label: string; cls: string }> = {
   new:    { icon: <Sparkles className="h-3.5 w-3.5" />,      label: '+ New chapter',    cls: 'text-emerald-400 bg-emerald-400/10' },
@@ -48,17 +49,23 @@ export function RunCard({ run, onClose }: { run: SyncRun, onClose: () => void })
   // having failed entirely, with zero indication anything was wrong.
   const runErrors = run.errors ?? [];
 
-  const filteredRows = run.rows.filter((r: SyncSourceRow) => {
+  const searchResults = search.trim()
+    ? utilsSearch(run.rows, search, {
+        fields: [
+          { key: 'manhwaTitle', weight: 1 },
+          { key: 'source', weight: 0.5 },
+        ]
+      })
+    : run.rows;
+
+  const filteredRows = searchResults.filter((r: SyncSourceRow) => {
     const matchesTab =
       filter === 'all' ? true :
       filter === 'new' ? r.status === 'new' :
       filter === 'issues' ? (r.status === 'issue' || r.status === 'failed') :
       filter === 'skipped' ? r.status === 'skipped' :
       true;
-    const matchesSearch = search.trim() === '' ||
-      (r.manhwaTitle ?? '').toLowerCase().includes(search.trim().toLowerCase()) ||
-      (r.source ?? '').toLowerCase().includes(search.trim().toLowerCase());
-    return matchesTab && matchesSearch;
+    return matchesTab;
   });
 
   return (

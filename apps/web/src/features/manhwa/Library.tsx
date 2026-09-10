@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Search } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ManhwaCard } from '@/features/manhwa/components/ManhwaCard';
 import { usePageTitle } from '@/lib/usePageTitle';
+import { search as utilsSearch } from '@manhwa-tracker/utils';
 
 type FilterValue = 'All' | 'Reading' | 'Unread' | 'Completed' | 'Hiatus' | 'Dropped';
 
@@ -35,13 +36,19 @@ export function LibraryPage() {
     setSearchParams(f === 'All' ? {} : { filter: f });
   };
 
-  const filtered = manhwas?.filter((m) => {
-    const query = search.toLowerCase();
+  const searchResults = useMemo(() => {
+    if (!manhwas) return [];
+    if (!search.trim()) return manhwas;
+    
+    return utilsSearch(manhwas, search, {
+      fields: [
+        { key: 'title', weight: 1 },
+        { key: 'genres', weight: 0.4, isArray: true },
+      ],
+    });
+  }, [manhwas, search]);
 
-    const matchesSearch =
-      m.title.toLowerCase().includes(query) ||
-      (m.genres ?? []).some((g) => g.toLowerCase().includes(query));
-
+  const filtered = searchResults.filter((m) => {
     let matchesFilter = true;
 
     if (filter === 'Reading') {
@@ -60,7 +67,7 @@ export function LibraryPage() {
       matchesFilter = m.status !== 'completed' && unread > 0;
     }
 
-    return matchesSearch && matchesFilter;
+    return matchesFilter;
   });
 
   const total = manhwas?.length ?? 0;

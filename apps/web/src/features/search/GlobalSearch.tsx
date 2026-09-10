@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { trpc } from '@/lib/trpc';
 import { Search, X, BookOpen } from 'lucide-react';
 import { getProxiedImageUrl } from '@/utils/image';
+import { search } from '@manhwa-tracker/utils';
 
 interface GlobalSearchProps {
   open: boolean;
@@ -16,10 +17,13 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
 
   const { data: all = [] } = trpc.manhwa.getAll.useQuery();
 
-  const searchStr = query.trim().toLowerCase();
-  const results = searchStr.length < 1 ? [] : all.filter(m =>
-    m.title.toLowerCase().includes(searchStr)
-  ).slice(0, 8);
+  const results = query.trim().length < 1 ? [] : search(all, query, {
+    fields: [
+      { key: 'title', weight: 1 },
+      { key: 'id',    weight: 0.7 },
+    ],
+    limit: 8,
+  });
 
   // Focus input when opened
   useEffect(() => {
@@ -114,15 +118,20 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
                         )}
                       </p>
                     </div>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded border capitalize shrink-0 font-medium ${
-                      m.status.toLowerCase() === 'ongoing' ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' :
-                      m.status.toLowerCase() === 'hiatus' ? 'text-amber-400 bg-amber-400/10 border-amber-400/20' :
-                      m.status.toLowerCase() === 'completed' ? 'text-purple-400 bg-purple-400/10 border-purple-400/20' :
-                      m.status.toLowerCase() === 'dropped' ? 'text-red-400 bg-red-400/10 border-red-400/20' :
-                      'text-zinc-400 bg-zinc-400/10 border-zinc-400/20'
-                    }`}>
-                      {m.status}
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded border text-zinc-500 bg-zinc-500/10 border-zinc-500/20 font-mono">
+                        #{m.id}
+                      </span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded border capitalize font-medium ${
+                        m.status.toLowerCase() === 'ongoing' ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' :
+                        m.status.toLowerCase() === 'hiatus' ? 'text-amber-400 bg-amber-400/10 border-amber-400/20' :
+                        m.status.toLowerCase() === 'completed' ? 'text-purple-400 bg-purple-400/10 border-purple-400/20' :
+                        m.status.toLowerCase() === 'dropped' ? 'text-red-400 bg-red-400/10 border-red-400/20' :
+                        'text-zinc-400 bg-zinc-400/10 border-zinc-400/20'
+                      }`}>
+                        {m.status}
+                      </span>
+                    </div>
                   </button>
                 </li>
               );

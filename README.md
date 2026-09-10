@@ -9,6 +9,7 @@ A personal, single-user Manhwa/Manga reading tracker. Automatically monitors cha
 - 🔔 **New chapter detection** — Telegram watcher detects new chapter posts in real-time
 - 🌐 **Website sync** — scrapes AsuraScans, Reaper Scans, Webtoon, manhuaus.com, Arena Scans, Comix.to, Mgeko, RoliaScan, Thunder Scans, Ultimate of All Ages for latest chapters
 - 🛡️ **Cloudflare fallback chain** — FlareSolverr → Playwright headless browser; protected sites are retried automatically with each layer before failing
+- 🔍 **Global Search Engine** — unified client-side search across all UI components with fuzzy matching, tokenization, and ranked scoring.
 - 🔗 **Unified Sources page** — manage every website and Telegram source in one place with inline URL editing, domain-based filter chips, and adapter badges
 - 🔧 **Fix Adapter Keys** — one-click button to re-detect and correct stale adapter keys across all website sources
 - 🎨 **Dark theme** — sleek dark manhwa-focused UI built with Tailwind v4 + shadcn/ui
@@ -265,9 +266,17 @@ manwha-tracker/
 │   │   └── package.json
 │   └── utils/
 │       ├── src/
+│       │   ├── search/
+│       │   │   ├── normalize.ts
+│       │   │   ├── score.ts
+│       │   │   ├── search.ts
+│       │   │   ├── search.test.ts
+│       │   │   ├── similarity.ts
+│       │   │   └── tokenize.ts
 │       │   └── index.ts
 │       ├── package.json
-│       └── tsconfig.json
+│       ├── tsconfig.json
+│       └── vitest.config.ts
 ├── .editorconfig
 ├── .env.example
 ├── .gitignore

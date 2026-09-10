@@ -8,6 +8,7 @@ import { WebsiteFilterPanel } from "./components/WebsiteFilterPanel";
 import { TelegramPanel } from "./components/TelegramPanel";
 import { FixAdapterKeysButton } from "./components/FixAdapterKeysButton";
 import { getHost } from "./utils/sourceHelpers";
+import { search } from "@manhwa-tracker/utils";
 
 export function SourcesPage() {
   const [activeTab, setActiveTab] = useState<"website" | "telegram">("website");
@@ -22,11 +23,20 @@ export function SourcesPage() {
   const websiteSources = sources.filter(s => s.type === 'website');
   const telegramSources = sources.filter(s => s.type === 'telegram');
 
-  const filteredSources = sources.filter(s => {
-    if (s.type !== activeTab) return false;
-    const matchesSearch = s.manhwaTitle.toLowerCase().includes(searchQuery.toLowerCase()) || s.url.toLowerCase().includes(searchQuery.toLowerCase());
-    if (activeTab === 'telegram') return matchesSearch;
-    return matchesSearch && (domainFilter ? getHost(s.url) === domainFilter : true);
+  const activeSources = activeTab === 'website' ? websiteSources : telegramSources;
+  
+  const searchResults = searchQuery.trim() 
+    ? search(activeSources, searchQuery, {
+        fields: [
+          { key: 'manhwaTitle', weight: 1 },
+          { key: 'url', weight: 0.5 },
+        ]
+      })
+    : activeSources;
+
+  const filteredSources = searchResults.filter(s => {
+    if (activeTab === 'telegram') return true;
+    return domainFilter ? getHost(s.url) === domainFilter : true;
   });
 
   const uniqueDomains = Array.from(new Set(websiteSources.map(s => getHost(s.url)))).sort();
