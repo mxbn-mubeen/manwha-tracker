@@ -1,6 +1,6 @@
-import { normalize } from './normalize';
-import { tokenize } from './tokenize';
-import { scoreField } from './score';
+import { normalize } from './normalize.js';
+import { tokenize } from './tokenize.js';
+import { scoreField } from './score.js';
 
 // ---------------------------------------------------------------------------
 // Types

@@ -1,4 +1,4 @@
-export * from './search/search';
+export * from './search/search.js';
 
 export function slugify(text: string): string {
   return text

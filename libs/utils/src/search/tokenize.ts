@@ -1,4 +1,4 @@
-import { normalize } from './normalize';
+import { normalize } from './normalize.js';
 
 /**
  * Stop-words that carry no discriminating signal on their own.

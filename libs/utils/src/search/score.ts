@@ -1,6 +1,6 @@
-import { normalize } from './normalize';
-import { tokenize } from './tokenize';
-import { similarity, SIMILARITY_THRESHOLD } from './similarity';
+import { normalize } from './normalize.js';
+import { tokenize } from './tokenize.js';
+import { similarity, SIMILARITY_THRESHOLD } from './similarity.js';
 
 /**
  * Score priority ladder (0..1):
