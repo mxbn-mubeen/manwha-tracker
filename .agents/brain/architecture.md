@@ -138,6 +138,8 @@ manwha-tracker/
 │       │   │   │   └── sources.repository.ts
 │       │   │   ├── settings/
 │       │   │   └── sync/
+│       │   │       ├── cadence.ts          ← evaluateCadence(), median gap, isIrregular(), isOverdue()
+│       │   │       ├── cadence.test.ts     ← Vitest unit tests for cadence logic
 │       │   │       ├── sync.processor.ts
 │       │   │       ├── sync.service.ts
 │       │   │       ├── sync.utils.ts
@@ -165,7 +167,8 @@ manwha-tracker/
 │       │   └── server.ts
 │       ├── Dockerfile
 │       ├── package.json
-│       └── tsconfig.json
+│       ├── tsconfig.json
+│       └── vitest.config.ts
 ├── libs/
 │   ├── database/             @manhwa-tracker/database — shared by both api and worker
 │   │   ├── src/
@@ -431,27 +434,31 @@ All adapters pass their site-specific `resolveLatestReference` and `isChapterLoc
 into both `extractChaptersFromHtml` **and** `debugExtractChapters`, so the debug output
 exactly mirrors the actual sync pipeline (fixed 2026-09-07).
 
-| Site | Adapter key | Needs browser rendering? |
-|------|------------|------|
-| Arena Scans | `arenascans` | no |
-| AsuraScans | `asurascans` | yes (Playwright/FlareSolverr) |
-| Comix.to | `comixto` | yes |
-| manhuaus.com | `manhuaus` | no |
-| Mgeko | `mgeko` | yes |
-| MGRead | `mgread` | no |
-| Reaper Scans | `reaperscans` | no |
-| Thunder Scans | `thunderscans` | no |
-| Ultimate of All Ages | `ultimateofallages` | yes |
-| Vortex Scans | `vortexscans` | no |
-| Webtoon | `webtoon` | no |
-| Generic (catch-all) | `generic` | no |
+| Site | Adapter key | Needs browser rendering? | Notes |
+|------|------------|------|------|
+| Arena Scans | `arenascans` | no | Dates: `July 15, 2026` absolute format |
+| AsuraScans | `asurascans` | yes (FlareSolverr/Playwright) | Dates: `5 days ago`, `last week` |
+| Comix.to | `comixto` | yes (Playwright only, skipFlareSolverr) | |
+| manhuaus.com | `manhuaus` | no | |
+| Mgeko | `mgeko` | yes (FlareSolverr/Playwright) | Needs click to load all chapters |
+| MGRead | `mgread` | yes ← fixed 2026-09-10 | Needs click to load all chapters; dates via `<time>` |
+| Reaper Scans | `reaperscans` | no | |
+| Thunder Scans | `thunderscans` | yes ← fixed 2026-09-10 | Chapters 35+ are JS-rendered; needs click to show all |
+| Ultimate of All Ages | `ultimateofallages` | yes | |
+| Vortex Scans | `vortexscans` | no | Coin-locked detection via CSS class |
+| Webtoon | `webtoon` | no | |
+| Generic (catch-all) | `generic` | no | |
 
-Adapters needing browser rendering use `browser.ts`. The rendering stack (as of 2026-08-31):
+Adapters needing browser rendering use `browser.ts`. The rendering stack (as of 2026-09-10):
 1. **FlareSolverr** — tried first if `FLARESOLVERR_URL` env var is set. A 503 or non-200 response
    is treated as a failure and falls through to the next layer.
 2. **Playwright headless browser** (`browser.ts` — `fetchRenderedHtml`) — tried if FlareSolverr
    fails or is not configured. Shares a single browser instance across requests.
 3. **Hard failure** — throws `CloudflareBlockedError` with a user-readable reason.
+
+`fetchRenderedHtml` accepts an optional `clickSelector` (Playwright only — FlareSolverr ignores it):
+a one-shot element click before capturing the HTML. Used by ThunderScans ("Show All" button) and
+Mgeko/MGRead ("Click Here to Load All Chapters" link) to expand the full chapter list.
 
 The `looksLikeCloudflareChallenge(html)` helper gates both layers — if the initial HTTP fetch
 returns a Cloudflare interstitial page, the fallback chain starts. If a 503 comes back from

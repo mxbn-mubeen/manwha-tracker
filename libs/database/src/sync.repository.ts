@@ -68,25 +68,33 @@ export class SyncRepository {
    * Gets the last 10 chapter discovery dates for a manhwa, to calculate release cadence.
    */
   async getChapterReleaseDates(manhwaId: number): Promise<Date[]> {
+    const rows = await this.getChapterReleaseDatesWithSource(manhwaId);
+    return rows.map((r) => r.date);
+  }
+
+  /**
+   * Same data as getChapterReleaseDates, but also reports whether each date
+   * is a real website publication timestamp or a discoveredAt fallback.
+   * Uses typed column selects for both fields (not a raw sql`` fragment),
+   * so drizzle handles the Date conversion natively — no risk of the
+   * string-vs-Date pitfall that affected the old raw-COALESCE query.
+   */
+  async getChapterReleaseDatesWithSource(
+    manhwaId: number,
+  ): Promise<{ date: Date; isReal: boolean; chapterNum: number }[]> {
     const rows = await db
-      .select({ 
-        date: sql<Date>`COALESCE(${chapters.publishedAt}, ${chapters.discoveredAt})` 
-      })
+      .select({ publishedAt: chapters.publishedAt, discoveredAt: chapters.discoveredAt, chapterNum: chapters.chapterNum })
       .from(chapters)
       .where(eq(chapters.manhwaId, manhwaId))
       .orderBy(desc(chapters.chapterNum))
       .limit(10);
-    // sql<Date> above is a TypeScript-only annotation — it does NOT convert the
-    // runtime value. Neon's HTTP transport returns raw sql`` fragment results
-    // as plain strings, not Date instances (unlike typed column selects, where
-    // drizzle's schema definitions handle the conversion). Without this
-    // explicit `new Date(...)`, every date here was actually a string at
-    // runtime, and calling `.getTime()` on it in the cadence calculation threw
-    // a TypeError for essentially every manhwa with 3+ known chapters — which
-    // aborted that manhwa's entire sync before any real chapter check ran,
-    // silently, since the caller's error only ends up in a field the UI never
-    // displays. `new Date(...)` is a safe no-op if the value is already a Date.
-    return rows.map(r => new Date(r.date as unknown as string | number | Date)).reverse();
+    return rows
+      .map((r) => ({
+        date: r.publishedAt ?? r.discoveredAt,
+        isReal: r.publishedAt !== null,
+        chapterNum: r.chapterNum,
+      }))
+      .reverse(); // ascending order, oldest first — same contract as before
   }
 
   /**
@@ -114,6 +122,7 @@ export class SyncRepository {
     chapterNum: number;
     title: string | null;
     url: string | null;
+    publishedAt?: Date | null;
   }>): Promise<number> {
     if (data.length === 0) return 0;
     const inserted = await db

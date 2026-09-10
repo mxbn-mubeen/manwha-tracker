@@ -75,7 +75,7 @@ import { looksLikeCloudflareChallenge, solveViaFlareSolverr, CloudflareBlockedEr
  */
 export async function fetchRenderedHtml(
   url: string,
-  opts: { waitForSelector?: string; timeoutMs?: number; skipFlareSolverr?: boolean } = {},
+  opts: { waitForSelector?: string; timeoutMs?: number; skipFlareSolverr?: boolean; clickSelector?: string } = {},
 ): Promise<string> {
   // First try to bypass Cloudflare and execute JS via FlareSolverr if configured.
   // FlareSolverr is faster, more robust against CF, and handles JS execution.
@@ -125,6 +125,19 @@ export async function fetchRenderedHtml(
           // Don't hard-fail the whole fetch if the selector never shows up —
           // return whatever DOM state exists, same as a slow real page load.
         });
+    }
+
+    // One-shot expand: click a button that reveals more content (e.g. ThunderScans
+    // "Show All" button that unhides the full chapter list). Fundamentally
+    // different from pagination — one click, not a loop. Only used when the
+    // adapter explicitly requests it.
+    if (opts.clickSelector) {
+      await page
+        .locator(opts.clickSelector)
+        .click({ timeout: 5000 })
+        .catch(() => { /* button may not exist on all pages — not an error */ });
+      // Brief settle time for the DOM to update after the click.
+      await page.waitForTimeout(800);
     }
 
     return await page.content();

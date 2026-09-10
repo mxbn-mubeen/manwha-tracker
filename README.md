@@ -162,6 +162,8 @@ manwha-tracker/
 │       │   │   │   └── sources.repository.ts
 │       │   │   ├── settings/
 │       │   │   ├── sync/
+│       │   │   │   ├── cadence.ts            Cadence evaluation (median gap, isIrregular, isOverdue)
+│       │   │   │   ├── cadence.test.ts       Vitest unit tests for cadence logic
 │       │   │   │   ├── sync.processor.ts
 │       │   │   │   ├── sync.service.ts
 │       │   │   │   ├── sync.utils.ts
@@ -189,7 +191,8 @@ manwha-tracker/
 │       │   └── server.ts
 │       ├── Dockerfile
 │       ├── package.json
-│       └── tsconfig.json
+│       ├── tsconfig.json
+│       └── vitest.config.ts      Vitest config for worker unit tests
 ├── libs/
 │   ├── database/             Shared DB access — imported by both api and worker
 │   │   ├── src/
@@ -402,21 +405,23 @@ pnpm run db:migrate
 
 Chapter sync is powered by adapter classes in `libs/parser/src/adapters/sites/`:
 
-| Site | Adapter Key | URL Patterns |
-|------|------------|-------------|
-| AsuraScans | `asurascans` | `asurascans.com`, `asuracomic.net`, `asurascan.com` |
-| Reaper Scans | `reaperscans` | `reaperscans.com` |
-| Webtoon | `webtoon` | `webtoons.com` |
-| manhuaus.com | `manhuaus` | `manhuaus.com` |
-| Arena Scans | `arenascans` | `arenascans.net` |
-| Comix.to | `comixto` | `comix.to` |
-| Mgeko | `mgeko` | `mgeko.com`, `mgeko.cc`, `mgeko.net` |
-| MGRead | `mgread` | `mgread.io` |
-| Thunder Scans | `thunderscans` | `thunderscans.com`, `en-thunderscans.com` |
-| Infinite Level Up | `infinitelevelup` | `infinitelevelup.com` |
-| Ultimate of All Ages | `ultimateofallages` | `theultimateofallages.com` |
-| Vortex Scans | `vortexscans` | `vortexscans.com` |
-| Generic (catch-all) | `generic` | any URL not matched above |
+| Site | Adapter Key | URL Patterns | Browser Rendering |
+|------|------------|-------------|-------------------|
+| AsuraScans | `asurascans` | `asurascans.com`, `asuracomic.net`, `asurascan.com` | ✅ FlareSolverr/Playwright |
+| Reaper Scans | `reaperscans` | `reaperscans.com` | — |
+| Webtoon | `webtoon` | `webtoons.com` | — |
+| manhuaus.com | `manhuaus` | `manhuaus.com` | — |
+| Arena Scans | `arenascans` | `arenascans.net` | — |
+| Comix.to | `comixto` | `comix.to` | ✅ Playwright only |
+| Mgeko | `mgeko` | `mgeko.com`, `mgeko.cc`, `mgeko.net` | ✅ + click to load all |
+| MGRead | `mgread` | `mgread.io` | ✅ + click to load all |
+| Thunder Scans | `thunderscans` | `thunderscans.com`, `en-thunderscans.com` | ✅ + click show all |
+| Infinite Level Up | `infinitelevelup` | `infinitelevelup.com` | — |
+| Ultimate of All Ages | `ultimateofallages` | `theultimateofallages.com` | ✅ FlareSolverr/Playwright |
+| Vortex Scans | `vortexscans` | `vortexscans.com` | — |
+| Generic (catch-all) | `generic` | any URL not matched above | — |
+
+> **Browser rendering note:** Sites marked ✅ use `fetchRenderedHtml` via the FlareSolverr → Playwright fallback chain. Sites marked "click to load all" also need a button click after rendering to reveal the full chapter list — this works locally via Playwright but **not** on Render (FlareSolverr returns the page without clicking).
 
 Use `detectAdapterKey(url)` from `@manhwa-tracker/parser` to resolve the right adapter automatically.
 

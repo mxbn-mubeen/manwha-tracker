@@ -1,7 +1,7 @@
 # Manhwa Tracker — Master Memory
 
 project_root: F:\manwha-tracker
-last_brain_review: 2026-09-05
+last_brain_review: 2026-09-10
 
 ## What This Project Does
 
@@ -31,7 +31,7 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - Soft delete (delete/recover/getDeleted) for manhwa
 - Sync history (`sync_runs` table) with per-row status (new/no_new/issue/failed) shown in a Settings drawer
 
-## Current State (as of 2026-08-31)
+## Current State (as of 2026-09-10)
 
 - **Architecture fully migrated from Next.js to Vite + Express** (Option 2 — decoupled)
 - **`apps/api` split further into `apps/api` (fast queries, Vercel Serverless) + `apps/worker`
@@ -50,6 +50,23 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - **Cloudflare fallback chain**: `http.ts` now tries FlareSolverr → Playwright headless browser → fails; the `looksLikeCloudflareChallenge` check gates both layers OK
 - **Codebase-wide 230-line refactor** complete (2026-08-31) — all files now under 230 lines OK
   (see Active Work for the full list of extracted files)
+- **`publishedAt` stored in DB**: `insertChaptersBulk` in `libs/database/src/sync.repository.ts` writes
+  `published_at` to the chapters table for all newly-discovered chapters. Historical chapters (bulk-imported
+  before this fix) have `published_at = NULL` — they show `isReal: false` in cadence calculations and
+  fall back to `discoveredAt`, which is why 0h gaps appear for old manhwa. New chapters going forward get real timestamps.
+- **Cadence system integrated** (2026-09-07): `evaluateCadence` extracted into `cadence.ts` in `apps/worker/src/modules/sync/`.
+  Cadence check runs per-source before deciding to do a full scrape or skip; overdue threshold is 3× cadence.
+  Bypass logic for irregular patterns still runs the full check but logs a history row.
+- **Parser `publishedAt` improvements** (2026-09-10):
+  - `parseRelativeTime` in `chapter-extract.ts` now handles: absolute dates (`July 15, 2026` — Arenascans),
+    compound relative times (`1 week, 4 days` — Mgeko/MGRead), named aliases (`yesterday`, `last week`), and standard `N unit ago`.
+  - `thunderscans.ts` switched from `fetchHtml` to `fetchRenderedHtml` (chapters 35+ are JS-rendered);
+    `clickSelector` added for ThunderScans' "Show All" expand button.
+  - `mgeko.ts` and `mgread.ts` — `clickSelector` added for "Click Here to Load All Chapters".
+  - `mgread.ts` switched from `fetchHtml` to `fetchRenderedHtml`.
+  - VortexScans `isChapterLocked` updated to use coin-related CSS classes instead of broad string matching.
+- **`browser.ts` `fetchRenderedHtml`** now accepts optional `clickSelector` — one-shot expand click
+  before returning HTML (Playwright path only; FlareSolverr path ignores it).
 
 ### Deployment Architecture (as of 2026-08-28)
 
@@ -142,6 +159,9 @@ functionality is needed, it has to be written from scratch.
 - **Completed manhwa filtering** (2026-08-31): Dashboard Continue Reading and sources.repository.ts
   `getActiveSources` both exclude `status = 'completed'` manhwa.
 - **Sync concurrency reduced to 1** (2026-09-03) because FlareSolverr OOMs on Render free tier when handling multiple Chromium tabs simultaneously.
+- **Cadence skip logic** (2026-09-07+): per-source cadence check before full scrape; median inter-release gap; 3× overdue threshold.
+  `clickSelector` in `fetchRenderedHtml` fires via Playwright only (FlareSolverr can't click — returns static HTML).
+  ThunderScans / Mgeko / MGRead need the button clicked to reveal full chapter list; works locally (Playwright), not yet on Render (FlareSolverr).
 
 ## Tech Stack
 

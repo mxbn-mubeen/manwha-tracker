@@ -16,6 +16,17 @@ export interface SyncResult {
   updatedManhwa: number;
   skippedTelegram: number;
   skippedSchedule: number;
+  /** Distinct manhwa actually iterated this run — distinct from
+   *  scannedSources, which counts total registered sources (a manhwa with
+   *  2 sources counts once here, twice there). In-memory only, for the
+   *  terminal summary — not persisted to sync_runs. */
+  manhwaChecked: number;
+  /** How many manhwa were classified as having an irregular release
+   *  pattern this run (see cadence.ts's MAD-based check). In-memory only. */
+  irregularCount: number;
+  /** How many manhwa hit the 3x-overdue forced-check override this run.
+   *  In-memory only. */
+  overdueCount: number;
   errors: string[];
   duration: number;
   triggeredBy: string;

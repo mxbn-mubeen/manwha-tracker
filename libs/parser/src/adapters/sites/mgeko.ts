@@ -29,14 +29,22 @@ export const mgekoAdapter: WebsiteAdapter = {
   },
 
   async chapterList(url) {
-    const html = await fetchRenderedHtml(url, { waitForSelector: "a[href*='chapter']" });
+    // clickSelector: Mgeko shows a "Click Here to Load All Chapters" link that
+    // expands the full list — without clicking it, only the initial batch is captured.
+    const html = await fetchRenderedHtml(url, {
+      waitForSelector: "a[href*='chapter']",
+      clickSelector: "a:has-text('Load All Chapters'), a:has-text('load all'), [class*='load-all'], #load-chapters",
+    });
     return extractChaptersFromHtml(html, url, {
       resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
     });
   },
 
   async debugChapterList(url) {
-    const html = await fetchRenderedHtml(url, { waitForSelector: "a[href*='chapter']" });
+    const html = await fetchRenderedHtml(url, {
+      waitForSelector: "a[href*='chapter']",
+      clickSelector: "a:has-text('Load All Chapters'), a:has-text('load all'), [class*='load-all'], #load-chapters",
+    });
     return debugExtractChapters(html, url, {
       resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
     });

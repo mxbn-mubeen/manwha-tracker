@@ -379,3 +379,36 @@ Append-only log. Never delete entries.
 - Fix: 1) Wrapped `sql<Date>` results in `new Date(...)` in `sync.repository.ts`. 2) Added a defensive `try/catch` block strictly around the cadence check in `sync.website.ts` so an error in the optimization never prevents a real sync. 3) Updated `RunCard.tsx` to surface `run.errors` in a new Errors tab so silent failures are visible.
 - Status: Resolved
 - Date: 2026-09-05
+
+---
+
+- Problem: ThunderScans adapter only returned chapters up to ~Ch.34 despite the site having 60+ chapters.
+- Cause: Adapter used `fetchHtml` (static HTTP fetch). ThunderScans renders the full chapter list via JavaScript — the static HTML only contains the first batch (~34) of chapters.
+- Fix: Switched to `fetchRenderedHtml` (browser rendering via FlareSolverr/Playwright). Added `clickSelector` for the "Show All" expand button. Note: `clickSelector` only fires in Playwright path — FlareSolverr returns the page without clicking, so on Render the chapter count may still be limited to what FlareSolverr captures without the click.
+- Status: Resolved (Playwright path); Open (FlareSolverr path — button click not supported)
+- Date: 2026-09-10
+
+---
+
+- Problem: MGRead adapter used `fetchHtml` (static HTTP), missing JS-rendered content.
+- Cause: MGRead renders its chapter list via JavaScript and hides older chapters behind a "Load All Chapters" link.
+- Fix: Switched to `fetchRenderedHtml`. Added `clickSelector` for the load-all link. Same FlareSolverr caveat as ThunderScans.
+- Status: Resolved (Playwright path); Open (FlareSolverr path)
+- Date: 2026-09-10
+
+---
+
+- Problem: VortexScans `isChapterLocked` had false positives — "coin" text in unrelated elements (e.g. translator notes, author credits) could trigger a lock flag.
+- Cause: Broad string match `/coin|locked/i` on the full outer HTML matched too eagerly.
+- Fix: Changed to match only coin-related CSS class names (`class="[^"]*coin"`) so only elements explicitly styled as coin-locked are flagged.
+- Status: Resolved
+- Date: 2026-09-10
+
+---
+
+- Problem: `parseRelativeTime` couldn't parse Arenascans absolute dates (`July 15, 2026`), Mgeko compound times (`1 week, 4 days`), or named aliases (`last week`, `yesterday`).
+- Cause: Original regex only matched `(\d+) unit ago` pattern — single unit with "ago" suffix required.
+- Fix: Rewrote `parseRelativeTime` to: (1) handle named aliases via string includes, (2) match absolute month-DD-YYYY dates via regex anywhere in the text, (3) scan for all `N unit` pairs and sum them (handles both single and compound forms, safe against chapter numbers since numbers alone have no time-unit suffix).
+- Status: Resolved
+- Date: 2026-09-10
+

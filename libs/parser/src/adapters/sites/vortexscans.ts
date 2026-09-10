@@ -24,15 +24,24 @@ export const vortexScansAdapter: WebsiteAdapter = {
   },
 
   isChapterLocked(outerHtml, text) {
-    // VortexScans marks premium/paywalled chapters with a lock icon SVG,
-    // a "Premium" label, or a lock emoji (🔒).
-    // Avoid exact SVG path matches — any icon library update would silently break them.
+    // VortexScans marks inaccessible chapters with:
+    // 1. Coin/premium paywall — coin icon class, data-coin, emoji
+    // 2. Timer/early-access — countdown timer shown until a future release date.
+    //    These appear as <span class="chapter-time"> or data-time attributes,
+    //    or the text itself contains "Available in" / "Unlocks in" patterns.
+    // 3. Lock icon / "Premium" label — older Madara style, kept as defence-in-depth.
     return (
+      /class="[^"]*coin|data-coin/i.test(outerHtml) ||
+      /🪙|💰/u.test(outerHtml) ||
       outerHtml.includes('data-premium') ||
       outerHtml.includes('class="premium') ||
       outerHtml.includes('"premium"') ||
       outerHtml.includes('class="lock') ||
       outerHtml.includes('svg-lock') ||
+      // Timer-locked / early-access chapters:
+      /class="[^"]*timer|data-timer|data-time\b/i.test(outerHtml) ||
+      /class="[^"]*countdown/i.test(outerHtml) ||
+      /available in|unlocks in|releases in/i.test(text) ||
       /premium|🔒|locked/i.test(text)
     );
   },

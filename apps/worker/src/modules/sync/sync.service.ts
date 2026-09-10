@@ -1,6 +1,7 @@
 import { SyncRepository, SettingsRepository } from '@manhwa-tracker/database';
 import type { SyncScope, SyncResult, SyncRun } from '@manhwa-tracker/shared';
 import { runWebsiteSync } from './sync.website';
+import { renderSyncCompleteBanner } from './sync.utils';
 
 const IS_SYNCING_KEY = 'sys_is_syncing';
 
@@ -72,6 +73,9 @@ export class SyncService {
         updatedManhwa: 0,
         skippedTelegram: 0,
         skippedSchedule: 0,
+        manhwaChecked: 0,
+        irregularCount: 0,
+        overdueCount: 0,
         errors: [],
         duration: 0,
         triggeredBy,
@@ -100,6 +104,35 @@ export class SyncService {
       }
 
       result.duration = Date.now() - start;
+
+      const finishedAt = new Date();
+      const startedAt = new Date(start);
+      // "Sources checked" excludes cadence-skipped rows and the synthetic
+      // "cadence bypassed" note row — it's meant to reflect real per-source
+      // fetch attempts, matching what actually cost time and network calls.
+      const sourcesChecked = result.rows.filter(
+        (r) => r.status !== 'skipped' && r.source !== 'cadence',
+      ).length;
+      const noNewChapters = result.rows.filter((r) => r.status === 'no_new').length;
+      const errorCount = result.rows.filter((r) => r.status === 'issue').length;
+      const blockedCount = result.rows.filter((r) => r.status === 'failed').length;
+
+      console.log(
+        renderSyncCompleteBanner({
+          durationMs: result.duration,
+          manhwaChecked: result.manhwaChecked,
+          sourcesChecked,
+          newChapters: result.newChapters,
+          noNewChapters,
+          skippedSchedule: result.skippedSchedule,
+          irregularCount: result.irregularCount,
+          errorCount,
+          blockedCount,
+          overdueCount: result.overdueCount,
+          startedAt,
+          finishedAt,
+        }),
+      );
 
       await this.repo.finishSyncRun(
         syncRunId,

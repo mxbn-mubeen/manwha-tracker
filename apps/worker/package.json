@@ -6,6 +6,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "start": "node --max-old-space-size=256 dist/server.js",
     "watch:telegram": "tsx src/scripts/watcher/index.ts",
     "bot:telegram": "tsx src/scripts/bot/index.ts",
@@ -31,6 +32,7 @@
     "@types/express": "^4.17.21",
     "@types/node": "^20",
     "tsx": "^4.15.0",
-    "typescript": "^5.5.0"
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.0"
   }
 }

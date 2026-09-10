@@ -1,5 +1,5 @@
 import type { WebsiteAdapter } from "@manhwa-tracker/shared";
-import { fetchHtml } from "../http";
+import { fetchRenderedHtml } from "../browser";
 import { detectTitleFromHtml, extractChaptersFromHtml, debugExtractChapters } from "../utils/chapter-extract";
 import { extractDeclaredChapterCount } from "../utils/extract-declared-count";
 import * as cheerio from "cheerio";
@@ -10,7 +10,7 @@ export const thunderscansAdapter: WebsiteAdapter = {
   urlPatterns: [/thunderscans\.com/i, /en-thunderscans\.com/i],
 
   async detectTitle(url) {
-    const html = await fetchHtml(url);
+    const html = await fetchRenderedHtml(url, { waitForSelector: "h1" });
     return detectTitleFromHtml(html);
   },
 
@@ -28,7 +28,17 @@ export const thunderscansAdapter: WebsiteAdapter = {
   },
 
   async chapterList(url) {
-    const html = await fetchHtml(url);
+    // fetchRenderedHtml required — chapters above ~34 are JS-rendered and
+    // invisible to a plain HTTP fetch. Confirmed Sept 2026 against
+    // en-thunderscans.com: the static HTML only contained the first batch
+    // of chapters; the full list appeared only after JS execution.
+    // clickSelector: ThunderScans shows a "Show All" button that expands
+    // the full chapter list — without clicking it, only the first page is
+    // captured even with full JS rendering.
+    const html = await fetchRenderedHtml(url, {
+      waitForSelector: "a[href*='chapter']",
+      clickSelector: "button.show-all, a.show-all, [class*='show-all'], button:has-text('Show All'), button:has-text('Show all')",
+    });
     const $ = cheerio.load(html);
     // Thunderscans duplicates the latest and first chapter in a <div class="lastend">
     // at the top of the list. The latest chapter here might be coin-locked (early access).
@@ -43,7 +53,10 @@ export const thunderscansAdapter: WebsiteAdapter = {
   },
 
   async debugChapterList(url) {
-    const html = await fetchHtml(url);
+    const html = await fetchRenderedHtml(url, {
+      waitForSelector: "a[href*='chapter']",
+      clickSelector: "button.show-all, a.show-all, [class*='show-all'], button:has-text('Show All'), button:has-text('Show all')",
+    });
     const $ = cheerio.load(html);
     $('.lastend').remove(); // mirror chapterList()'s DOM surgery so the diagnostic reflects the same input
     return debugExtractChapters($.html(), url, {

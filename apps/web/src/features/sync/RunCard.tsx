@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, ChevronDown, ChevronRight, CheckCircle2, AlertTriangle, XCircle, Sparkles, FastForward } from 'lucide-react';
+import { Clock, ChevronDown, ChevronRight, CheckCircle2, AlertTriangle, XCircle, Sparkles, FastForward, Search } from 'lucide-react';
 import type { SyncRun, SyncSourceRow } from '@manhwa-tracker/shared';
 
 export const STATUS_CONFIG: Record<SyncSourceRow['status'], { icon: React.ReactNode; label: string; cls: string }> = {
@@ -36,6 +36,7 @@ export function formatDuration(ms: number): string {
 export function RunCard({ run, onClose }: { run: SyncRun, onClose: () => void }) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'new' | 'issues' | 'errors' | 'skipped'>('all');
+  const [search, setSearch] = useState('');
   
   const newCount    = run.rows.filter((r: SyncSourceRow) => r.status === 'new').length;
   const issueCount  = run.rows.filter((r: SyncSourceRow) => r.status === 'issue' || r.status === 'failed').length;
@@ -48,10 +49,16 @@ export function RunCard({ run, onClose }: { run: SyncRun, onClose: () => void })
   const runErrors = run.errors ?? [];
 
   const filteredRows = run.rows.filter((r: SyncSourceRow) => {
-    if (filter === 'new') return r.status === 'new';
-    if (filter === 'issues') return r.status === 'issue' || r.status === 'failed';
-    if (filter === 'skipped') return r.status === 'skipped';
-    return true;
+    const matchesTab =
+      filter === 'all' ? true :
+      filter === 'new' ? r.status === 'new' :
+      filter === 'issues' ? (r.status === 'issue' || r.status === 'failed') :
+      filter === 'skipped' ? r.status === 'skipped' :
+      true;
+    const matchesSearch = search.trim() === '' ||
+      (r.manhwaTitle ?? '').toLowerCase().includes(search.trim().toLowerCase()) ||
+      (r.source ?? '').toLowerCase().includes(search.trim().toLowerCase());
+    return matchesTab && matchesSearch;
   });
 
   return (
@@ -147,6 +154,16 @@ export function RunCard({ run, onClose }: { run: SyncRun, onClose: () => void })
                 Errors ({runErrors.length})
               </button>
             )}
+            <div className="ml-auto relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-600 pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search…"
+                className="pl-7 pr-3 py-1 rounded-full text-xs bg-zinc-800/60 border border-white/5 text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 w-36 transition-all focus:w-48"
+              />
+            </div>
           </div>
 
           {filter === 'errors' ? (

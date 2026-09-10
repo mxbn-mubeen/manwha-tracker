@@ -23,6 +23,7 @@ export async function clearSyncProgress(): Promise<void> {
 }
 
 import { processManhwaSources } from "./sync.processor";
+import { renderSyncStartBanner } from "./sync.utils";
 /** Wake up FlareSolverr before the sync loop so cold starts don't eat per-source timeouts. */
 async function wakeFlareSolverr(): Promise<void> {
   const flareSolverrUrl = process.env.FLARESOLVERR_URL;
@@ -59,6 +60,9 @@ export async function runWebsiteSync(
   }
   result.scannedSources = totalSourcesCount;
 
+  const mode = result.triggeredBy === "manual" ? "manual" : "scheduled";
+  console.log(renderSyncStartBanner(webSourcesGrouped.size, mode, new Date()));
+
   await wakeFlareSolverr();
   const updatedManhwaIds = new Set<number>();
   let completedCount = 0;
@@ -66,13 +70,14 @@ export async function runWebsiteSync(
   // Write "0/total" immediately so the UI shows a real count right away
   await setSyncProgress(0, webSourcesGrouped.size);
 
-
-
   // Iterate over each manhwa sequentially
   const entries = Array.from(webSourcesGrouped.entries());
+  const total = entries.length;
+  let index = 0;
   for (const [manhwaId, sources] of entries) {
+    index++;
     try {
-      await processManhwaSources(manhwaId, sources, repo, result, updatedManhwaIds);
+      await processManhwaSources(manhwaId, sources, repo, result, updatedManhwaIds, index, total);
     } catch (e: any) {
       result.errors.push(
         `Group processing failed for manhwa ${manhwaId}: ${e.message}`,
