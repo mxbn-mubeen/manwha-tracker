@@ -412,3 +412,20 @@ Append-only log. Never delete entries.
 - Status: Resolved
 - Date: 2026-09-10
 
+---
+
+- Problem: Render deploy crashed at startup with `ERR_MODULE_NOT_FOUND: Cannot find module '.../libs/database/src/db'` (and same for parser/shared/utils).
+- Cause: All four lib `package.json` files had `"exports": { "default": "./src/index.ts" }`. The Dockerfile correctly builds and copies `dist/` into the runner stage, but the `package.json` exports pointed at `src/index.ts` which doesn't exist in the runner. Node ESM resolved `@manhwa-tracker/database` to `src/index.ts`, then `src/index.ts` did `import from './db'` (no `.js` extension), which failed under strict ESM resolution.
+- Fix: Changed all four libs (`database`, `parser`, `shared`, `utils`) package.json `"main"` and `"exports.default"` to `"./dist/index.js"`. The `"types"` field stays pointing at `"./src/index.ts"` for TypeScript resolution during development/CI.
+- Status: Resolved
+- Date: 2026-09-10
+
+---
+
+- Problem: Vercel build failed with TS2339 — `Property 'ok' does not exist on type 'Response'` and `Property 'text' does not exist on type 'Response'` in `libs/parser/src/metadata.ts` on Vercel CI (TS 5.9.3).
+- Cause: `tsconfig.base.json` had `"lib": ["ES2022"]` with no `"DOM"`. TS 5.9.3 stopped shimming the global `fetch`/`Response`/`Request` types unless `DOM` is explicitly included in `lib`. `metadata.ts` uses the built-in `fetch` and `.ok`/`.text()` which require the DOM `Response` type.
+- Fix: Added `"DOM"` to `"lib"` in `tsconfig.base.json` → `["ES2022", "DOM"]`. This applies globally to all packages that extend the base config.
+- Status: Resolved
+- Date: 2026-09-10
+
+
