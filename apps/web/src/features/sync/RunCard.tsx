@@ -124,23 +124,23 @@ export function RunCard({ run, onClose }: { run: SyncRun, onClose: () => void })
 
       {open && (
         <div className="border-t border-border/20">
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-border/10 bg-[#161719]">
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-border/10 bg-[#161719] overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <button 
               onClick={() => setFilter('all')}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'all' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50'}`}
+              className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'all' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50'}`}
             >
               All ({run.rows.length})
             </button>
             <button 
               onClick={() => setFilter('new')}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'new' ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10'}`}
+              className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'new' ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10'}`}
             >
               New ({newCount})
             </button>
             {issueCount > 0 && (
               <button 
                 onClick={() => setFilter('issues')}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'issues' ? 'bg-amber-500/20 text-amber-400' : 'text-zinc-500 hover:text-amber-400 hover:bg-amber-500/10'}`}
+                className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'issues' ? 'bg-amber-500/20 text-amber-400' : 'text-zinc-500 hover:text-amber-400 hover:bg-amber-500/10'}`}
               >
                 Issues ({issueCount})
               </button>
@@ -148,7 +148,7 @@ export function RunCard({ run, onClose }: { run: SyncRun, onClose: () => void })
             {skippedCount > 0 && (
               <button 
                 onClick={() => setFilter('skipped')}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'skipped' ? 'bg-zinc-700/50 text-zinc-300' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700/30'}`}
+                className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'skipped' ? 'bg-zinc-700/50 text-zinc-300' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700/30'}`}
               >
                 Skipped ({skippedCount})
               </button>
@@ -156,19 +156,19 @@ export function RunCard({ run, onClose }: { run: SyncRun, onClose: () => void })
             {runErrors.length > 0 && (
               <button 
                 onClick={() => setFilter('errors')}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'errors' ? 'bg-red-500/20 text-red-400' : 'text-zinc-500 hover:text-red-400 hover:bg-red-500/10'}`}
+                className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'errors' ? 'bg-red-500/20 text-red-400' : 'text-zinc-500 hover:text-red-400 hover:bg-red-500/10'}`}
               >
                 Errors ({runErrors.length})
               </button>
             )}
-            <div className="ml-auto relative">
+            <div className="ml-auto relative shrink-0">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-600 pointer-events-none" />
               <input
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search…"
-                className="pl-7 pr-3 py-1 rounded-full text-xs bg-zinc-800/60 border border-white/5 text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 w-36 transition-all focus:w-48"
+                className="pl-7 pr-3 py-1 rounded-full text-xs bg-zinc-800/60 border border-white/5 text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 w-28 sm:w-36 transition-all focus:w-40 sm:focus:w-48"
               />
             </div>
           </div>
