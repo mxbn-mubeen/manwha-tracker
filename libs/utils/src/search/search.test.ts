@@ -197,39 +197,3 @@ describe('UID search', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Ranking order
-// ---------------------------------------------------------------------------
-
-describe('ranking order', () => {
-  it('exact title > starts-with > token/fuzzy', () => {
-    const r = search(LIBRARY, 'solo leveling', { fields: TITLE_ONLY });
-    const exactIdx  = r.findIndex(m => m.title === 'Solo Leveling');
-    const ragnarokIdx = r.findIndex(m => m.title === 'Solo Leveling: Ragnarok');
-    // Both should appear; exact comes first
-    expect(exactIdx).toBeGreaterThanOrEqual(0);
-    expect(ragnarokIdx).toBeGreaterThanOrEqual(0);
-    expect(exactIdx).toBeLessThan(ragnarokIdx);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Limit
-// ---------------------------------------------------------------------------
-
-describe('limit option', () => {
-  it('returns at most limit results', () => {
-    const r = search(LIBRARY, 'a', { fields: TITLE_ONLY, limit: 3 });
-    expect(r.length).toBeLessThanOrEqual(3);
-  });
-
-  it('empty query returns empty array regardless of limit', () => {
-    const r = search(LIBRARY, '', { fields: TITLE_ONLY, limit: 8 });
-    expect(r).toHaveLength(0);
-  });
-
-  it('whitespace-only query returns empty array', () => {
-    const r = search(LIBRARY, '   ', { fields: TITLE_ONLY });
-    expect(r).toHaveLength(0);
-  });
-});

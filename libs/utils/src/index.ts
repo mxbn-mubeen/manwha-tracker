@@ -1,4 +1,5 @@
 export * from './search/search.js';
+export * from './cadence.js';
 
 export function slugify(text: string): string {
   return text

@@ -7,6 +7,14 @@ import { TRPCError } from '@trpc/server';
 /** Shared input schema — also used by the worker's sync.run endpoint. */
 export const TriggerSyncSchema = z.object({
   scope: z.enum(['telegram', 'websites', 'all']).default('all'),
+  /** Bypass cadence entirely for this run — same effect as the automatic
+   *  Sunday trigger. Used by the manual "Full Refresh" option and by
+   *  individual manhwa "Sync Now". Actual handling lives in the worker's
+   *  raw Express route (this stub never executes), so this field exists
+   *  purely so the frontend's tRPC client gets the correct TypeScript type. */
+  forceFullRefresh: z.boolean().optional(),
+  /** Scope the run to only these manhwa IDs (individual "Sync Now"). */
+  manhwaIds: z.array(z.number()).optional(),
 });
 
 export const syncRouter = createTRPCRouter({

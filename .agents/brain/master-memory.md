@@ -1,7 +1,7 @@
 # Manhwa Tracker — Master Memory
 
 project_root: F:\manwha-tracker
-last_brain_review: 2026-09-10
+last_brain_review: 2026-09-18
 
 ## What This Project Does
 
@@ -48,7 +48,7 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - Library Unread filter added (shows manhwa where latestChapter > lastChapter) OK
 - Completed manhwa filtering added: Dashboard Continue Reading and Library Unread hide `status='completed'` titles OK
 - **Cloudflare fallback chain**: `http.ts` now tries FlareSolverr → Playwright headless browser → fails; the `looksLikeCloudflareChallenge` check gates both layers OK
-- **Codebase-wide 230-line refactor** complete (2026-08-31) — all files now under 230 lines OK
+- **Codebase-wide 230-line refactor** complete (2026-09-18) — all files now under 230 lines ✅
   (see Active Work for the full list of extracted files)
 - **`publishedAt` stored in DB**: `insertChaptersBulk` in `libs/database/src/sync.repository.ts` writes
   `published_at` to the chapters table for all newly-discovered chapters. Historical chapters (bulk-imported
@@ -159,9 +159,18 @@ functionality is needed, it has to be written from scratch.
 - **Completed manhwa filtering** (2026-08-31): Dashboard Continue Reading and sources.repository.ts
   `getActiveSources` both exclude `status = 'completed'` manhwa.
 - **Sync concurrency reduced to 1** (2026-09-03) because FlareSolverr OOMs on Render free tier when handling multiple Chromium tabs simultaneously.
-- **Cadence skip logic** (2026-09-07+): per-source cadence check before full scrape; median inter-release gap; 3× overdue threshold.
-  `clickSelector` in `fetchRenderedHtml` fires via Playwright only (FlareSolverr can't click — returns static HTML).
-  ThunderScans / Mgeko / MGRead need the button clicked to reveal full chapter list; works locally (Playwright), not yet on Render (FlareSolverr).
+- **Codebase-wide 230-line refactor round 2** (2026-09-18): second pass extracted additional files:
+  - `watcher/dialog-resolver.ts` — `resolveAccessHashViaDialogs` from `channel-map.ts`
+  - `watcher/event-setup.ts` — `setupEventHandlers` from `index.ts`
+  - `watcher/fallback-extractor.ts` — `extractFallbackChapter` + `stripKnownTitleNumbers` from `handlers.ts`
+  - `sync/sync.source-processor.ts` — per-source fetch/insert loop from `sync.processor.ts`
+  - `database/manhwa-creation.repository.ts` — `createManual` from `manhwa.repository.ts`
+  - `database/telegram-source.repository.ts` — source CRUD from `telegram.repository.ts`
+  - `parser/utils/parse-relative-time.ts` — `parseRelativeTime` from `chapter-extract.ts`
+  - `web/components/layout/Navbar.tsx` — navbar/search/sync controls from `AppShell.tsx`
+  - `web/features/manhwa-detail/ManhwaCadenceInfo.tsx` — cadence display from `ManhwaHeader.tsx`
+  - `web/features/sync/run-card.utils.tsx` — STATUS_CONFIG + formatters from `RunCard.tsx`
+  - `libs/utils/search/search-ranking.test.ts` — ranking/limit tests from `search.test.ts`
 
 ## Tech Stack
 

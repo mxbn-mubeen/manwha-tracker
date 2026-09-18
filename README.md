@@ -85,7 +85,8 @@ manwha-tracker/
 │   │   ├── src/
 │   │   │   ├── components/
 │   │   │   │   ├── layout/
-│   │   │   │   │   └── AppShell.tsx
+│   │   │   │   │   ├── AppShell.tsx
+│   │   │   │   │   └── Navbar.tsx            Extracted from AppShell (search, sync controls, nav)
 │   │   │   │   └── ui/       shadcn/ui components (badge, button, card, input, sheet, tabs)
 │   │   │   ├── features/
 │   │   │   │   ├── dashboard/
@@ -104,6 +105,7 @@ manwha-tracker/
 │   │   │   │   │   ├── components/
 │   │   │   │   │   │   ├── EditManhwaModal.tsx
 │   │   │   │   │   │   ├── ManageChaptersSection.tsx
+│   │   │   │   │   │   ├── ManhwaCadenceInfo.tsx     Extracted from ManhwaHeader (cadence display)
 │   │   │   │   │   │   ├── ManhwaHeader.tsx
 │   │   │   │   │   │   ├── ManhwaPoster.tsx
 │   │   │   │   │   │   ├── ProgressCard.tsx
@@ -137,7 +139,8 @@ manwha-tracker/
 │   │   │   │   │   └── StatsPage.tsx
 │   │   │   │   └── sync/
 │   │   │   │       ├── RunCard.tsx
-│   │   │   │       └── SyncHistoryDrawer.tsx
+│   │   │   │       ├── SyncHistoryDrawer.tsx
+│   │   │   │       └── run-card.utils.tsx        STATUS_CONFIG, formatRelative, formatDuration
 │   │   │   ├── lib/
 │   │   │   │   ├── trpc.ts
 │   │   │   │   ├── usePageTitle.ts
@@ -162,10 +165,8 @@ manwha-tracker/
 │       │   │   │   ├── progress.repository.ts
 │       │   │   │   └── sources.repository.ts
 │       │   │   ├── settings/
-│       │   │   ├── sync/
-│       │   │   │   ├── cadence.ts            Cadence evaluation (median gap, isIrregular, isOverdue)
-│       │   │   │   ├── cadence.test.ts       Vitest unit tests for cadence logic
-│       │   │   │   ├── sync.processor.ts
+\u2502       │   │   │   ├── sync.processor.ts     Per-manhwa cadence + source orchestration
+│       │   │   │   ├── sync.source-processor.ts  Per-source fetch/insert loop (extracted)
 │       │   │   │   ├── sync.service.ts
 │       │   │   │   ├── sync.utils.ts
 │       │   │   │   └── sync.website.ts
@@ -179,9 +180,12 @@ manwha-tracker/
 │       │   │   ├── cron/
 │       │   │   │   └── cron-sync.ts
 │       │   │   └── watcher/
-│       │   │       ├── channel-map.ts
-│       │   │       ├── handlers.ts
-│       │   │       ├── index.ts
+│       │   │       ├── channel-map.ts        Channel → manhwa mapping, buildChannelMap
+│       │   │       ├── dialog-resolver.ts    resolveAccessHashViaDialogs (extracted)
+│       │   │       ├── event-setup.ts        setupEventHandlers — NewMessage + Raw (extracted)
+│       │   │       ├── fallback-extractor.ts extractFallbackChapter, stripKnownTitleNumbers (extracted)
+│       │   │       ├── handlers.ts           catalogueMessage, handleNewMessage, handleReadUpdate
+│       │   │       ├── index.ts              Watcher entry point + connection lifecycle
 │       │   │       ├── intervals.ts
 │       │   │       ├── reconcile.ts
 │       │   │       └── session.ts
@@ -200,13 +204,17 @@ manwha-tracker/
 │   │   │   ├── migrations/
 │   │   │   ├── schema/
 │   │   │   │   └── index.ts
+│   │   │   ├── manhwa/
+│   │   │   │   ├── manhwa.repository.ts        write ops (delete, update, chapter seeding)
+│   │   │   │   ├── manhwa.read.repository.ts   read ops (getAll, getById) — includes cadence calc
+│   │   │   │   └── manhwa.creation.repository.ts  create from URL or manual entry
+│   │   │   ├── telegram/
+│   │   │   │   ├── telegram.repository.ts      Telegram channel → manhwa mapping, chapter inserts
+│   │   │   │   └── telegram.source.repository.ts  CRUD for telegram source rows
+│   │   │   ├── settings.repository.ts          key/value settings store (toggles, sys flags)
+│   │   │   ├── sync.repository.ts              sync run history, source cadence queries
 │   │   │   ├── db.ts
-│   │   │   ├── index.ts
-│   │   │   ├── manhwa.read.repository.ts
-│   │   │   ├── manhwa.repository.ts
-│   │   │   ├── settings.repository.ts
-│   │   │   ├── sync.repository.ts
-│   │   │   └── telegram.repository.ts
+│   │   │   └── index.ts                        re-exports all repositories
 │   │   ├── drizzle.config.ts
 │   │   ├── package.json
 │   │   └── tsconfig.json
@@ -233,7 +241,8 @@ manwha-tracker/
 │   │   │   │   │   ├── detect-title.ts
 │   │   │   │   │   ├── drop-outliers.ts
 │   │   │   │   │   ├── extract-chapter-number.ts
-│   │   │   │   │   └── extract-declared-count.ts
+│   │   │   │   │   ├── extract-declared-count.ts
+│   │   │   │   │   └── parse-relative-time.ts    parseRelativeTime (extracted from chapter-extract)
 │   │   │   │   ├── browser.ts
 │   │   │   │   ├── esm-interop.ts
 │   │   │   │   ├── factory.ts
@@ -270,9 +279,11 @@ manwha-tracker/
 │       │   │   ├── normalize.ts
 │       │   │   ├── score.ts
 │       │   │   ├── search.ts
+│       │   │   ├── search-ranking.test.ts    Ranking + limit tests (extracted from search.test.ts)
 │       │   │   ├── search.test.ts
 │       │   │   ├── similarity.ts
 │       │   │   └── tokenize.ts
+│       │   ├── cadence.ts                  evaluateCadence() — median gap, MAD, isIrregular, isOverdue
 │       │   └── index.ts
 │       ├── package.json
 │       ├── tsconfig.json

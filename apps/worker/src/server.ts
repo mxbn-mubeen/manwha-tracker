@@ -65,9 +65,15 @@ app.post('/trpc/sync.run', async (req, res) => {
     return;
   }
 
-  // tRPC batch request body: { "0": { "json": { "scope": "all" } } }
-  const input = req.body?.['0']?.json ?? {};
-  const scope = input?.scope ?? 'all';
+  let rawInput = req.body || {};
+  if (typeof rawInput === 'object' && rawInput !== null) {
+    if ('0' in rawInput) rawInput = (rawInput as any)['0'];
+    if ('json' in rawInput) rawInput = (rawInput as any).json;
+  }
+  
+  const scope = rawInput?.scope ?? 'all';
+  const forceFullRefresh = rawInput?.forceFullRefresh === true;
+  const manhwaIds = Array.isArray(rawInput?.manhwaIds) ? rawInput.manhwaIds.filter((n: unknown) => typeof n === 'number') : undefined;
 
   try {
     const isCurrentlySyncing = await import('./modules/sync/sync.service').then(m => m.getIsSyncing());
@@ -77,7 +83,7 @@ app.post('/trpc/sync.run', async (req, res) => {
     }
 
     // Fire the sync in the background so the HTTP request doesn't timeout after 60s
-    syncService.run(scope).catch((err: unknown) => {
+    syncService.run(scope, 'manual', { forceFullRefresh, manhwaIds }).catch((err: unknown) => {
       console.error('[worker] Async sync run failed:', err);
     });
 
@@ -111,15 +117,17 @@ function parseEnvFlag(name: string, defaultValue: boolean) {
   return !['0', 'false', 'no'].includes(raw.trim().toLowerCase());
 }
 
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
   console.log(`🚀 Worker running on http://localhost:${PORT}`);
 
-  const enableTelegramWatcher =
-    Boolean(process.env.TELEGRAM_API_ID) &&
-    parseEnvFlag('START_TELEGRAM_WATCHER', true);
-  const enableTelegramBot =
-    Boolean(process.env.TELEGRAM_BOT_TOKEN) &&
-    parseEnvFlag('START_TELEGRAM_BOT', true);
+  const { SettingsRepository } = await import('@manhwa-tracker/database');
+  const repo = new SettingsRepository();
+  
+  const watcherSetting = await repo.get('START_TELEGRAM_WATCHER');
+  const botSetting = await repo.get('START_TELEGRAM_BOT');
+
+  const enableTelegramWatcher = Boolean(process.env.TELEGRAM_API_ID) && (watcherSetting !== 'false');
+  const enableTelegramBot = Boolean(process.env.TELEGRAM_BOT_TOKEN) && (botSetting !== 'false');
 
   if (enableTelegramWatcher) {
     console.log('🔄 Starting Telegram watcher...');
@@ -127,7 +135,11 @@ const server = app.listen(PORT, () => {
       console.error('❌ Failed to start Telegram watcher:', err);
     });
   } else {
-    console.log('⚠️ Skipping Telegram watcher (TELEGRAM_API_ID not set)');
+    if (!process.env.TELEGRAM_API_ID) {
+      console.log('⚠️ Skipping Telegram watcher (TELEGRAM_API_ID not set)');
+    } else {
+      console.log('⚠️ Skipping Telegram watcher (Disabled in settings)');
+    }
   }
 
   if (enableTelegramBot) {
@@ -136,7 +148,11 @@ const server = app.listen(PORT, () => {
       console.error('❌ Failed to start Telegram bot:', err);
     });
   } else {
-    console.log('⚠️ Skipping Telegram bot (TELEGRAM_BOT_TOKEN not set)');
+    if (!process.env.TELEGRAM_BOT_TOKEN) {
+      console.log('⚠️ Skipping Telegram bot (TELEGRAM_BOT_TOKEN not set)');
+    } else {
+      console.log('⚠️ Skipping Telegram bot (Disabled in settings)');
+    }
   }
 });
 

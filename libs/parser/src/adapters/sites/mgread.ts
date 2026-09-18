@@ -1,6 +1,11 @@
 import type { WebsiteAdapter, ChapterInfo } from "@manhwa-tracker/shared";
 import * as cheerio from "cheerio";
-import { detectTitleFromHtml, extractChaptersFromHtml, debugExtractChapters, extractChapterNumber, parseRelativeTime } from "../utils/chapter-extract";
+import {
+  debugExtractChapters,
+  detectTitleFromHtml,
+} from "../utils/chapter-extract";
+import { extractChapterNumber } from "../utils/extract-chapter-number";
+import { parseRelativeTime } from "../utils/parse-relative-time";
 import { fetchRenderedHtml } from "../browser";
 
 export const mgreadAdapter: WebsiteAdapter = {
@@ -37,7 +42,8 @@ export const mgreadAdapter: WebsiteAdapter = {
     // it only the first page is captured.
     const html = await fetchRenderedHtml(url, {
       waitForSelector: ".chapter-item",
-      clickSelector: "a:has-text('Load All Chapters'), [class*='load-all'], #load-all",
+      clickSelector:
+        "a:has-text('Load All Chapters'), [class*='load-all'], #load-all",
     });
     const $ = cheerio.load(html);
     const chapters: ChapterInfo[] = [];
@@ -78,7 +84,8 @@ export const mgreadAdapter: WebsiteAdapter = {
   async debugChapterList(url) {
     const html = await fetchRenderedHtml(url, {
       waitForSelector: ".chapter-item",
-      clickSelector: "a:has-text('Load All Chapters'), [class*='load-all'], #load-all",
+      clickSelector:
+        "a:has-text('Load All Chapters'), [class*='load-all'], #load-all",
     });
     return debugExtractChapters(html, url);
   },
@@ -88,4 +95,3 @@ export const mgreadAdapter: WebsiteAdapter = {
     return list[0] ?? null;
   },
 };
-

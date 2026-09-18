@@ -1,6 +1,7 @@
-import { db } from './db';
-import { manhwa, progress, sources, chapters } from './schema';
+import { db } from '../db';
+import { manhwa, progress, sources, chapters } from '../schema';
 import { eq, desc, sql, and } from 'drizzle-orm';
+import { evaluateCadence } from '@manhwa-tracker/utils';
 
 /**
  * Read-only queries for manhwa — `getAll` (library list) and `getById` (detail page).
@@ -150,7 +151,7 @@ export class ManhwaReadRepository {
     const first = rows[0];
     if (!first) return null;
 
-    return {
+    const result: any = {
       id: first.id,
       slug: first.slug,
       title: first.title,
@@ -176,6 +177,38 @@ export class ManhwaReadRepository {
           lastDiscoveredAt: meta?.lastDiscoveredAt ?? null,
         };
       }),
+      cadenceInfo: null,
     };
+
+    // Calculate cadence if the manhwa is ongoing
+    if (first.status === 'ongoing') {
+      const chapterDates = await db
+        .select({ publishedAt: chapters.publishedAt, discoveredAt: chapters.discoveredAt })
+        .from(chapters)
+        .where(eq(chapters.manhwaId, id))
+        .orderBy(desc(chapters.chapterNum))
+        .limit(10);
+      
+      const dates = chapterDates.map(r => r.publishedAt ?? r.discoveredAt).reverse() as Date[];
+      const decision = evaluateCadence(dates);
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const hasNewChapterToday = chapterDates.some(r => {
+        const d = r.publishedAt ?? r.discoveredAt;
+        return d && new Date(d).setHours(0, 0, 0, 0) === today.getTime();
+      });
+
+      result.cadenceInfo = {
+        insufficientData: decision.insufficientData,
+        isIrregular: decision.isIrregular,
+        isOverdue: decision.isOverdue,
+        nextExpectedTime: decision.nextExpectedTime,
+        hasNewChapterToday,
+      };
+    }
+
+    return result;
   }
 }
+

@@ -3,6 +3,15 @@ import { Pencil, Check, X, ChevronDown, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
+import { ManhwaCadenceInfo } from './ManhwaCadenceInfo';
+
+export interface CadenceInfo {
+  insufficientData: boolean;
+  isIrregular: boolean;
+  isOverdue: boolean;
+  nextExpectedTime: number | null;
+  hasNewChapterToday: boolean;
+}
 
 interface ManhwaHeaderProps {
   id: number;
@@ -11,7 +20,7 @@ interface ManhwaHeaderProps {
   genres: string[] | null;
   description: string | null;
   latestChapter: number;
-  nextExpectedAt: string | Date | null;
+  cadenceInfo?: CadenceInfo | null;
 }
 
 const STATUS_DOT_COLOR: Record<string, string> = {
@@ -21,7 +30,7 @@ const STATUS_DOT_COLOR: Record<string, string> = {
   dropped: 'bg-red-500',
 };
 
-export function ManhwaHeader({ id, title, status, genres, description, latestChapter, nextExpectedAt }: ManhwaHeaderProps) {
+export function ManhwaHeader({ id, title, status, genres, description, latestChapter, cadenceInfo }: ManhwaHeaderProps) {
   const utils = trpc.useUtils();
 
   const updateStatusMutation = trpc.manhwa.updateStatus.useMutation({
@@ -36,6 +45,24 @@ export function ManhwaHeader({ id, title, status, genres, description, latestCha
       setIsEditingChapter(false);
     },
     onError: (err) => toast.error(err.message || 'Failed to update latest chapter'),
+  });
+
+  const syncNowMutation = trpc.sync.run.useMutation({
+    onSuccess: async (result) => {
+      await utils.manhwa.getById.invalidate(id);
+      // result can be undefined/startedAsync if the worker fired this in the
+      // background — same fire-and-forget behavior as the global sync button.
+      if (!result || (result as any).startedAsync) {
+        toast.info(`🔄 Checking ${title} now — refresh in a moment to see results.`);
+        return;
+      }
+      if (result.newChapters > 0) {
+        toast.success(`Found ${result.newChapters} new chapter${result.newChapters > 1 ? 's' : ''}!`);
+      } else {
+        toast.info('No new chapters found.');
+      }
+    },
+    onError: (err) => toast.error(err.message || 'Sync failed'),
   });
 
   const [isEditingChapter, setIsEditingChapter] = useState(false);
@@ -130,21 +157,8 @@ export function ManhwaHeader({ id, title, status, genres, description, latestCha
         </p>
       )}
 
-      {nextExpectedAt && (
-        <div className="flex items-center gap-2 text-sm mb-3">
-          <span className="text-muted-foreground">Next chapter expected:</span>
-          <span className="text-zinc-300 font-medium">
-            {(() => {
-              const diffMs = new Date(nextExpectedAt).getTime() - Date.now();
-              const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-              if (diffDays < 0) return 'overdue';
-              if (diffDays === 0) return 'today';
-              if (diffDays === 1) return 'tomorrow';
-              return `in ${diffDays} days`;
-            })()}
-          </span>
-        </div>
-      )}
+      <ManhwaCadenceInfo cadenceInfo={cadenceInfo} />
+
 
       <div className="flex items-center gap-2 text-sm">
         <span className="text-muted-foreground">Latest chapter:</span>

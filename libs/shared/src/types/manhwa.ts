@@ -1,5 +1,13 @@
 export type ManhwaStatus = 'ongoing' | 'completed' | 'hiatus' | 'dropped';
 
+export interface CadenceInfo {
+  insufficientData: boolean;
+  isIrregular: boolean;
+  isOverdue: boolean;
+  nextExpectedTime: number | null;
+  hasNewChapterToday: boolean;
+}
+
 export interface Manhwa {
   id: number;
   slug: string;
@@ -10,6 +18,7 @@ export interface Manhwa {
   description: string | null;
   createdAt: Date;
   updatedAt: Date;
+  cadenceInfo?: CadenceInfo | null;
 }
 
 export interface ManhwaWithProgress extends Manhwa {

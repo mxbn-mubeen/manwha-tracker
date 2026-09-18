@@ -107,7 +107,7 @@ export function ManhwaDetailPage() {
             genres={manhwa.genres || null}
             description={manhwa.description || null}
             latestChapter={latestChapter}
-            nextExpectedAt={null}
+            cadenceInfo={manhwa.cadenceInfo}
           />
 
           {/* Reading Progress Card */}

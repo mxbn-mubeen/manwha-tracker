@@ -11,7 +11,25 @@ import {
   formatInterval,
   formatReleaseGaps,
 } from "./sync.utils";
-import { evaluateCadence } from "./cadence";
+import { evaluateCadence } from "@manhwa-tracker/utils";
+import { processSingleSource } from "./sync.source-processor";
+
+// If an individual source hasn't had a real check in this long, force one
+// regardless of what the manhwa-level cadence prediction says. This is a
+// per-source floor, separate from the per-manhwa 3x-overdue override: a
+// manhwa can have multiple sources with very different check histories
+// (one gets re-verified often because it keeps finding new chapters, another
+// sits untouched because cadence keeps predicting "not due yet" for it
+// specifically) — this guarantees no single source's underlying release
+// data ever goes stale indefinitely, keeping the cadence pattern for every
+// source honest and self-updating rather than trusting one old snapshot
+// forever.
+const WEEKLY_REFRESH_MS = 7 * 24 * 60 * 60 * 1000;
+
+function isSourceStale(source: any): boolean {
+  if (!source.lastSyncedAt) return true; // never checked — definitely force it
+  return Date.now() - new Date(source.lastSyncedAt).getTime() > WEEKLY_REFRESH_MS;
+}
 
 export async function processManhwaSources(
   manhwaId: number,
@@ -20,7 +38,9 @@ export async function processManhwaSources(
   result: SyncResult,
   updatedManhwaIds: Set<number>,
   index: number,
-  total: number
+  total: number,
+  forceFullCheck: boolean = false,
+  refreshReason: string = "Full refresh"
 ): Promise<void> {
   const manhwaTitle = sources[0].manhwaTitle;
   let winnerSourceId: number | null = null;
@@ -42,7 +62,25 @@ export async function processManhwaSources(
     const now = Date.now();
     const decision = evaluateCadence(dates, now);
 
-    if (decision.insufficientData) {
+    if (forceFullCheck) {
+      // Global override — takes priority over every other cadence outcome.
+      // Still shows whatever pattern info is available, purely for visibility;
+      // it has no bearing on whether this manhwa gets checked this run.
+      // Same code path regardless of what triggered it (Sunday auto, manual
+      // full refresh, or an individual manhwa sync) — only the displayed
+      // reason differs.
+      if (dated.length >= 2) {
+        lines.push(`Website releases: ${formatReleaseGaps(dated)}`);
+      }
+      if (decision.medianIntervalMs > 0) {
+        lines.push(`Cadence: ${formatInterval(decision.medianIntervalMs)}`);
+      }
+      lines.push("Status: 🔄 Full check");
+      lines.push(`Reason: ${refreshReason}`);
+      lines.push("Action: Full check");
+      // No skipping, no source filtering — every source in `sources` falls
+      // through to the real per-source loop below, unchanged.
+    } else if (decision.insufficientData) {
       lines.push("Website releases: insufficient history");
       lines.push("Cadence: —");
       lines.push("Pattern: — Insufficient data");
@@ -80,11 +118,37 @@ export async function processManhwaSources(
           durationMs: 0,
         });
       } else if (decision.shouldSkip && decision.nextExpectedTime !== null) {
-        result.skippedSchedule += sources.length;
-        lines.push("Status: ⏭ Skipped");
-        lines.push("Reason: Not due yet");
-        lines.push(`Expected: ${formatTimeUntil(decision.nextExpectedTime - now)}`);
-        for (const source of sources) {
+        const staleSources = sources.filter(isSourceStale);
+        const freshSources = sources.filter((s) => !isSourceStale(s));
+
+        if (staleSources.length === 0) {
+          // Every source was checked recently enough — genuinely skip all of them.
+          result.skippedSchedule += sources.length;
+          lines.push("Status: ⏭ Skipped");
+          lines.push("Reason: Not due yet");
+          lines.push(`Expected: ${formatTimeUntil(decision.nextExpectedTime - now)}`);
+          for (const source of sources) {
+            result.rows.push({
+              source: humanizeSourceName(source.url),
+              manhwaId: source.manhwaId,
+              manhwaTitle: source.manhwaTitle,
+              chapterFound: null,
+              status: "skipped",
+              reason: `Skipped by cadence check (next expected in ${Math.round((decision.nextExpectedTime - now) / (1000 * 60 * 60 * 24))} days)`,
+              durationMs: 0,
+            });
+          }
+          console.log(renderTreeBlock(header, lines));
+          return; // skipped — no per-source checks to run
+        }
+
+        // At least one source is overdue for a weekly refresh — skip the
+        // fresh ones as normal, but fall through to the real per-source
+        // loop below for the stale ones, so their pattern data can update.
+        lines.push("Status: ⏭ Partially skipped");
+        lines.push(`Reason: Not due yet, but ${staleSources.length} source(s) overdue for weekly refresh`);
+        for (const source of freshSources) {
+          result.skippedSchedule += 1;
           result.rows.push({
             source: humanizeSourceName(source.url),
             manhwaId: source.manhwaId,
@@ -95,8 +159,7 @@ export async function processManhwaSources(
             durationMs: 0,
           });
         }
-        console.log(renderTreeBlock(header, lines));
-        return; // skipped — no per-source checks to run
+        sources = staleSources; // only these proceed to the real check below
       } else if (decision.isOverdue) {
         lines.push("Status: ⚠ Overdue");
         lines.push("Reason: 3× cadence threshold reached");
@@ -120,168 +183,19 @@ export async function processManhwaSources(
   const existingMax = existingNums.size > 0 ? Math.max(...existingNums) : 0;
 
   for (const source of sources) {
-    let outcome: SourceOutcome;
-    const startMs = Date.now();
-
-    try {
-      const adapter = getAdapter(source.adapterKey, source.url);
-      let timeoutId: NodeJS.Timeout;
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(
-          () => reject(new Error("Sync operation timed out after 60 seconds.")),
-          60000
-        );
-      });
-
-      let chapters: any[] = [];
-      try {
-        const fetchPromise = adapter.chapterList(source.url);
-        fetchPromise.catch(() => {});
-        chapters = await Promise.race([fetchPromise, timeoutPromise]);
-      } finally {
-        clearTimeout(timeoutId!);
-      }
-
-      if (chapters.length === 0) {
-        outcome = {
-          manhwaId: source.manhwaId,
-          sourceUrl: source.url,
-          manhwaTitle: source.manhwaTitle,
-          status: "error",
-          chaptersFound: 0,
-          newChapters: 0,
-          reason:
-            "Got a response but found no chapters — site may be blocking the request.",
-          durationMs: Date.now() - startMs,
-        };
-      } else {
-        const maxChapter = Math.max(...chapters.map((c: any) => c.chapterNum));
-        const REGRESSION_THRESHOLD = 0.5;
-
-        if (
-          existingMax > 0 &&
-          chapters.length > 0 &&
-          maxChapter < existingMax * REGRESSION_THRESHOLD
-        ) {
-          outcome = {
-            manhwaId: source.manhwaId,
-            sourceUrl: source.url,
-            manhwaTitle: source.manhwaTitle,
-            status: "error",
-            chaptersFound: chapters.length,
-            newChapters: 0,
-            reason: `Detected chapter ${maxChapter} but ${existingMax} chapters already exist for this manhwa — likely a parsing failure, skipped this result.`,
-            durationMs: Date.now() - startMs,
-          };
-        } else {
-          const newChapters = chapters.filter(
-            (c: any) => !existingNums.has(c.chapterNum)
-          );
-
-          let insertedCount = 0;
-          if (newChapters.length > 0) {
-            const chaptersToInsert = newChapters.map((chapter: any) => ({
-              manhwaId: source.manhwaId,
-              sourceId: source.sourceId,
-              chapterNum: chapter.chapterNum,
-              title: chapter.title,
-              url: chapter.url,
-              publishedAt: chapter.publishedAt ?? null,
-            }));
-            insertedCount = await repo.insertChaptersBulk(chaptersToInsert);
-
-            if (insertedCount > 0) {
-              result.newChapters += insertedCount;
-              if (!updatedManhwaIds.has(source.manhwaId)) {
-                updatedManhwaIds.add(source.manhwaId);
-                await repo.touchManhwaUpdatedAt(source.manhwaId);
-              }
-            }
-          }
-
-          await repo.updateSourceSyncStatus(source.sourceId, maxChapter);
-
-          outcome = {
-            manhwaId: source.manhwaId,
-            sourceUrl: source.url,
-            manhwaTitle: source.manhwaTitle,
-            status: "success",
-            chaptersFound: chapters.length,
-            newChapters: insertedCount,
-            reason: null,
-            durationMs: Date.now() - startMs,
-          };
-
-          if (!winnerSourceId && maxChapter > existingMax) {
-            winnerSourceId = source.sourceId;
-          }
-        }
-      }
-    } catch (err) {
-      const isBlocked =
-        err instanceof Error && err.name === "CloudflareBlockedError";
-      outcome = {
-        manhwaId: source.manhwaId,
-        sourceUrl: source.url,
-        manhwaTitle: source.manhwaTitle,
-        status: isBlocked ? "blocked" : "error",
-        chaptersFound: 0,
-        newChapters: 0,
-        reason: describeSourceError(err),
-        durationMs: Date.now() - startMs,
-      };
-    }
-
-    const durationLabel =
-      outcome.durationMs >= 1000 ? `${(outcome.durationMs / 1000).toFixed(2)}s` : `${outcome.durationMs}ms`;
-
-    // Append this source's result to the same growing tree — a manhwa with
-    // multiple sources gets one continuous block, not several restarted
-    // ones, so the final "└─" always lands on the true last line regardless
-    // of how many sources it has.
-    lines.push(`Source: ${humanizeSourceName(outcome.sourceUrl)}`);
-    if (outcome.status === "success") {
-      if (outcome.newChapters > 0) {
-        lines.push(`Found: ${outcome.chaptersFound}`);
-        lines.push(`New: +${outcome.newChapters}`);
-        lines.push("Status: ✓ New chapters");
-      } else {
-        lines.push("Status: ✓ No new chapters");
-      }
-    } else if (outcome.status === "blocked") {
-      lines.push("Status: ✗ Blocked");
-      if (outcome.reason) lines.push(`Reason: ${outcome.reason}`);
-    } else {
-      // "error" — the regression guard specifically rejects a bad result
-      // rather than just failing to fetch one, so it gets its own Action
-      // line to make that distinction visible.
-      const isRegressionRejection = outcome.reason?.includes("likely a parsing failure") ?? false;
-      lines.push(`Status: ✗ ${isRegressionRejection ? "Parsing issue" : "Issue"}`);
-      if (outcome.reason) lines.push(`Reason: ${outcome.reason}`);
-      if (isRegressionRejection) lines.push("Action: Result rejected");
-    }
-    lines.push(`Time: ${durationLabel}`);
-
-    const rowStatus: SyncSourceRow["status"] =
-      outcome.status === "blocked"
-        ? "failed"
-        : outcome.status === "error"
-          ? "issue"
-          : outcome.newChapters > 0
-            ? "new"
-            : "no_new";
-
-    result.rows.push({
-      source: humanizeSourceName(outcome.sourceUrl),
-      manhwaId: outcome.manhwaId,
-      manhwaTitle: outcome.manhwaTitle,
-      chapterFound: outcome.status === "success" ? outcome.chaptersFound : null,
-      status: rowStatus,
-      reason: outcome.reason || null,
-      durationMs: outcome.durationMs,
-    });
+    const { outcome, isWinner } = await processSingleSource(
+      source,
+      existingMax,
+      existingNums,
+      repo,
+      result,
+      updatedManhwaIds,
+      lines
+    );
+    if (!winnerSourceId && isWinner) winnerSourceId = source.sourceId;
 
     if (
+      !forceFullCheck &&
       outcome.status === "success" &&
       outcome.chaptersFound > 0 &&
       Math.max(0, existingMax) <= outcome.chaptersFound

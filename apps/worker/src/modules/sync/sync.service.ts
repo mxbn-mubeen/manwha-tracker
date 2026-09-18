@@ -45,7 +45,11 @@ export class SyncService {
     this.repo = new SyncRepository();
   }
 
-  async run(scope: SyncScope = 'all', triggeredBy: string = 'manual'): Promise<SyncResult> {
+  async run(
+    scope: SyncScope = 'all',
+    triggeredBy: string = 'manual',
+    options?: { forceFullRefresh?: boolean; manhwaIds?: number[] },
+  ): Promise<SyncResult> {
     const isCurrentlySyncing = await getIsSyncing();
     if (isCurrentlySyncing) {
       throw new Error("Sync is already running in the background");
@@ -94,7 +98,11 @@ export class SyncService {
         }
 
         if (includeWebsites) {
-          await runWebsiteSync(this.repo, result);
+          await runWebsiteSync(this.repo, result, {
+            forceFullRefresh: options?.forceFullRefresh,
+            refreshReason: options?.forceFullRefresh ? 'Manual full refresh' : undefined,
+            manhwaIds: options?.manhwaIds,
+          });
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

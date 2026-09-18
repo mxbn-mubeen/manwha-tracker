@@ -11,8 +11,6 @@
  */
 import "../../env";
 import { TelegramClient, Api } from "teleproto";
-import { NewMessage } from "teleproto/events";
-import { Raw } from "teleproto/events/Raw";
 import { SettingsRepository } from '@manhwa-tracker/database';
 import { connectTelegramClient } from "../../utils/telegram-client";
 import { setBotAlertChatId, sendBotAlert } from "../../utils/bot-alert";
@@ -26,6 +24,7 @@ import { buildChannelMap, channelMap } from "./channel-map";
 import { handleNewMessage, handleReadUpdate } from "./handlers";
 import { reconcileAll } from "./reconcile";
 import { setupWatcherIntervals } from "./intervals";
+import { setupEventHandlers } from "./event-setup";
 
 const API_ID = Number(process.env.TELEGRAM_API_ID);
 const API_HASH = process.env.TELEGRAM_API_HASH ?? "";
@@ -200,34 +199,7 @@ async function runWatcherGeneration(attempt = 0): Promise<void> {
 
   intervals.push(...setupWatcherIntervals(client, isCurrent, rebuild, shutdown, () => lastActivityAt));
 
-  client.addEventHandler((event) => {
-    touchActivity();
-    return handleNewMessage(event);
-  }, new NewMessage({}));
-
-  client.addEventHandler((update: Api.TypeUpdate) => {
-    if (update instanceof Api.UpdateReadChannelInbox) {
-      touchActivity();
-      const chatId = update.channelId.toString();
-      if (channelMap.has(chatId)) {
-        // The rich, per-chapter log line is emitted inside handleReadUpdate
-        // once it knows the manhwa/chapter — logging here too would just be noise.
-        handleReadUpdate(client, chatId, update.maxId).catch((e) =>
-          console.error("[watcher] handleReadUpdate error:", e),
-        );
-      }
-    } else if (update instanceof Api.UpdateReadHistoryInbox) {
-      touchActivity();
-      const chatId =
-        (update.peer as any)?.channelId?.toString() ??
-        (update.peer as any)?.chatId?.toString();
-      if (chatId && channelMap.has(chatId)) {
-        handleReadUpdate(client, chatId, update.maxId).catch((e) =>
-          console.error("[watcher] handleReadUpdate error:", e),
-        );
-      }
-    }
-  }, new Raw({}));
+  setupEventHandlers(client, touchActivity, channelMap, handleNewMessage, handleReadUpdate);
 
   console.log(
     "[watcher] Listening for new chapters and read-events on tracked channels...",
