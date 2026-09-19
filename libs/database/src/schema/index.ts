@@ -9,7 +9,13 @@ import {
   real,
   jsonb,
   unique,
+  customType,
 } from 'drizzle-orm/pg-core';
+
+// bytea — Drizzle doesn't ship a first-class bytea type yet.
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() { return 'bytea'; },
+});
 
 // ── manhwa ────────────────────────────────────────────────────────────────────
 export const manhwa = pgTable('manhwa', {
@@ -40,7 +46,7 @@ export const sources = pgTable('sources', {
   // first successful resolution, then reused via getInputEntity() forever.
   // Stored as text: GramJS ids/access hashes are int64 (bigint), too large
   // to round-trip safely through the pg `integer` type.
-  telegramEntityId: text('telegram_entity_id').unique(),
+  telegramEntityId: text('telegram_entity_id'),  // unique constraint dropped in 0003 migration
   telegramAccessHash: text('telegram_access_hash'),
   telegramEntityType: varchar('telegram_entity_type', { length: 20 }),
   
@@ -71,6 +77,10 @@ export const progress = pgTable('progress', {
   id: serial('id').primaryKey(),
   manhwaId: integer('manhwa_id').notNull().references(() => manhwa.id, { onDelete: 'cascade' }).unique(),
   chapterId: integer('chapter_id').references(() => chapters.id, { onDelete: 'set null' }),
+  // Expand step: direct chapter number — avoids the chapterId join on every list query.
+  // Phase 1b backfill script populates this from chapters.chapter_num.
+  // Phase 1c (later): drop chapterId once all code reads lastReadChapterNum.
+  lastReadChapterNum: real('last_read_chapter_num'),
   lastReadAt: timestamp('last_read_at').notNull().defaultNow(),
   isCompleted: boolean('is_completed').notNull().default(false),
 });
@@ -99,6 +109,22 @@ export const syncRuns = pgTable('sync_runs', {
   runAt: timestamp('run_at').notNull().defaultNow(),
 });
 
+// ── manhwa covers ─────────────────────────────────────────────────────────────
+// Stores small compressed WebP binaries, separate from the manhwa row so that
+// list queries don't drag multi-KB blobs over the wire for every row.
+// Served from /cover/:id?v=<contentHash> with Cache-Control: immutable.
+export const manhwaCovers = pgTable('manhwa_covers', {
+  id: serial('id').primaryKey(),
+  manhwaId: integer('manhwa_id').notNull().references(() => manhwa.id, { onDelete: 'cascade' }).unique(),
+  coverData: bytea('cover_data').notNull(),
+  contentType: varchar('content_type', { length: 50 }).notNull().default('image/webp'),
+  contentHash: varchar('content_hash', { length: 40 }).notNull(),
+  width: integer('width'),
+  height: integer('height'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // ── type exports ──────────────────────────────────────────────────────────────
 export type Manhwa = typeof manhwa.$inferSelect;
 export type InsertManhwa = typeof manhwa.$inferInsert;
@@ -117,3 +143,7 @@ export type InsertSetting = typeof settings.$inferInsert;
 
 export type SyncRunRow = typeof syncRuns.$inferSelect;
 export type InsertSyncRunRow = typeof syncRuns.$inferInsert;
+
+export type ManhwaCover = typeof manhwaCovers.$inferSelect;
+export type InsertManhwaCover = typeof manhwaCovers.$inferInsert;
+

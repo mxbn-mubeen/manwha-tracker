@@ -13,6 +13,25 @@ import { toSafeTelegramError } from "../../utils/trpc-error";
 
 const repo = new SettingsRepository();
 
+// Rate limiting map for Telegram login (worker-local, prevents abuse)
+const telegramRateLimit = new Map<string, { count: number; lastAttempt: number }>();
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, data] of telegramRateLimit.entries()) {
+    if (now - data.lastAttempt > 60000) telegramRateLimit.delete(ip);
+  }
+}, 60000).unref();
+
+function checkRateLimit(ip: string) {
+  const attempt = telegramRateLimit.get(ip) || { count: 0, lastAttempt: Date.now() };
+  if (attempt.count > 5 && Date.now() - attempt.lastAttempt < 60000) {
+    throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Too many login attempts. Please try again later." });
+  }
+  attempt.count++;
+  attempt.lastAttempt = Date.now();
+  telegramRateLimit.set(ip, attempt);
+}
+
 // ── In-memory store for in-progress Telegram auth sessions ────────────────────
 // Keyed by a random tempId issued to the client after SendCode. Auto-expires after 5 min.
 type PendingLogin = {
@@ -40,7 +59,9 @@ function getApiCreds() {
  */
 export const startTelegramLogin = publicProcedure
   .input(z.object({ phone: z.string().min(7) }))
-  .mutation(async ({ input }) => {
+  .mutation(async ({ input, ctx }) => {
+    const ip = ctx.req?.ip || "unknown";
+    checkRateLimit(ip);
     const { apiId, apiHash } = getApiCreds();
 
     let client: TelegramClient;
@@ -88,7 +109,9 @@ export const verifyTelegramCode = publicProcedure
     code: z.string().min(4).max(8),
     password: z.string().optional(),
   }))
-  .mutation(async ({ input }) => {
+  .mutation(async ({ input, ctx }) => {
+    const ip = ctx.req?.ip || "unknown";
+    checkRateLimit(ip);
     const pending = pendingLogins.get(input.tempId);
     if (!pending) {
       throw new TRPCError({ code: "BAD_REQUEST", message: "Login session expired or not found. Please start again." });

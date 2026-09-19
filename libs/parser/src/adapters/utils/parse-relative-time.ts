@@ -50,7 +50,7 @@ export function parseRelativeTime(text: string): Date | null {
   // pairs) with the same code path — no special-casing needed.
   // Chapter numbers like "190" or "215-eng-li" are never matched because
   // they have no time-unit word following them.
-  const relRegex = /(\d+)\s*(second|minute|hour|day|week|month|year)s?/gi;
+  const relRegex = /\b(\d+)\s*(second|minute|hour|day|week|month|year)s?\b/gi;
   let totalMs = 0;
   let matched = false;
   let m: RegExpExecArray | null;

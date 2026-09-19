@@ -72,8 +72,9 @@ export async function solveViaFlareSolverr(url: string): Promise<FlareSolverrRes
 
   // FlareSolverr's API is at /v1, so auto-append it if the user just provided the host (e.g. http://localhost:8191)
   // Otherwise, a POST to / returns a 405 Method Not Allowed.
+  endpoint = endpoint.replace(/\/$/, '');
   if (!endpoint.endsWith('/v1')) {
-    endpoint = endpoint.replace(/\/$/, '') + '/v1';
+    endpoint = endpoint + '/v1';
   }
 
   const doRequest = async (): Promise<Response> =>

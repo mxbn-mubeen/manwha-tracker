@@ -1,12 +1,15 @@
 import './env';
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { timingSafeEqual } from 'crypto';
 
 // Worker-local imports — no cross-app imports
 import { SyncService } from './modules/sync/sync.service';
 import { startWatcher } from './scripts/watcher';
 import { poll as startBot, stopPolling } from './scripts/bot/poll';
+import { createExpressMiddleware } from '@trpc/server/adapters/express';
+import { workerRouter } from './root';
 
 process.on('unhandledRejection', (reason) => {
   console.error(
@@ -29,7 +32,20 @@ app.use(cors({
   credentials: true,
 }));
 
+app.use(cookieParser(process.env.SESSION_SECRET || 'fallback-secret-for-dev'));
+
 app.use(express.json());
+
+// ── Security headers ─────────────────────────────────────────────────────────
+app.disable('x-powered-by');
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('X-DNS-Prefetch-Control', 'off');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
 
 // Health check
 app.get('/health', (_req, res) => {
@@ -111,6 +127,14 @@ app.post('/trpc/sync.run', async (req, res) => {
   }
 });
 
+app.use(
+  '/trpc',
+  createExpressMiddleware({
+    router: workerRouter,
+    createContext: ({ req }) => ({ req }),
+  })
+);
+
 function parseEnvFlag(name: string, defaultValue: boolean) {
   const raw = process.env[name];
   if (raw == null) return defaultValue;
@@ -154,6 +178,25 @@ const server = app.listen(PORT, async () => {
       console.log('⚠️ Skipping Telegram bot (Disabled in settings)');
     }
   }
+
+  // ── 30-day soft-delete purge ────────────────────────────────────────────────
+  // Hard-deletes manhwa that have been in the trash for more than 30 days.
+  // Runs once at startup (catches anything stale from before this deploy) then
+  // daily thereafter so we never accumulate unbounded deleted rows.
+  async function runPurge() {
+    try {
+      const { ManhwaRepository } = await import('@manhwa-tracker/database');
+      const purged = await new ManhwaRepository().purgeExpiredSoftDeleted(30);
+      if (purged > 0) {
+        console.log(`🗑️ Purge: permanently removed ${purged} manhwa soft-deleted >30 days ago.`);
+      }
+    } catch (err) {
+      console.error('[worker] Purge job failed:', err instanceof Error ? err.message : err);
+    }
+  }
+
+  runPurge();
+  setInterval(runPurge, 24 * 60 * 60 * 1000).unref();
 });
 
 let shuttingDown = false;

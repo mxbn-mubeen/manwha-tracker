@@ -8,3 +8,4 @@ export * from "./manhwa/manhwa.read.repository";
 export * from "./manhwa/manhwa.creation.repository";
 export * from "./telegram/telegram.repository";
 export * from "./telegram/telegram.source.repository";
+export * from "./cover.repository";

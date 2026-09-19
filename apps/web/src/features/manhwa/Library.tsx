@@ -7,6 +7,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ManhwaCard } from '@/features/manhwa/components/ManhwaCard';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { search as utilsSearch } from '@manhwa-tracker/utils';
+import { getUnreadCount } from '@/lib/utils';
 
 type FilterValue = 'All' | 'Reading' | 'Unread' | 'Completed' | 'Hiatus' | 'Dropped';
 
@@ -60,9 +61,7 @@ export function LibraryPage() {
     } else if (filter === 'Dropped') {
       matchesFilter = m.status === 'dropped';
     } else if (filter === 'Unread') {
-      const unread =
-        (m.progress?.latestChapter ?? 0) -
-        (m.progress?.lastChapter ?? 0);
+      const unread = getUnreadCount(m.progress?.latestChapter, m.progress?.lastChapter);
 
       matchesFilter = m.status !== 'completed' && unread > 0;
     }

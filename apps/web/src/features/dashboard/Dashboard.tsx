@@ -1,5 +1,6 @@
 import { BookOpen, Bell, TrendingUp, Send } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
+import { getUnreadCount, formatUnreadCount } from '@/lib/utils';
 import { StatCard } from '@/features/dashboard/components/StatCard';
 import { ContinueReading } from '@/features/dashboard/components/ContinueReading';
 import { RecentActivity } from '@/features/dashboard/components/RecentActivity';
@@ -29,10 +30,8 @@ export function DashboardPage() {
   const totalManhwa = manhwasList.length;
 
   // Calculate unread
-  const unreadCount = manhwasList.reduce((acc, m) => {
-    const unread = Math.ceil((m.progress?.latestChapter ?? 0) - (m.progress?.lastChapter ?? 0));
-    return acc + (unread > 0 ? unread : 0);
-  }, 0);
+  const unreadCountArray = manhwasList.map(m => getUnreadCount(m.progress?.latestChapter, m.progress?.lastChapter));
+  const unreadCount = unreadCountArray.reduce((acc, curr) => acc + curr, 0);
 
   const ongoingCount = manhwasList.filter(m => m.status === 'ongoing').length;
 
@@ -42,12 +41,12 @@ export function DashboardPage() {
   const continueReading = manhwasList
     .filter(m => {
       if (m.status === 'completed') return false;
-      const unread = Math.ceil((m.progress?.latestChapter ?? 0) - (m.progress?.lastChapter ?? 0));
+      const unread = getUnreadCount(m.progress?.latestChapter, m.progress?.lastChapter);
       return unread > 0;
     })
     .sort((a, b) => {
-      const unreadA = Math.ceil((a.progress?.latestChapter ?? 0) - (a.progress?.lastChapter ?? 0));
-      const unreadB = Math.ceil((b.progress?.latestChapter ?? 0) - (b.progress?.lastChapter ?? 0));
+      const unreadA = getUnreadCount(a.progress?.latestChapter, a.progress?.lastChapter);
+      const unreadB = getUnreadCount(b.progress?.latestChapter, b.progress?.lastChapter);
       return unreadB - unreadA;
     })
     .slice(0, 6);
@@ -68,14 +67,14 @@ export function DashboardPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight mb-2">Welcome back</h1>
         <p className="text-muted-foreground">
-          {unreadCount > 0 ? `${unreadCount} new chapters waiting across your library.` : 'You are all caught up!'}
+          {unreadCount > 0 ? `${formatUnreadCount(unreadCount)} new chapters waiting across your library.` : 'You are all caught up!'}
         </p>
       </div>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard icon={<BookOpen size={18} />} label="In Library" value={totalManhwa} to="/library" />
-        <StatCard icon={<Bell size={18} className="text-amber-500" />} label="Unread Chapters" value={unreadCount} valueClassName="text-amber-500" to="/library?filter=Unread" />
+        <StatCard icon={<Bell size={18} className="text-amber-500" />} label="Unread Chapters" value={formatUnreadCount(unreadCount)} valueClassName="text-amber-500" to="/library?filter=Unread" />
         <StatCard icon={<TrendingUp size={18} />} label="Ongoing" value={ongoingCount} to="/library?filter=Reading" />
         <StatCard icon={<Send size={18} />} label="Telegram Sources" value={telegramSources} to="/settings" />
       </div>

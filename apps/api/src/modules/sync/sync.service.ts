@@ -16,7 +16,7 @@ const STALE_LOCK_MS = 30 * 60 * 1000;
 export async function getIsSyncing(): Promise<boolean> {
   const repo = new SettingsRepository();
   const val = await repo.get(IS_SYNCING_KEY);
-  if (val !== 'true') return false;
+  if (val === null || val === 'false') return false;
 
   // Check the progress key for the most recent sign of life, as the isSyncing
   // key is only set once at the start of the run.

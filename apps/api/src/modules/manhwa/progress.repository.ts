@@ -32,17 +32,19 @@ export class ProgressRepository {
       }
     }
 
-    // Update or create progress
+    // Update or create progress — write both legacy chapterId and new lastReadChapterNum
     await db.insert(progress)
       .values({
         manhwaId,
         chapterId: chapterRow.id,
+        lastReadChapterNum: chapterNum,
         lastReadAt: new Date(),
       })
       .onConflictDoUpdate({
         target: progress.manhwaId,
         set: {
           chapterId: chapterRow.id,
+          lastReadChapterNum: chapterNum,
           lastReadAt: new Date(),
         },
       });

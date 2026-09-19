@@ -22,7 +22,7 @@ export function ManhwaPoster({ coverUrl, title, localChapter, latestChapter, onC
   // there is nothing to "continue" to — clicking used to push localChapter past
   // latestChapter (e.g. 31/30), which then looked like a phantom unread chapter
   // even though the source (finished, or currently on hiatus) has nothing new.
-  const isCaughtUp = latestChapter <= 0 || localChapter >= latestChapter;
+  const isCaughtUp = latestChapter > 0 && localChapter >= latestChapter;
 
   return (
     <div className="shrink-0 mx-auto md:mx-0 w-64 flex flex-col gap-3">

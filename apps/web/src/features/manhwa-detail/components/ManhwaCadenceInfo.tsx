@@ -1,7 +1,16 @@
 import type { CadenceInfo } from './ManhwaHeader'
 
 export function ManhwaCadenceInfo({ cadenceInfo }: { cadenceInfo?: CadenceInfo | null }) {
-  if (cadenceInfo?.hasNewChapterToday) {
+  const hasNewChapterToday = (() => {
+    if (!cadenceInfo?.lastPublishedAt) return false;
+    const today = new Date();
+    const published = new Date(cadenceInfo.lastPublishedAt);
+    return today.getFullYear() === published.getFullYear() && 
+           today.getMonth() === published.getMonth() && 
+           today.getDate() === published.getDate();
+  })();
+
+  if (hasNewChapterToday && cadenceInfo) {
     return (
       <div className="flex items-center gap-2 text-sm mb-3">
         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 text-emerald-400 px-2.5 py-0.5 font-medium">
@@ -16,7 +25,7 @@ export function ManhwaCadenceInfo({ cadenceInfo }: { cadenceInfo?: CadenceInfo |
     )
   }
 
-  if (!cadenceInfo?.hasNewChapterToday && cadenceInfo?.isIrregular) {
+  if (!hasNewChapterToday && cadenceInfo?.isIrregular) {
     return (
       <div className="flex items-center gap-2 text-sm mb-3">
         <span className="text-muted-foreground">Release pattern:</span>
@@ -25,7 +34,7 @@ export function ManhwaCadenceInfo({ cadenceInfo }: { cadenceInfo?: CadenceInfo |
     )
   }
 
-  if (!cadenceInfo?.hasNewChapterToday && !cadenceInfo?.isIrregular && cadenceInfo?.nextExpectedTime != null) {
+  if (!hasNewChapterToday && !cadenceInfo?.isIrregular && cadenceInfo?.nextExpectedTime != null) {
     return (
       <div className="flex items-center gap-2 text-sm mb-3">
         <span className="text-muted-foreground">Next chapter expected:</span>

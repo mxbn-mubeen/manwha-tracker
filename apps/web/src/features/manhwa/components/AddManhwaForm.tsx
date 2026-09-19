@@ -50,6 +50,7 @@ export function AddManhwaForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isPending) return;
     if (!title.trim()) {
       toast.error('Title is required');
       return;
@@ -63,7 +64,7 @@ export function AddManhwaForm() {
       title,
       coverUrl: coverUrl || undefined,
       description: description || undefined,
-      genres: parsedTags.length > 0 ? parsedTags : undefined,
+      genres: parsedTags,
       status,
       lastChapter: isNaN(parsedLastChapter as number) ? undefined : parsedLastChapter,
       latestChapter: isNaN(parsedLatestChapter as number) ? undefined : parsedLatestChapter,

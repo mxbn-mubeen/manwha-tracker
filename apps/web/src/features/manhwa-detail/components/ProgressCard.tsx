@@ -1,4 +1,5 @@
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { getUnreadCount, formatUnreadCount } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
@@ -17,7 +18,7 @@ export function ProgressCard({
   onProgressChange,
   isPending,
 }: ProgressCardProps) {
-  const unread = Math.max(0, latestChapter - localChapter);
+  const unread = getUnreadCount(latestChapter, localChapter);
 
   const progressPercent = Math.min(
     100,
@@ -25,9 +26,9 @@ export function ProgressCard({
   );
 
   const hideStepper =
-    latestChapter <= 0 ||
-    (localChapter >= latestChapter &&
-      ['completed', 'hiatus', 'dropped'].includes(status));
+    latestChapter > 0 &&
+    localChapter >= latestChapter &&
+    ['completed', 'hiatus', 'dropped'].includes(status);
 
   return (
     <Card className="bg-[#161719] border-border/30 p-6 rounded-2xl shadow-lg">
@@ -65,7 +66,7 @@ export function ProgressCard({
                 size="icon"
                 className="h-8 w-8 text-muted-foreground hover:text-white rounded-md"
                 onClick={() => onProgressChange(localChapter + 1)}
-                disabled={isPending || localChapter >= latestChapter}
+                disabled={isPending || (latestChapter > 0 && localChapter >= latestChapter)}
               >
                 <ChevronUp className="h-4 w-4" />
               </Button>
@@ -88,7 +89,7 @@ export function ProgressCard({
           <div className="flex items-center justify-between gap-3">
             <div className="text-sm font-medium text-amber-500">
               {unread > 0
-                ? `${unread} new chapters available`
+                ? `${formatUnreadCount(unread)} new chapters available`
                 : 'Caught up!'}
             </div>
 

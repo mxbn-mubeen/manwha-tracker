@@ -4,6 +4,7 @@ import { trpc } from '@/lib/trpc';
 import { Search, X, BookOpen } from 'lucide-react';
 import { getProxiedImageUrl } from '@/utils/image';
 import { search } from '@manhwa-tracker/utils';
+import { getUnreadCount, formatUnreadCount } from '@/lib/utils';
 
 interface GlobalSearchProps {
   open: boolean;
@@ -52,7 +53,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
   return (
     <div
       className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh]"
-      onClick={onClose}
+      onPointerDown={onClose}
     >
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
@@ -60,7 +61,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
       {/* Panel */}
       <div
         className="relative w-full max-w-2xl mx-4 bg-[#111213] border border-border/40 rounded-2xl shadow-2xl overflow-hidden"
-        onClick={e => e.stopPropagation()}
+        onPointerDown={e => e.stopPropagation()}
       >
         {/* Search input */}
         <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border/30">
@@ -89,7 +90,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {results.map(m => {
-              const behind = (m.progress?.latestChapter ?? 0) - (m.progress?.lastChapter ?? 0);
+              const behind = getUnreadCount(m.progress?.latestChapter, m.progress?.lastChapter);
               return (
                 <li key={m.id}>
                   <button
@@ -114,7 +115,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
                       <p className="text-xs text-zinc-600 mt-0.5">
                         Ch. {m.progress?.lastChapter ?? 0} / {m.progress?.latestChapter ?? '?'}
                         {behind > 0 && (
-                          <span className="ml-2 text-amber-500">+{behind} unread</span>
+                          <span className="ml-2 text-amber-500">+{formatUnreadCount(behind)} unread</span>
                         )}
                       </p>
                     </div>

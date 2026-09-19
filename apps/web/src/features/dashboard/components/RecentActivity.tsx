@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { getProxiedImageUrl } from '../../../utils/image';
 import { Badge } from '@/components/ui/badge';
 import { Clock } from 'lucide-react';
+import { getUnreadCount, formatUnreadCount } from '@/lib/utils';
 import { formatTimeAgo } from '@manhwa-tracker/utils';
 import type { RouterOutputs } from '@/lib/trpc';
 
@@ -44,7 +45,7 @@ export function RecentActivity({ manhwas }: RecentActivityProps) {
 
       <Card className="divide-y divide-border/50 bg-card overflow-hidden">
         {manhwas.map((m) => {
-          const unread = (m.progress?.latestChapter ?? 0) - (m.progress?.lastChapter ?? 0);
+          const unread = getUnreadCount(m.progress?.latestChapter, m.progress?.lastChapter);
           return (
             <Link
               to={`/manhwa/${m.id}`}
@@ -61,7 +62,7 @@ export function RecentActivity({ manhwas }: RecentActivityProps) {
               <div className="flex items-center gap-3 shrink-0">
                 {unread > 0 && (
                   <Badge variant="outline" className="text-amber-500 border-amber-500/30 bg-amber-500/10 hidden sm:inline-flex">
-                    +{unread} new
+                    +{formatUnreadCount(unread)} new
                   </Badge>
                 )}
                 <div className="text-xs text-muted-foreground flex items-center gap-1">

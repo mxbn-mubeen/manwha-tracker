@@ -5,7 +5,7 @@ export interface CadenceInfo {
   isIrregular: boolean;
   isOverdue: boolean;
   nextExpectedTime: number | null;
-  hasNewChapterToday: boolean;
+  lastPublishedAt: string | null;
 }
 
 export interface Manhwa {
