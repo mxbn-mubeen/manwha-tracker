@@ -39,4 +39,28 @@ export const settingsRouter = createTRPCRouter({
       return { ok: true };
     }),
 
+  // ── Telegram in-app login flow (handled by worker via splitLink) ──
+  startTelegramLogin: publicProcedure
+    .input(z.object({ phone: z.string().min(7) }))
+    .mutation(async (): Promise<{ tempId: string }> => {
+      throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Handled by worker' });
+    }),
+
+  verifyTelegramCode: publicProcedure
+    .input(z.object({
+      tempId: z.string(),
+      code: z.string().min(4).max(8),
+      password: z.string().optional(),
+    }))
+    .mutation(async (): Promise<{ ok: boolean; needs2FA: boolean; tempId?: string }> => {
+      throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Handled by worker' });
+    }),
+
+  telegramStatus: publicProcedure.query(async (): Promise<{ source: 'database' | 'env' | 'none'; connected: boolean; phone: string | null }> => {
+    throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Handled by worker' });
+  }),
+
+  disconnectTelegram: publicProcedure.mutation(async (): Promise<{ ok: boolean }> => {
+    throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Handled by worker' });
+  }),
 });

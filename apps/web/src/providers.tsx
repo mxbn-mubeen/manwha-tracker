@@ -21,7 +21,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
       links: [
         splitLink({
           condition(op) {
-            return op.path === 'sync.run';
+            return (
+              op.path === 'sync.run' ||
+              op.path === 'settings.startTelegramLogin' ||
+              op.path === 'settings.verifyTelegramCode' ||
+              op.path === 'settings.telegramStatus' ||
+              op.path === 'settings.disconnectTelegram'
+            );
           },
           true: httpBatchLink({
             url: `${SYNC_URL}/trpc`,
