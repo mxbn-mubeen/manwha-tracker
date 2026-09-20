@@ -61,76 +61,74 @@ let reconcileInFlight = false;
 async function reconcileChannel(
   client: TelegramClient,
   entityId: string,
-  mapped: ChannelMapEntry,
+  // firstEntry is used to build the InputPeer (accessHash / entityType)
+  firstEntry: ChannelMapEntry,
+  allEntries: ChannelMapEntry[],
   readPointer: number | undefined,
 ) {
-  const inputPeer = buildInputPeer(entityId, mapped);
+  const inputPeer = buildInputPeer(entityId, firstEntry);
   if (!inputPeer) return; // no accessHash cached yet — same self-heal path as handleReadUpdate
 
-  // 1. Backfill catalogue: pull recent messages, insert anything missing.
+  // 1. Fetch messages once for the whole channel
   const messages = await client.getMessages(inputPeer, {
     limit: MESSAGES_PER_CHANNEL,
   });
-  let backfilled = 0;
-  for (const msg of messages) {
-    const result = await catalogueMessage(mapped, entityId, msg as Api.Message);
-    if (result?.saved) backfilled++;
-  }
 
-  // 2. Backfill progress: re-derive from the *current* read pointer, independent
-  // of whether the UpdateReadChannelInbox event for it ever reached us.
-  // If the read pointer is older than the most-recent window we fetched
-  // above, fetch the window anchored at the read pointer (maxId: readPointer+1)
-  // and scan it for the highest message that resolves to a chapter. This
-  // mirrors the approach used by `handleReadUpdate` and avoids missing
-  // progress after long downtimes or high-traffic channels.
-  if (readPointer !== undefined) {
-    const pointerMessages = await client.getMessages(inputPeer, {
-      limit: MESSAGES_PER_CHANNEL,
-      maxId: readPointer + 1,
-    });
-
-    // Choose the message closest to the read pointer (highest id <= readPointer)
-    // that yields a chapter number when catalogued.
-    let candidate: { id: number; chapterNum: number } | null = null;
-    for (const msg of pointerMessages) {
-      const msgId = (msg as any).id as number | undefined;
-      if (typeof msgId !== "number" || msgId > readPointer) continue;
-
-      const chapterNum =
-        (await catalogueMessage(mapped, entityId, msg as Api.Message))
-          ?.chapterNum ?? null;
-      if (chapterNum !== null) {
-        if (!candidate || msgId > candidate.id) {
-          candidate = { id: msgId, chapterNum };
-        }
-      }
+  // 2. Backfill catalogue + progress for every manhwa mapped to this channel
+  for (const mapped of allEntries) {
+    let backfilled = 0;
+    for (const msg of messages) {
+      const result = await catalogueMessage(mapped, entityId, msg as Api.Message);
+      if (result?.saved) backfilled++;
     }
 
-    if (candidate) {
-      const chapterRow = await repo.findChapter(
-        mapped.manhwaId,
-        candidate.chapterNum,
-      );
-      if (chapterRow) {
-        const advanced = await repo.markAsReadIfNewer(
+    // Backfill progress from the read pointer window
+    if (readPointer !== undefined) {
+      const pointerMessages = await client.getMessages(inputPeer, {
+        limit: MESSAGES_PER_CHANNEL,
+        maxId: readPointer + 1,
+      });
+
+      let candidate: { id: number; chapterNum: number } | null = null;
+      for (const msg of pointerMessages) {
+        const msgId = (msg as any).id as number | undefined;
+        if (typeof msgId !== "number" || msgId > readPointer) continue;
+
+        const chapterNum =
+          (await catalogueMessage(mapped, entityId, msg as Api.Message))
+            ?.chapterNum ?? null;
+        if (chapterNum !== null) {
+          if (!candidate || msgId > candidate.id) {
+            candidate = { id: msgId, chapterNum };
+          }
+        }
+      }
+
+      if (candidate) {
+        const chapterRow = await repo.findChapter(
           mapped.manhwaId,
-          chapterRow.id,
           candidate.chapterNum,
         );
-        if (advanced) {
-          console.log(
-            `🔁 ${mapped.manhwaTitle} | Ch.${candidate.chapterNum} | reconcile ✅ advanced progress (missed live event)`,
+        if (chapterRow) {
+          const advanced = await repo.markAsReadIfNewer(
+            mapped.manhwaId,
+            chapterRow.id,
+            candidate.chapterNum,
           );
+          if (advanced) {
+            console.log(
+              `🔁 ${mapped.manhwaTitle} | Ch.${candidate.chapterNum} | reconcile ✅ advanced progress (missed live event)`,
+            );
+          }
         }
       }
     }
-  }
 
-  if (backfilled > 0) {
-    console.log(
-      `🔁 ${mapped.manhwaTitle} | reconcile backfilled ${backfilled} chapter(s) from recent history`,
-    );
+    if (backfilled > 0) {
+      console.log(
+        `🔁 ${mapped.manhwaTitle} | reconcile backfilled ${backfilled} chapter(s) from recent history`,
+      );
+    }
   }
 }
 
@@ -151,12 +149,17 @@ export async function reconcileAll(client: TelegramClient) {
     );
     const readPointers = await buildReadPointerMap(client);
 
-    for (const [entityId, mapped] of channelMap.entries()) {
+    for (const [entityId, entries] of channelMap.entries()) {
+      // reconcileChannel fetches messages once per entity; then per-manhwa work
+      // happens inside. We call once per unique entityId.
+      const firstEntry = entries[0];
+      if (!firstEntry) continue;
       try {
         await reconcileChannel(
           client,
           entityId,
-          mapped,
+          firstEntry,
+          entries,
           readPointers.get(entityId),
         );
       } catch (err) {
@@ -166,7 +169,7 @@ export async function reconcileAll(client: TelegramClient) {
           return;
         }
         console.error(
-          `[watcher] reconcile: failed for ${mapped.manhwaTitle}:`,
+          `[watcher] reconcile: failed for entityId=${entityId}:`,
           err instanceof Error ? err.message : String(err),
         );
       }

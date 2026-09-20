@@ -64,13 +64,14 @@ export function EditManhwaModal({
   });
 
   const handleUpdate = () => {
+    if (updateMutation.isPending) return;
     const parsedTags = editGenres.split(",").map((t) => t.trim()).filter(Boolean);
     updateMutation.mutate({
       id: manhwaId,
       title: editTitle,
       description: editDescription,
       coverUrl: editCoverUrl,
-      genres: parsedTags.length > 0 ? parsedTags : undefined,
+      genres: parsedTags,
     });
   };
 
@@ -93,11 +94,11 @@ export function EditManhwaModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="edit-modal-title"
-      onClick={onClose}
+      onPointerDown={onClose}
     >
       <Card
         className="bg-[#161719] border-border/30 p-6 rounded-2xl w-full max-w-md shadow-2xl overflow-y-auto max-h-[90vh]"
-        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         <h2 id="edit-modal-title" className="text-xl font-bold text-white mb-4">
           Edit Manhwa

@@ -121,91 +121,88 @@ export async function handleNewMessage(event: NewMessageEvent) {
   const chatId = message.chatId?.toString();
   if (!chatId) return;
 
-  const mapped = channelMap.get(chatId);
-  if (!mapped) return; // not a tracked channel
+  const entries = channelMap.get(chatId);
+  if (!entries || entries.length === 0) return; // not a tracked channel
 
-  // Unlike handleReadUpdate's call sites (which are always wrapped in
-  // .catch() by the caller), this function is registered directly as a
-  // GramJS event handler with no wrapper around it. A single failed DB
-  // write here (Neon hiccup, pool exhaustion, etc.) becomes an unhandled
-  // promise rejection, and Node's default since v15 is to crash the whole
-  // process on that — taking the Express server, bot poller, and every
-  // other tracked channel down with it over one bad message. Catch and log
-  // instead so a transient failure on one message can't kill the watcher.
-  try {
-    await catalogueMessage(mapped, chatId, message);
-  } catch (err) {
-    console.error(
-      `[watcher] catalogueMessage failed for ${mapped.manhwaTitle} (chat=${chatId}, msg=${message.id}):`,
-      err instanceof Error ? err.message : String(err),
-    );
+  for (const mapped of entries) {
+    try {
+      await catalogueMessage(mapped, chatId, message);
+    } catch (err) {
+      console.error(
+        `[watcher] catalogueMessage failed for ${mapped.manhwaTitle} (chat=${chatId}, msg=${message.id}):`,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
   }
 }
 
 /** Step 2: the user's read-pointer moved in a tracked channel -> advance progress. */
 export async function handleReadUpdate(client: TelegramClient, chatId: string, maxId: number) {
-  const mapped = channelMap.get(chatId);
-  if (!mapped) return;
+  const entries = channelMap.get(chatId);
+  if (!entries || entries.length === 0) return;
 
+  // Use first entry's accessHash/entityType to build the peer (they share the same channel)
+  const firstEntry = entries[0];
+  if (!firstEntry) return; // shouldn't happen if entries.length > 0 check above passed
+
+  let messages: Api.Message[];
   try {
-    const inputPeer = buildInputPeer(chatId, mapped);
+    const inputPeer = buildInputPeer(chatId, firstEntry);
     if (!inputPeer) {
-      // Known channel, but we don't have its accessHash yet (e.g. added via the bot
-      // and dialogs scan hasn't found it). It'll self-heal once resolveAccessHashViaDialogs
-      // picks it up on a later remap — nothing to do here but wait.
-      console.warn(`[watcher] Skipping read-update for ${mapped.manhwaTitle}: no accessHash cached yet for entity ${chatId}.`);
+      console.warn(`[watcher] Skipping read-update for chat ${chatId}: no accessHash cached yet.`);
       return;
     }
-
-    // Fetch the message at the new read pointer (and a small window before it,
-    // in case several messages were read at once) to find the highest chapter number.
-    const messages = await client.getMessages(inputPeer, { maxId: maxId + 1, limit: 10 });
-
-    let chapterNum: number | null = null;
-    let targetMessage: Api.Message | null = null;
-
-    for (const msg of messages) {
-      const num = extractChapterFromMessage(msg as Api.Message, mapped.manhwaTitle);
-      if (num !== null) {
-        chapterNum = num;
-        targetMessage = msg as Api.Message;
-        break;
-      }
-    }
-
-    if (chapterNum === null || !targetMessage) {
-      console.log(`📖 ${mapped.manhwaTitle} | chat=${chatId} | msg≤${maxId} | ⚠️ No chapter number found, progress unchanged`);
-      return;
-    }
-
-    let chapterRow = await repo.findChapter(mapped.manhwaId, chapterNum);
-    if (!chapterRow) {
-      // Catalogue it if NewMessage somehow missed it (e.g. watcher was offline when it was posted)
-      chapterRow = await repo.insertChapter({
-        manhwaId: mapped.manhwaId,
-        sourceId: mapped.sourceId,
-        chapterNum,
-        title: targetMessage.message || `Chapter ${chapterNum}`,
-        url: null,
-        publishedAt: targetMessage.date ? new Date(targetMessage.date * 1000) : null,
-      });
-    }
-    if (!chapterRow) return;
-
-    const advanced = await repo.markAsReadIfNewer(mapped.manhwaId, chapterRow.id, chapterNum);
-
-    // Structured, single-line log — easy to grep/scan in Railway/Vercel logs.
-    console.log(
-      `📖 ${mapped.manhwaTitle} | Ch.${chapterNum} | chat=${chatId} | msg=${targetMessage.id} | ` +
-      (advanced ? '✅ Matched' : '⏭️ Not newer, skipped'),
-    );
+    messages = await client.getMessages(inputPeer, { maxId: maxId + 1, limit: 10 }) as Api.Message[];
   } catch (err) {
     const deathMarker = isSessionDeathError(err);
-    if (deathMarker) {
-      handleSessionDeath(deathMarker);
-      return;
+    if (deathMarker) { handleSessionDeath(deathMarker); return; }
+    console.error(`[watcher] Failed to fetch messages for read-update (chat=${chatId}):`, err instanceof Error ? err.message : String(err));
+    return;
+  }
+
+  // For each manhwa mapped to this channel, find the highest chapter in the fetched window.
+  for (const mapped of entries) {
+    try {
+      let chapterNum: number | null = null;
+      let targetMessage: Api.Message | null = null;
+
+      for (const msg of messages) {
+        const num = extractChapterFromMessage(msg as Api.Message, mapped.manhwaTitle);
+        if (num !== null) {
+          chapterNum = num;
+          targetMessage = msg as Api.Message;
+          break;
+        }
+      }
+
+      if (chapterNum === null || !targetMessage) {
+        console.log(`📖 ${mapped.manhwaTitle} | chat=${chatId} | msg≤${maxId} | ⚠️ No chapter number found, progress unchanged`);
+        continue;
+      }
+
+      let chapterRow = await repo.findChapter(mapped.manhwaId, chapterNum);
+      if (!chapterRow) {
+        chapterRow = await repo.insertChapter({
+          manhwaId: mapped.manhwaId,
+          sourceId: mapped.sourceId,
+          chapterNum,
+          title: targetMessage.message || `Chapter ${chapterNum}`,
+          url: null,
+          publishedAt: targetMessage.date ? new Date(targetMessage.date * 1000) : null,
+        });
+      }
+      if (!chapterRow) continue;
+
+      const advanced = await repo.markAsReadIfNewer(mapped.manhwaId, chapterRow.id, chapterNum);
+      console.log(
+        `📖 ${mapped.manhwaTitle} | Ch.${chapterNum} | chat=${chatId} | msg=${targetMessage.id} | ` +
+        (advanced ? '✅ Matched' : '⏭️ Not newer, skipped'),
+      );
+    } catch (err) {
+      const deathMarker = isSessionDeathError(err);
+      if (deathMarker) { handleSessionDeath(deathMarker); return; }
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[watcher] Failed to process read-update for ${mapped.manhwaTitle}: ${message}`);
     }
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[watcher] Failed to process read-update for ${mapped.manhwaTitle}: ${message}`);
   }
 }

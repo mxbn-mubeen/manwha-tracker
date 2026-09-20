@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { trpc } from '@/lib/trpc';
 import { BookOpen } from 'lucide-react';
 import { getProxiedImageUrl } from '@/utils/image';
+import { getUnreadCount, formatUnreadCount } from '@/lib/utils';
 
 interface UnreadManhwaStripProps {
   currentManhwaId: number;
@@ -20,14 +21,12 @@ export function UnreadManhwaStrip({ currentManhwaId }: UnreadManhwaStripProps) {
   const unread = (all ?? [])
     .filter(m => {
       if (m.id === currentManhwaId) return false;
-      const latest = m.progress?.latestChapter ?? 0;
-      const last   = m.progress?.lastChapter   ?? 0;
-      return latest > last;
+      return getUnreadCount(m.progress?.latestChapter, m.progress?.lastChapter) > 0;
     })
     .sort((a, b) => {
       // Sort by most chapters behind (biggest gap first)
-      const gapA = (a.progress?.latestChapter ?? 0) - (a.progress?.lastChapter ?? 0);
-      const gapB = (b.progress?.latestChapter ?? 0) - (b.progress?.lastChapter ?? 0);
+      const gapA = getUnreadCount(a.progress?.latestChapter, a.progress?.lastChapter);
+      const gapB = getUnreadCount(b.progress?.latestChapter, b.progress?.lastChapter);
       return gapB - gapA;
     });
 

@@ -39,4 +39,41 @@ export class SettingsRepository {
   async delete(key: string): Promise<void> {
     await db.delete(settings).where(eq(settings.key, key));
   }
+
+  /**
+   * Compare-and-swap atomic lock acquisition.
+   * Succeeds if the row doesn't exist, is currently set to "false", or is older than staleMs.
+   */
+  async claimLock(key: string, ownerToken: string, staleMs: number): Promise<boolean> {
+    const { sql } = await import('drizzle-orm');
+    const staleDate = new Date(Date.now() - staleMs);
+    // In Drizzle/pg, a string inserted into a jsonb column gets serialized as a JSON string (e.g. '"false"').
+    // We check against both the JSON string '"false"' and a literal boolean just in case.
+    const res = await db.execute(sql`
+      INSERT INTO ${settings} ("key", "value", "updated_at")
+      VALUES (${key}, ${JSON.stringify(ownerToken)}::jsonb, NOW())
+      ON CONFLICT ("key") DO UPDATE
+      SET "value" = ${JSON.stringify(ownerToken)}::jsonb, "updated_at" = NOW()
+      WHERE ${settings.value} = '"false"'::jsonb 
+         OR ${settings.value} = 'false'::jsonb 
+         OR ${settings.updatedAt} < ${staleDate}
+      RETURNING id
+    `);
+    return res.rowCount !== undefined ? res.rowCount > 0 : (res as any).length > 0;
+  }
+
+  /**
+   * Atomic lock release — only clears the lock if the current value matches the ownerToken.
+   */
+  async releaseLock(key: string, ownerToken: string): Promise<boolean> {
+    const { and } = await import('drizzle-orm');
+    const res = await db.update(settings)
+      .set({ value: 'false' as unknown as Record<string, unknown>, updatedAt: new Date() })
+      .where(and(
+        eq(settings.key, key), 
+        eq(settings.value, ownerToken as unknown as Record<string, unknown>)
+      ))
+      .returning({ id: settings.id });
+    return res.length > 0;
+  }
 }

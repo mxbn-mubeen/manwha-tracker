@@ -197,8 +197,7 @@ export async function processManhwaSources(
     if (
       !forceFullCheck &&
       outcome.status === "success" &&
-      outcome.chaptersFound > 0 &&
-      Math.max(0, existingMax) <= outcome.chaptersFound
+      outcome.maxChapterNum > existingMax
     ) {
       break;
     }

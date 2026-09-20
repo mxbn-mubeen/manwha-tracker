@@ -26,7 +26,9 @@ export type ChannelMapEntry = {
   accessHash: string | null;
   entityType: 'channel' | 'chat' | 'user' | null;
 };
-export const channelMap = new Map<string, ChannelMapEntry>();
+// One channel may serve multiple manhwa (e.g. an anthology channel or a
+// channel that was re-used for a different series after the first ended).
+export const channelMap = new Map<string, ChannelMapEntry[]>();
 
 // Sources whose username resolution is currently flood-blocked, and when it's
 // safe to try again. Prevents the 5-minute remap interval from hammering
@@ -63,12 +65,14 @@ export async function buildChannelMap(client: TelegramClient) {
   const currentEntityIdBySourceId = new Map(
     telegramSources.filter((s) => s.telegramEntityId).map((s) => [s.sourceId, normalizeEntityId(s.telegramEntityId as string)]),
   );
-  for (const [entityId, mapped] of channelMap.entries()) {
-    const current = currentEntityIdBySourceId.get(mapped.sourceId);
+  for (const [entityId, entries] of channelMap.entries()) {
+    const firstEntry = entries[0];
+    if (!firstEntry) continue; // empty array — shouldn't happen, but guard it
+    const current = currentEntityIdBySourceId.get(firstEntry.sourceId);
     if (current && current !== entityId) {
       console.log(
         `🔄 Telegram Source Updated\n\n` +
-        `📚 ${mapped.manhwaTitle}\n\n` +
+        `📚 ${firstEntry.manhwaTitle}\n\n` +
         `Old Chat ID\n${entityId}\n\n` +
         `New Chat ID\n${current}\n\n` +
         `✅ Removed stale mapping from watcher`,
@@ -126,17 +130,28 @@ export async function buildChannelMap(client: TelegramClient) {
         }
       }
 
-      if (channelMap.has(entityId) && channelMap.get(entityId)!.manhwaId !== source.manhwaId) {
-        console.warn(`[watcher] COLLISION: telegramEntityId ${entityId} is linked to manhwa ${source.manhwaId} but was already mapped to ${channelMap.get(entityId)!.manhwaId}. The latter will be overwritten.`);
+      if (channelMap.has(entityId)) {
+        // Allow multiple manhwa per channel. Just check for exact sourceId duplicates.
+        const existing = channelMap.get(entityId)!;
+        const alreadyMapped = existing.some(e => e.sourceId === source.sourceId);
+        if (!alreadyMapped) {
+          existing.push({
+            manhwaId: source.manhwaId,
+            sourceId: source.sourceId,
+            manhwaTitle: source.manhwaTitle,
+            accessHash,
+            entityType,
+          });
+        }
+      } else {
+        channelMap.set(entityId, [{
+          manhwaId: source.manhwaId,
+          sourceId: source.sourceId,
+          manhwaTitle: source.manhwaTitle,
+          accessHash,
+          entityType,
+        }]);
       }
-
-      channelMap.set(entityId, {
-        manhwaId: source.manhwaId,
-        sourceId: source.sourceId,
-        manhwaTitle: source.manhwaTitle,
-        accessHash,
-        entityType,
-      });
       floodBlockedUntil.delete(source.sourceId);
     } catch (err: any) {
       const deathMarker = isSessionDeathError(err);
@@ -167,9 +182,15 @@ export async function buildChannelMap(client: TelegramClient) {
   // Drop entries for sources that were deactivated/deleted since the last build
   // (they're no longer in telegramSources at all — distinct from a source
   // that's merely flood-blocked, which stays mapped from its last good resolve).
-  for (const [entityId, mapped] of channelMap.entries()) {
-    if (!activeSourceIds.has(mapped.sourceId)) {
+  for (const [entityId, entries] of channelMap.entries()) {
+    // If ALL entries for this entityId belong to inactive sources, remove it entirely.
+    const hasAnyActive = entries.some(e => activeSourceIds.has(e.sourceId));
+    if (!hasAnyActive) {
       channelMap.delete(entityId);
+    } else {
+      // Prune just the inactive entries within a still-active channel.
+      const filtered = entries.filter(e => activeSourceIds.has(e.sourceId));
+      channelMap.set(entityId, filtered);
     }
   }
 

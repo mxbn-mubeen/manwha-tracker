@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom"
-import { RefreshCw, Plus, Settings, History, Search, Globe, BarChart3, ChevronDown } from "lucide-react"
+import { RefreshCw, Plus, Settings, History, Search, Globe, BarChart3, ChevronDown, Library } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { trpc } from "@/lib/trpc"
@@ -13,6 +13,7 @@ export function Navbar() {
 
   const [historyOpen, setHistoryOpen] = useState(false)
   const [searchOpen, setSearchOpen]   = useState(false)
+  const [menuCoords, setMenuCoords] = useState<{top: number, right: number} | null>(null)
 
   // Cmd+K / Ctrl+K opens global search
   useEffect(() => {
@@ -69,13 +70,11 @@ export function Navbar() {
   const handleSync = (forceFullRefresh: boolean = false) => {
     if (syncMutation.isPending || serverIsSyncing) return;
     syncMutation.mutate({ scope: "all", forceFullRefresh })
-    setSyncMenuOpen(false);
+    setMenuCoords(null);
   };
 
-  const [syncMenuOpen, setSyncMenuOpen] = useState(false);
-
   const { data: serverIsSyncing = false } = trpc.sync.isSyncing.useQuery(undefined, {
-    refetchInterval: 2000,
+    refetchInterval: (query) => query.state.data ? 2000 : 30000,
   });
 
   const { data: syncProgress } = trpc.sync.getProgress.useQuery(undefined, {
@@ -88,8 +87,8 @@ export function Navbar() {
   return (
     <>
       <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="max-w-7xl mx-auto flex h-16 items-center px-4 sm:px-6 lg:px-8 justify-between gap-2">
-          <div className="flex items-center gap-3 sm:gap-6 shrink-0">
+        <div className="max-w-7xl mx-auto flex h-16 items-center px-2 sm:px-6 lg:px-8 justify-between gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <div className="flex items-center gap-2 sm:gap-6 shrink-0">
             <Link to="/dashboard" className="flex items-center gap-2 shrink-0">
               <div className="bg-amber-500 text-amber-950 font-bold h-8 w-8 flex items-center justify-center rounded-md shrink-0">
                 M
@@ -117,7 +116,7 @@ export function Navbar() {
                 className={`transition-colors hover:text-foreground shrink-0 ${location.pathname === '/library' ? 'text-foreground bg-white/5 px-2 sm:px-3 py-1.5 rounded-md' : 'px-2 sm:px-3 py-1.5'}`}
               >
                 <div className="flex items-center gap-2">
-                  <span className="shrink-0">|\</span>
+                  <Library className="w-4 h-4 shrink-0" />
                   <span className="hidden sm:inline">Library</span>
                 </div>
               </Link>
@@ -165,10 +164,6 @@ export function Navbar() {
 
             <div
               className="relative flex shrink-0"
-              tabIndex={-1}
-              onBlur={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget as Node)) setSyncMenuOpen(false);
-              }}
             >
               <Button
                 variant="ghost"
@@ -191,23 +186,39 @@ export function Navbar() {
                 variant="ghost"
                 size="icon"
                 className="h-9 w-6 rounded-l-none border-l border-border/30 shrink-0"
-                onClick={() => setSyncMenuOpen((o) => !o)}
+                onClick={(e) => {
+                  if (menuCoords) {
+                    setMenuCoords(null);
+                  } else {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setMenuCoords({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                  }
+                }}
                 disabled={isSyncing}
                 aria-label="More sync options"
               >
                 <ChevronDown className="h-3 w-3" />
               </Button>
-              {syncMenuOpen && (
-                <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border border-border/30 bg-[#161719] shadow-lg z-[200] py-1">
-                  <button
-                    onClick={() => handleSync(true)}
-                    disabled={isSyncing}
-                    className="w-full text-left px-3 py-2 text-sm text-zinc-300 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
+              {menuCoords && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-[190]" 
+                    onClick={() => setMenuCoords(null)} 
+                  />
+                  <div 
+                    className="fixed w-56 rounded-lg border border-border/30 bg-[#161719] shadow-lg z-[200] py-1"
+                    style={{ top: menuCoords.top, right: menuCoords.right }}
                   >
-                    <div className="font-medium">🔄 Full Refresh</div>
-                    <div className="text-xs text-zinc-500 mt-0.5">Bypasses cadence — checks every source</div>
-                  </button>
-                </div>
+                    <button
+                      onClick={() => handleSync(true)}
+                      disabled={isSyncing}
+                      className="w-full text-left px-3 py-2 text-sm text-zinc-300 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <div className="font-medium">🔄 Full Refresh</div>
+                      <div className="text-xs text-zinc-500 mt-0.5">Bypasses cadence — checks every source</div>
+                    </button>
+                  </div>
+                </>
               )}
             </div>
 

@@ -27,8 +27,8 @@ export function ManhwaDetailPage() {
   const [localChapter, setLocalChapter] = useState(0);
 
   useEffect(() => {
-    if (manhwa?.progress?.lastChapter) {
-      setLocalChapter(manhwa.progress.lastChapter);
+    if (manhwa) {
+      setLocalChapter(manhwa.progress?.lastChapter ?? 0);
     }
   }, [manhwa]);
 

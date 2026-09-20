@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { cn } from "@/lib/utils";
+import { cn, getUnreadCount, formatUnreadCount } from "@/lib/utils";
 import { getProxiedImageUrl } from "@/utils/image";
 import { Badge } from '@/components/ui/badge';
 import type { RouterOutputs } from '@/lib/trpc';
@@ -13,7 +13,7 @@ export function ManhwaCard({ manhwa }: { manhwa: Manhwa }) {
   useEffect(() => {
     setImgFailed(false);
   }, [manhwa.coverUrl]);
-  const unread = (manhwa.progress?.latestChapter ?? 0) - (manhwa.progress?.lastChapter ?? 0);
+  const unread = getUnreadCount(manhwa.progress?.latestChapter, manhwa.progress?.lastChapter);
   const progressPercent = Math.min(
     100,
     Math.max(
@@ -45,7 +45,7 @@ export function ManhwaCard({ manhwa }: { manhwa: Manhwa }) {
       {unread > 0 && (
         <div className="absolute top-2 right-2">
           <Badge className="bg-amber-500 text-amber-950 font-bold border-none hover:bg-amber-500/90 shadow-md">
-            +{unread}
+            +{formatUnreadCount(unread)}
           </Badge>
         </div>
       )}

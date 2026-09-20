@@ -1,5 +1,6 @@
 import { trpc } from '@/lib/trpc';
 import { usePageTitle } from '@/lib/usePageTitle';
+import { formatUnreadCount } from '@/lib/utils';
 import { 
   BarChart3, 
   BookOpen, 
@@ -59,7 +60,7 @@ export function StatsPage() {
             <BookOpen className="h-16 w-16" />
           </div>
           <p className="text-sm font-medium text-zinc-400">Unread Chapters</p>
-          <p className="text-4xl font-bold text-amber-500">{totalUnreadChapters.toLocaleString()}</p>
+          <p className="text-4xl font-bold text-amber-500">{formatUnreadCount(totalUnreadChapters)}</p>
         </div>
       </div>
 

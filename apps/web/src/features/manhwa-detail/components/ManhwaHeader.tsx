@@ -10,7 +10,7 @@ export interface CadenceInfo {
   isIrregular: boolean;
   isOverdue: boolean;
   nextExpectedTime: number | null;
-  hasNewChapterToday: boolean;
+  lastPublishedAt: string | null;
 }
 
 interface ManhwaHeaderProps {
@@ -34,7 +34,10 @@ export function ManhwaHeader({ id, title, status, genres, description, latestCha
   const utils = trpc.useUtils();
 
   const updateStatusMutation = trpc.manhwa.updateStatus.useMutation({
-    onSuccess: () => utils.manhwa.getById.invalidate(id),
+    onSuccess: () => {
+      utils.manhwa.getById.invalidate(id);
+      utils.manhwa.getAll.invalidate();
+    },
     onError: (err) => toast.error(err.message || 'Failed to update status'),
   });
 

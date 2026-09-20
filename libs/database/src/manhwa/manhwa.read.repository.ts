@@ -35,13 +35,8 @@ export class ManhwaReadRepository {
           FROM chapters c
           WHERE c.manhwa_id = ${manhwa.id}
         )`.as('latestChapterNum'),
-        // last read chapter num (via progress -> chapters join)
-        lastReadChapterNum: sql<number>`(
-          SELECT c2.chapter_num
-          FROM chapters c2
-          WHERE c2.id = ${progress.chapterId}
-          LIMIT 1
-        )`.as('lastReadChapterNum'),
+        // last read chapter num — read from the denormalized column (Phase 1b)
+        lastReadChapterNum: progress.lastReadChapterNum,
         // first source url for display in library cards
         sourceUrl: sources.url,
         sourceType: sources.type,
@@ -52,34 +47,43 @@ export class ManhwaReadRepository {
       .where(sql`${manhwa.deletedAt} IS NULL`)
       .orderBy(desc(manhwa.updatedAt));
 
-    // Deduplicate: a manhwa may have multiple sources, take first
-    const seen = new Set<number>();
-    return rows
-      .filter(r => { if (seen.has(r.id)) return false; seen.add(r.id); return true; })
-      .map(r => ({
-        id: r.id,
-        slug: r.slug,
-        title: r.title,
-        coverUrl: r.coverUrl,
-        status: r.status,
-        genres: r.genres,
-        description: r.description,
-        createdAt: r.createdAt,
-        updatedAt: r.updatedAt,
-        progress: r.progressId ? {
-          id: r.progressId,
-          lastChapter: r.lastReadChapterNum ?? 0,
-          latestChapter: r.latestChapterNum ?? 0,
-          isCompleted: r.progressIsCompleted,
-          lastReadAt: r.progressLastReadAt,
-        } : {
-          lastChapter: 0,
-          latestChapter: r.latestChapterNum ?? 0,
-          isCompleted: false,
-          lastReadAt: null,
-        },
-        sources: r.sourceUrl ? [{ url: r.sourceUrl, type: r.sourceType }] : [],
-      }));
+    // Group by manhwa ID to collect all sources without fanning out rows
+    const grouped = new Map<number, any>();
+    
+    for (const r of rows) {
+      if (!grouped.has(r.id)) {
+        grouped.set(r.id, {
+          id: r.id,
+          slug: r.slug,
+          title: r.title,
+          coverUrl: r.coverUrl,
+          status: r.status,
+          genres: r.genres,
+          description: r.description,
+          createdAt: r.createdAt,
+          updatedAt: r.updatedAt,
+          progress: r.progressId ? {
+            id: r.progressId,
+            lastChapter: r.lastReadChapterNum ?? 0,
+            latestChapter: r.latestChapterNum ?? 0,
+            isCompleted: r.progressIsCompleted,
+            lastReadAt: r.progressLastReadAt,
+          } : {
+            lastChapter: 0,
+            latestChapter: r.latestChapterNum ?? 0,
+            isCompleted: false,
+            lastReadAt: null,
+          },
+          sources: []
+        });
+      }
+      const entry = grouped.get(r.id);
+      if (r.sourceUrl && !entry.sources.some((s: any) => s.url === r.sourceUrl)) {
+        entry.sources.push({ url: r.sourceUrl, type: r.sourceType });
+      }
+    }
+
+    return Array.from(grouped.values());
   }
 
   async getById(id: number) {
@@ -103,12 +107,8 @@ export class ManhwaReadRepository {
           FROM chapters c
           WHERE c.manhwa_id = ${manhwa.id}
         )`.as('latestChapterNum'),
-        lastReadChapterNum: sql<number>`(
-          SELECT c2.chapter_num
-          FROM chapters c2
-          WHERE c2.id = ${progress.chapterId}
-          LIMIT 1
-        )`.as('lastReadChapterNum'),
+        // last read chapter num — read from the denormalized column (Phase 1b)
+        lastReadChapterNum: progress.lastReadChapterNum,
         sourceUrl: sources.url,
         sourceType: sources.type,
       })
@@ -189,22 +189,20 @@ export class ManhwaReadRepository {
         .orderBy(desc(chapters.chapterNum))
         .limit(10);
       
-      const dates = chapterDates.map(r => r.publishedAt ?? r.discoveredAt).reverse() as Date[];
+      const dates = chapterDates
+        .map(r => r.publishedAt ?? r.discoveredAt)
+        .filter((d): d is Date => d != null)
+        .reverse();
       const decision = evaluateCadence(dates);
       
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const hasNewChapterToday = chapterDates.some(r => {
-        const d = r.publishedAt ?? r.discoveredAt;
-        return d && new Date(d).setHours(0, 0, 0, 0) === today.getTime();
-      });
+      const lastPublishedAt = dates.at(0)?.toISOString() ?? null;
 
       result.cadenceInfo = {
         insufficientData: decision.insufficientData,
         isIrregular: decision.isIrregular,
         isOverdue: decision.isOverdue,
         nextExpectedTime: decision.nextExpectedTime,
-        hasNewChapterToday,
+        lastPublishedAt,
       };
     }
 

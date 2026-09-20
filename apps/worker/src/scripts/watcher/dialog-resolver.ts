@@ -48,14 +48,32 @@ export async function resolveAccessHashViaDialogs(client: TelegramClient) {
         hash,
         (src.telegramEntityType as 'channel' | 'chat' | 'user') ?? 'channel',
       );
-      // Also add it to the channelMap so we don’t need to wait for the next remap cycle.
-      channelMap.set(normalizedId, {
+      // Also update the channelMap in-process so we don't wait for the next remap cycle.
+      // channelMap now stores ChannelMapEntry[] per entity; upsert this source's entry.
+      // Note: manhwaId is always non-null on active telegram sources (enforced by schema),
+      // but the Drizzle inferred type is number|null for joined selects — guard it.
+      if (src.manhwaId == null) continue;
+      const newEntry = {
         manhwaId: src.manhwaId,
         sourceId: src.sourceId,
         manhwaTitle: '',  // title not needed for event matching
         accessHash: hash,
         entityType: (src.telegramEntityType as 'channel' | 'chat' | 'user') ?? 'channel',
-      });
+      };
+      const existing = channelMap.get(normalizedId);
+      if (existing) {
+        const idx = existing.findIndex(e => e.sourceId === src.sourceId);
+        if (idx >= 0) {
+          // Only update the accessHash field, keep all other fields from the existing entry.
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          const e = existing[idx]!;
+          existing[idx] = { manhwaId: e.manhwaId, sourceId: e.sourceId, manhwaTitle: e.manhwaTitle, accessHash: hash, entityType: e.entityType };
+        } else {
+          existing.push(newEntry);
+        }
+      } else {
+        channelMap.set(normalizedId, [newEntry]);
+      }
       console.log(`[watcher] Resolved accessHash for entity ${normalizedId} via dialogs.`);
     } else {
       console.warn(`[watcher] Entity ${normalizedId} not found in dialogs (not a member, or dialog list too short).`);

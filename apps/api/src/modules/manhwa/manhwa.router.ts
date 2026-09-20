@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { createTRPCRouter, publicProcedure } from '../../trpc';
 import { ManhwaService } from './manhwa.service';
 import { toSafeError } from '../../utils/trpc-error';
-
+import { isSafeUrl } from '@manhwa-tracker/parser';
 
 const service = new ManhwaService();
 
@@ -12,7 +12,7 @@ export const manhwaRouter = createTRPCRouter({
   }),
 
   addFromUrl: publicProcedure
-    .input(z.object({ url: z.string().url() }))
+    .input(z.object({ url: z.string().url().refine(isSafeUrl, { message: "Invalid or restricted URL hostname" }) }))
     .mutation(async ({ input }) => {
       try {
         return await service.addFromUrl(input.url);
@@ -141,6 +141,8 @@ export const manhwaRouter = createTRPCRouter({
       }
       if (data.type === 'website' && !data.url.startsWith('http')) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Website source must be a valid HTTP URL", path: ['url'] });
+      } else if (data.type === 'website' && !isSafeUrl(data.url)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid or restricted URL hostname", path: ['url'] });
       }
     }))
     .mutation(async ({ input }) => {

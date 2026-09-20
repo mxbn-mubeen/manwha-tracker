@@ -4,6 +4,7 @@ export type SourceOutcome = {
   manhwaTitle: string;
   status: 'success' | 'blocked' | 'error';
   chaptersFound: number;
+  maxChapterNum: number;
   newChapters: number;
   reason: string | null;
   durationMs: number;
@@ -42,19 +43,19 @@ export function describeSourceError(err: unknown): string {
   if (/cannot read propert|undefined is not|null is not/i.test(message)) {
     return "Site layout changed — couldn't find chapters.";
   }
-  return 'Failed to check for updates.';
+  return `Failed to check for updates: ${message}`;
 }
 
 /**
  * Formats milliseconds into a human-readable string: "800ms", "1.2s", "1m 5s"
  */
 export function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  const totalSeconds = Math.floor(ms / 1000);
-  if (totalSeconds < 60) return `${(ms / 1000).toFixed(1)}s`;
-  const m = Math.floor(totalSeconds / 60);
-  const s = totalSeconds % 60;
-  return `${m}m ${s}s`;
+  const seconds = Math.round(ms / 1000);
+  if (seconds === 0) return '<1s';
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return s === 0 ? `${m}m` : `${m}m ${s}s`;
 }
 
 /**
@@ -179,7 +180,7 @@ export function formatReleaseGaps(dated: { date: Date; chapterNum: number }[]): 
   for (let i = 1; i < dated.length; i++) {
     const curr = dated[i]!;
     const prev = dated[i - 1]!;
-    const ms = curr.date.getTime() - prev.date.getTime();
+    const ms = Math.abs(curr.date.getTime() - prev.date.getTime());
     const days = ms / (1000 * 60 * 60 * 24);
     const gap = days >= 1 ? `${Math.round(days)}d` : `${Math.round(ms / (1000 * 60 * 60))}h`;
     gaps.push(`ch${Math.round(curr.chapterNum)} ${gap}`);

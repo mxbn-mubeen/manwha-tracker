@@ -1,22 +1,20 @@
 # Manhwa Tracker
 
-A personal, single-user Manhwa/Manga reading tracker. Automatically monitors chapter releases from Telegram channels and websites, and tracks your reading progress hands-free.
+A personal, single-user Manhwa/Manga reading tracker. Automatically monitors chapter releases from Telegram channels and websites and tracks reading progress hands-free.
 
 ## Features
 
-- 📚 **Unified library** — 200+ manhwa titles in one place
-- 📖 **Auto reading progress** — opens a chapter in Telegram → last-read chapter updates automatically
-- 🔔 **New chapter detection** — Telegram watcher detects new chapter posts in real-time
-- 🌐 **Website sync** — scrapes AsuraScans, Reaper Scans, Webtoon, manhuaus.com, Arena Scans, Comix.to, Mgeko, RoliaScan, Thunder Scans, Ultimate of All Ages for latest chapters
-- 🛡️ **Cloudflare fallback chain** — FlareSolverr → Playwright headless browser; protected sites are retried automatically with each layer before failing
-- 🔍 **Global Search Engine** — unified client-side search across all UI components with fuzzy matching, tokenization, and ranked scoring.
-- 🔗 **Unified Sources page** — manage every website and Telegram source in one place with inline URL editing, domain-based filter chips, and adapter badges
-- 🔧 **Fix Adapter Keys** — one-click button to re-detect and correct stale adapter keys across all website sources
-- 🎨 **Dark theme** — sleek dark manhwa-focused UI built with Tailwind v4 + shadcn/ui
-- ➕ **Manual add** — add any manhwa manually with cover, genres, status, and chapter progress
-- 📊 **Stats Page** — dedicated dashboard for library insights, unread chapter counts, status charts, and source distribution
-- 📈 **Dashboard** — quick stats, Continue Reading (excludes completed), Recent Activity
-- ✅ **Completed manhwa filtering** — dashboard Continue Reading and Library Unread views automatically hide completed titles
+| | Feature |
+|--|---------|
+| 📚 | **Unified library** — 200+ manhwa titles in one place |
+| 📖 | **Auto reading progress** — open a chapter in Telegram → last-read chapter updates automatically |
+| 🔔 | **Real-time chapter detection** — Telegram watcher detects new chapter posts as they're posted |
+| 🌐 | **Website sync** — scrapes AsuraScans, Reaper Scans, Webtoon, manhuaus, Arena Scans, Comix.to, Mgeko, Thunder Scans, and more |
+| 🛡️ | **Cloudflare bypass** — FlareSolverr → Playwright fallback chain; protected sites are retried automatically |
+| 🔍 | **Global search** — fuzzy search with tokenization and ranked scoring across all UI components |
+| 🔗 | **Sources page** — manage every website and Telegram source with inline URL editing, domain filter chips, and adapter badges |
+| 🎨 | **Dark UI** — sleek dark theme built with Tailwind v4 + shadcn/ui |
+| 📊 | **Stats & Dashboard** — library insights, unread counts, status charts, cadence info, and Recent Activity |
 
 ## Tech Stack
 
@@ -25,468 +23,192 @@ A personal, single-user Manhwa/Manga reading tracker. Automatically monitors cha
 | Frontend | React 19 + Vite 5 (port 3000) |
 | Styling | Tailwind CSS v4 + shadcn/ui |
 | Language | TypeScript 5 |
-| Data Fetching | TanStack Query v5 + tRPC React hooks |
+| Data Fetching | TanStack Query v5 + tRPC v11 React hooks |
 | API Backend | Express 4 + tRPC v11 (port 3001 locally, Vercel Serverless in prod) |
-| ORM | Drizzle ORM (plain query builder — neon-http driver) |
-| Validation | Zod |
+| ORM | Drizzle ORM — neon-http driver |
 | Database | Neon PostgreSQL (serverless HTTP driver) |
 | Monorepo | PNPM Workspaces + TurboRepo |
 | Telegram Sync | teleproto (MTProto personal account) |
-| Scraping | Cheerio + FlareSolverr (for protected sites) |
-| Hosting | Vercel (frontend + fast API) + Render (background worker) |
+| Scraping | Cheerio + got-scraping + FlareSolverr + Playwright |
+| Hosting | Vercel (frontend + API) + Render (background worker) |
 
-> **Note:** State management is handled entirely by TanStack Query — no Redux.
+> State management is handled entirely by TanStack Query — no Redux.
 
 ## Project Structure
 
 ```
 manwha-tracker/
-├── .agents/
-│   └── brain/                Project brain files
-├── .github/
-│   └── workflows/
-│       ├── ci.yml            CI workflow
-│       ├── keep-alive.yml    Keeps Render worker alive
-│       └── sync-cron.yml     GitHub Actions cron for website sync
 ├── apps/
-│   ├── api/                  Express 4 + tRPC v11 — port 3001 (Vercel Serverless)
-│   │   ├── src/
-│   │   │   ├── modules/
-│   │   │   │   ├── manhwa/
-│   │   │   │   │   ├── manhwa.router.ts
-│   │   │   │   │   ├── manhwa.service.ts
-│   │   │   │   │   ├── progress.repository.ts
-│   │   │   │   │   └── sources.repository.ts
-│   │   │   │   ├── settings/
-│   │   │   │   │   ├── settings.router.ts
-│   │   │   │   │   └── telegram-auth.procedures.ts
-│   │   │   │   ├── stats/
-│   │   │   │   │   └── stats.router.ts
-│   │   │   │   ├── sync/
-│   │   │   │   │   ├── sync.router.ts
-│   │   │   │   │   └── sync.service.ts
-│   │   │   ├── routes/
-│   │   │   │   ├── health.ts
-│   │   │   │   └── proxy.ts          SSRF-protected image proxy
-│   │   │   ├── types/
-│   │   │   │   └── input.d.ts
-│   │   │   ├── utils/
-│   │   │   │   ├── telegram-client.ts
-│   │   │   │   └── trpc-error.ts
-│   │   │   ├── env.ts
-│   │   │   ├── root.ts
-│   │   │   ├── server.ts
-│   │   │   ├── trpc.ts
-│   │   │   └── vercel.ts
-│   │   ├── package.json
-│   │   ├── tsconfig.json
-│   │   └── vercel.json
-│   ├── web/                  Vite 5 + React 19 — port 3000
-│   │   ├── src/
-│   │   │   ├── components/
-│   │   │   │   ├── layout/
-│   │   │   │   │   ├── AppShell.tsx
-│   │   │   │   │   └── Navbar.tsx            Extracted from AppShell (search, sync controls, nav)
-│   │   │   │   └── ui/       shadcn/ui components (badge, button, card, input, sheet, tabs)
-│   │   │   ├── features/
-│   │   │   │   ├── dashboard/
-│   │   │   │   │   ├── components/
-│   │   │   │   │   │   ├── ContinueReading.tsx
-│   │   │   │   │   │   ├── RecentActivity.tsx
-│   │   │   │   │   │   └── StatCard.tsx
-│   │   │   │   │   └── Dashboard.tsx
-│   │   │   │   ├── manhwa/
-│   │   │   │   │   ├── components/
-│   │   │   │   │   │   ├── AddManhwaForm.tsx
-│   │   │   │   │   │   └── ManhwaCard.tsx
-│   │   │   │   │   ├── AddManhwa.tsx
-│   │   │   │   │   └── Library.tsx
-│   │   │   │   ├── manhwa-detail/
-│   │   │   │   │   ├── components/
-│   │   │   │   │   │   ├── EditManhwaModal.tsx
-│   │   │   │   │   │   ├── ManageChaptersSection.tsx
-│   │   │   │   │   │   ├── ManhwaCadenceInfo.tsx     Extracted from ManhwaHeader (cadence display)
-│   │   │   │   │   │   ├── ManhwaHeader.tsx
-│   │   │   │   │   │   ├── ManhwaPoster.tsx
-│   │   │   │   │   │   ├── ProgressCard.tsx
-│   │   │   │   │   │   ├── SourceStatusBadge.tsx
-│   │   │   │   │   │   ├── SourcesList.tsx
-│   │   │   │   │   │   └── UnreadManhwaStrip.tsx
-│   │   │   │   │   └── ManhwaDetail.tsx
-│   │   │   │   ├── search/
-│   │   │   │   │   └── GlobalSearch.tsx
-│   │   │   │   ├── settings/
-│   │   │   │   │   ├── components/
-│   │   │   │   │   │   ├── RecentlyDeletedSection.tsx
-│   │   │   │   │   │   ├── SyncHistorySection.tsx
-│   │   │   │   │   │   ├── SystemSection.tsx
-│   │   │   │   │   │   ├── TelegramLoginWizard.tsx
-│   │   │   │   │   │   └── TelegramSection.tsx
-│   │   │   │   │   └── Settings.tsx
-│   │   │   │   ├── sources/
-│   │   │   │   │   ├── components/
-│   │   │   │   │   │   ├── FixAdapterKeysButton.tsx
-│   │   │   │   │   │   ├── SourceCard.tsx
-│   │   │   │   │   │   ├── SourceRow.tsx
-│   │   │   │   │   │   ├── SourcesPanels.tsx
-│   │   │   │   │   │   ├── TelegramPanel.tsx
-│   │   │   │   │   │   └── WebsiteFilterPanel.tsx
-│   │   │   │   │   ├── utils/
-│   │   │   │   │   │   ├── adapterColors.ts
-│   │   │   │   │   │   └── sourceHelpers.ts
-│   │   │   │   │   └── SourcesPage.tsx
-│   │   │   │   ├── stats/
-│   │   │   │   │   └── StatsPage.tsx
-│   │   │   │   └── sync/
-│   │   │   │       ├── RunCard.tsx
-│   │   │   │       ├── SyncHistoryDrawer.tsx
-│   │   │   │       └── run-card.utils.tsx        STATUS_CONFIG, formatRelative, formatDuration
-│   │   │   ├── lib/
-│   │   │   │   ├── trpc.ts
-│   │   │   │   ├── usePageTitle.ts
-│   │   │   │   └── utils.ts
-│   │   │   ├── utils/
-│   │   │   │   └── image.ts
-│   │   │   ├── App.tsx
-│   │   │   ├── index.css
-│   │   │   ├── main.tsx
-│   │   │   └── providers.tsx
-│   │   ├── .env.example
-│   │   ├── index.html
-│   │   ├── package.json
-│   │   ├── tsconfig.json
-│   │   ├── vercel.json
-│   │   └── vite.config.ts
-│   └── worker/                 Express 4 — port 3002 (Docker service, Render)
-│       ├── src/
-│       │   ├── modules/
-│       │   │   ├── manhwa/
-│       │   │   │   ├── manhwa.service.ts
-│       │   │   │   ├── progress.repository.ts
-│       │   │   │   └── sources.repository.ts
-│       │   │   ├── settings/
-\u2502       │   │   │   ├── sync.processor.ts     Per-manhwa cadence + source orchestration
-│       │   │   │   ├── sync.source-processor.ts  Per-source fetch/insert loop (extracted)
-│       │   │   │   ├── sync.service.ts
-│       │   │   │   ├── sync.utils.ts
-│       │   │   │   └── sync.website.ts
-│       │   ├── scripts/
-│       │   │   ├── bot/
-│       │   │   │   ├── api.ts
-│       │   │   │   ├── channel-registration.ts
-│       │   │   │   ├── handlers.ts
-│       │   │   │   ├── index.ts
-│       │   │   │   └── poll.ts
-│       │   │   ├── cron/
-│       │   │   │   └── cron-sync.ts
-│       │   │   └── watcher/
-│       │   │       ├── channel-map.ts        Channel → manhwa mapping, buildChannelMap
-│       │   │       ├── dialog-resolver.ts    resolveAccessHashViaDialogs (extracted)
-│       │   │       ├── event-setup.ts        setupEventHandlers — NewMessage + Raw (extracted)
-│       │   │       ├── fallback-extractor.ts extractFallbackChapter, stripKnownTitleNumbers (extracted)
-│       │   │       ├── handlers.ts           catalogueMessage, handleNewMessage, handleReadUpdate
-│       │   │       ├── index.ts              Watcher entry point + connection lifecycle
-│       │   │       ├── intervals.ts
-│       │   │       ├── reconcile.ts
-│       │   │       └── session.ts
-│       │   ├── utils/
-│       │   │   ├── bot-alert.ts
-│       │   │   └── telegram-client.ts
-│       │   ├── env.ts
-│       │   └── server.ts
-│       ├── Dockerfile
-│       ├── package.json
-│       ├── tsconfig.json
-│       └── vitest.config.ts      Vitest config for worker unit tests
+│   ├── api/                  Express + tRPC — port 3001 (Vercel Serverless)
+│   │   └── src/modules/
+│   │       ├── manhwa/       CRUD, progress, sources
+│   │       ├── settings/     App settings + Telegram auth
+│   │       ├── stats/        Stats queries
+│   │       └── sync/         Sync state + history
+│   ├── web/                  Vite + React — port 3000
+│   │   └── src/features/
+│   │       ├── dashboard/    Quick stats, Continue Reading, Recent Activity
+│   │       ├── manhwa/       Library + Add Manhwa
+│   │       ├── manhwa-detail/ Detail view, sources, progress, chapters
+│   │       ├── search/       GlobalSearch component
+│   │       ├── settings/     Telegram auth wizard, sync history, system
+│   │       ├── sources/      Unified sources page (websites + Telegram)
+│   │       ├── stats/        Stats page
+│   │       └── sync/         Sync history drawer + run cards
+│   └── worker/               Express — port 3002 (Docker on Render)
+│       └── src/modules/
+│           ├── sync/         Website sync engine (processor, source-processor, utils)
+│           └── settings/     Worker settings
 ├── libs/
-│   ├── database/             Shared DB access — imported by both api and worker
-│   │   ├── src/
-│   │   │   ├── migrations/
-│   │   │   ├── schema/
-│   │   │   │   └── index.ts
-│   │   │   ├── manhwa/
-│   │   │   │   ├── manhwa.repository.ts        write ops (delete, update, chapter seeding)
-│   │   │   │   ├── manhwa.read.repository.ts   read ops (getAll, getById) — includes cadence calc
-│   │   │   │   └── manhwa.creation.repository.ts  create from URL or manual entry
-│   │   │   ├── telegram/
-│   │   │   │   ├── telegram.repository.ts      Telegram channel → manhwa mapping, chapter inserts
-│   │   │   │   └── telegram.source.repository.ts  CRUD for telegram source rows
-│   │   │   ├── settings.repository.ts          key/value settings store (toggles, sys flags)
-│   │   │   ├── sync.repository.ts              sync run history, source cadence queries
-│   │   │   ├── db.ts
-│   │   │   └── index.ts                        re-exports all repositories
-│   │   ├── drizzle.config.ts
-│   │   ├── package.json
-│   │   └── tsconfig.json
-│   ├── parser/
-│   │   ├── src/
-│   │   │   ├── adapters/
-│   │   │   │   ├── sites/
-│   │   │   │   │   ├── arenascans.ts
-│   │   │   │   │   ├── asurascans.ts
-│   │   │   │   │   ├── comixto.ts
-│   │   │   │   │   ├── generic.ts
-│   │   │   │   │   ├── infinitelevelup.ts
-│   │   │   │   │   ├── manhuaus.ts
-│   │   │   │   │   ├── mgeko.ts
-│   │   │   │   │   ├── mgread.ts
-│   │   │   │   │   ├── reaperscans.ts
-│   │   │   │   │   ├── thunderscans.ts
-│   │   │   │   │   ├── ultimateofallages.ts
-│   │   │   │   │   ├── vortexscans.ts
-│   │   │   │   │   └── webtoon.ts
-│   │   │   │   ├── utils/
-│   │   │   │   │   ├── chapter-extract.ts
-│   │   │   │   │   ├── derive-slug.ts
-│   │   │   │   │   ├── detect-title.ts
-│   │   │   │   │   ├── drop-outliers.ts
-│   │   │   │   │   ├── extract-chapter-number.ts
-│   │   │   │   │   ├── extract-declared-count.ts
-│   │   │   │   │   └── parse-relative-time.ts    parseRelativeTime (extracted from chapter-extract)
-│   │   │   │   ├── browser.ts
-│   │   │   │   ├── esm-interop.ts
-│   │   │   │   ├── factory.ts
-│   │   │   │   ├── http.ts
-│   │   │   │   └── index.ts
-│   │   │   ├── cover-lookup.ts
-│   │   │   ├── index.ts
-│   │   │   └── metadata.ts
-│   │   ├── package.json
-│   │   └── tsconfig.json
-│   ├── shared/
-│   │   ├── src/
-│   │   │   ├── schemas/
-│   │   │   │   ├── manhwa.ts
-│   │   │   │   ├── progress.ts
-│   │   │   │   └── sync.ts
-│   │   │   ├── types/
-│   │   │   │   ├── adapter.ts
-│   │   │   │   ├── chapter.ts
-│   │   │   │   ├── manhwa.ts
-│   │   │   │   ├── notification.ts
-│   │   │   │   ├── progress.ts
-│   │   │   │   ├── source.ts
-│   │   │   │   └── sync.ts
-│   │   │   ├── constants.ts
-│   │   │   └── index.ts
-│   │   ├── package.json
-│   │   └── tsconfig.json
-│   ├── ui/
-│   │   └── package.json
-│   └── utils/
-│       ├── src/
-│       │   ├── search/
-│       │   │   ├── normalize.ts
-│       │   │   ├── score.ts
-│       │   │   ├── search.ts
-│       │   │   ├── search-ranking.test.ts    Ranking + limit tests (extracted from search.test.ts)
-│       │   │   ├── search.test.ts
-│       │   │   ├── similarity.ts
-│       │   │   └── tokenize.ts
-│       │   ├── cadence.ts                  evaluateCadence() — median gap, MAD, isIrregular, isOverdue
-│       │   └── index.ts
-│       ├── package.json
-│       ├── tsconfig.json
-│       └── vitest.config.ts
-├── .editorconfig
+│   ├── database/             Shared DB layer — Drizzle ORM, Neon HTTP
+│   │   └── src/
+│   │       ├── manhwa/       read, write, creation repositories
+│   │       ├── telegram/     channel mapping, chapter inserts
+│   │       ├── sync.repository.ts
+│   │       └── settings.repository.ts
+│   ├── parser/               Scraping engine — adapters + HTTP utilities
+│   │   └── src/adapters/
+│   │       ├── sites/        One file per supported site
+│   │       └── utils/        Chapter extraction, slug derivation, time parsing
+│   ├── shared/               Shared types, Zod schemas, constants
+│   └── utils/                Cadence evaluation, search engine
 ├── .env.example
-├── .gitignore
-├── README.md
-├── package.json
-├── pnpm-lock.yaml
-├── pnpm-workspace.yaml
-├── tsconfig.base.json
-└── turbo.json
+├── turbo.json
+└── pnpm-workspace.yaml
 ```
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js >= 20
+- Node.js >= 24
 - pnpm >= 9
 - Neon PostgreSQL account
-- Telegram API ID, API Hash, and phone number (for Telegram sync)
+- Telegram API ID + Hash + phone number (for Telegram sync)
 
 ### Local Development
 
-> All commands must be run from the **monorepo root** (`manhwa-tracker/`), not inside `apps/web` or `apps/api`.
+> All commands must be run from the **monorepo root** — not inside `apps/web` or `apps/api`.
 
-1. **Install dependencies**
-   ```bash
-   pnpm install
-   ```
+```bash
+# 1. Install dependencies
+pnpm install
 
-2. **Set up environment variables**
+# 2. Copy and fill in environment variables
+cp .env.example .env
 
-   Copy the example `.env` file at the root:
-   ```bash
-   cp .env.example .env
-   ```
-   Fill in your `DATABASE_URL`, `APP_SECRET`, and Telegram credentials.
+# 3. Push the database schema to Neon
+pnpm run db:push
 
-3. **Sync the database schema**
-   ```bash
-   pnpm run db:push
-   ```
+# 4. Start everything (frontend + API + worker)
+pnpm dev
+```
 
-4. **Start the full app (frontend + backend together)**
+- Frontend: **http://localhost:3000**
+- API: **http://localhost:3001**
+- Worker: **http://localhost:3002**
 
-   > If you get a port conflict error, first run: `npx kill-port 3000 3001`
+> If you get a port conflict, run `npx kill-port 3000 3001 3002` first.
 
-   ```bash
-   pnpm dev
-   ```
-
-   - Frontend: **http://localhost:3000**
-   - API: **http://localhost:3001**
-
-   > The Telegram watcher will fail to connect locally if Telegram is blocked on your network. This is expected — the UI still works fully.
+> The Telegram watcher will fail locally if Telegram is blocked on your network — the UI still works fully without it.
 
 ---
 
 ## Deployment Architecture
 
-This project uses a **hybrid hosting** strategy to stay 100% free:
+This project uses a hybrid free hosting strategy:
 
 | Service | Host | Purpose |
 |---|---|---|
-| Frontend + Fast tRPC API | **Vercel** | Serves UI, handles all fast DB queries via Serverless Functions |
-| Background Worker | **Render** (Docker) | Runs Telegram watcher, Telegram bot, handles `sync.run` |
-| FlareSolverr | **Render** (sleeps when idle) | Browser rendering for protected manga sites |
+| Frontend + tRPC API | **Vercel** | Serves UI, fast DB queries via Serverless Functions |
+| Background Worker | **Render** (Docker) | Telegram watcher, Telegram bot, `sync.run` endpoint |
+| FlareSolverr | **Render** (free tier) | Headless browser rendering for Cloudflare-protected sites |
 | Database | **Neon PostgreSQL** | Shared between Vercel and Render |
-
-### Vercel Environment Variables
-
-| Variable | Value |
-|---|---|
-| `DATABASE_URL` | Your Neon Postgres URL |
-| `APP_SECRET` | Your shared secret |
-| `VITE_APP_SECRET` | Same as `APP_SECRET` |
-| `VITE_SYNC_URL` | Your Render worker URL (e.g. `https://your-api.onrender.com`) |
-
-### Render Environment Variables
-
-| Variable | Value |
-|---|---|
-| `DATABASE_URL` | Your Neon Postgres URL |
-| `APP_SECRET` | Same as Vercel `APP_SECRET` |
-| `FRONTEND_URL` | Your Vercel URL (e.g. `https://your-app.vercel.app`) |
-| `FLARESOLVERR_URL` | Your FlareSolverr URL on Render |
-| `TELEGRAM_API_ID` | Your Telegram API ID |
-| `TELEGRAM_API_HASH` | Your Telegram API Hash |
-| `TELEGRAM_BOT_TOKEN` | Your Telegram Bot Token |
-| `ALLOWED_CHAT_ID` | Your Telegram chat ID |
-| `RENDER_EXTERNAL_URL` | Auto-set by Render (e.g. `https://your-worker.onrender.com`) — used for keep-alive self-pings during sync to prevent idle sleep |
 
 ### Environment Variables
 
-Copy `.env.example` to `.env` at the workspace root and fill in:
+**Vercel:**
 
-| Variable | Description |
+| Variable | Value |
 |---|---|
-| `DATABASE_URL` | Neon PostgreSQL connection string |
+| `DATABASE_URL` | Neon Postgres connection string |
+| `APP_SECRET` | Shared secret |
+| `VITE_APP_SECRET` | Same as `APP_SECRET` |
+| `VITE_SYNC_URL` | Render worker URL (e.g. `https://your-api.onrender.com`) |
+
+**Render (Worker):**
+
+| Variable | Value |
+|---|---|
+| `DATABASE_URL` | Neon Postgres connection string |
+| `APP_SECRET` | Same as Vercel `APP_SECRET` |
+| `FRONTEND_URL` | Your Vercel URL |
+| `FLARESOLVERR_URL` | Your FlareSolverr URL on Render |
 | `TELEGRAM_API_ID` | Telegram app API ID |
 | `TELEGRAM_API_HASH` | Telegram app API Hash |
-| `TELEGRAM_PHONE` | Your Telegram phone number |
-| `VITE_API_URL` | Frontend API URL (default: `http://localhost:3001`) |
+| `TELEGRAM_BOT_TOKEN` | Telegram Bot Token |
+| `ALLOWED_CHAT_ID` | Your Telegram chat ID |
+| `RENDER_EXTERNAL_URL` | Auto-set by Render — used for keep-alive self-pings |
 
-### Running the Telegram Services
-
-The bot and the watcher are long-running background scripts:
-
-
-How the Watcher works:
-- **New chapter posted** in a tracked channel → automatically added to the database
-- **You read messages** in a tracked channel → your last-read chapter updates automatically
-- Purely event-driven — no historical scanning (safe from cross-promotion false positives)
+---
 
 ## Database Schema
 
 | Table | Purpose |
 |-------|---------|
-| `manhwa` | Core manhwa records (title, slug, cover, status, genres) |
+| `manhwa` | Core records (title, slug, cover, status, genres) |
 | `sources` | Telegram/website sources per manhwa |
-| `chapters` | Discovered chapters per manhwa (from Telegram or website sync) |
-| `progress` | Single progress row per manhwa (last read chapter + timestamp) |
-| `settings` | Key-value app settings (also used as a DB-backed lock for sync state) |
-| `sync_runs` | Sync run history — includes `status` (`running`/`completed`/`failed`) so killed runs still appear |
+| `chapters` | Discovered chapters (from Telegram or website sync) |
+| `progress` | Last-read chapter + timestamp per manhwa |
+| `settings` | Key-value store — app toggles + DB-backed sync lock |
+| `sync_runs` | Sync run history with status (`running`/`completed`/`failed`) |
 
-> Uses `drizzle-orm/neon-http` driver — **no transactions, no relational query API**. All queries use plain `select/insert/update/delete` with manual joins.
+> Uses `drizzle-orm/neon-http` — no transactions, no relational query API. All queries use plain `select/insert/update/delete`.
 
-### Updating the Database Schema
-If you make changes to `libs/database/src/schema/index.ts`, you must generate and apply migrations to Neon:
+### Updating the Schema
+
 ```bash
 pnpm run db:generate
 pnpm run db:migrate
 ```
 
+---
+
 ## Website Adapters
 
-Chapter sync is powered by adapter classes in `libs/parser/src/adapters/sites/`:
+Chapter sync adapters live in `libs/parser/src/adapters/sites/`:
 
-| Site | Adapter Key | URL Patterns | Browser Rendering |
-|------|------------|-------------|-------------------|
-| AsuraScans | `asurascans` | `asurascans.com`, `asuracomic.net`, `asurascan.com` | ✅ FlareSolverr/Playwright |
-| Reaper Scans | `reaperscans` | `reaperscans.com` | — |
-| Webtoon | `webtoon` | `webtoons.com` | — |
-| manhuaus.com | `manhuaus` | `manhuaus.com` | — |
-| Arena Scans | `arenascans` | `arenascans.net` | — |
-| Comix.to | `comixto` | `comix.to` | ✅ Playwright only |
-| Mgeko | `mgeko` | `mgeko.com`, `mgeko.cc`, `mgeko.net` | ✅ + click to load all |
-| MGRead | `mgread` | `mgread.io` | ✅ + click to load all |
-| Thunder Scans | `thunderscans` | `thunderscans.com`, `en-thunderscans.com` | ✅ + click show all |
-| Infinite Level Up | `infinitelevelup` | `infinitelevelup.com` | — |
-| Ultimate of All Ages | `ultimateofallages` | `theultimateofallages.com` | ✅ FlareSolverr/Playwright |
-| Vortex Scans | `vortexscans` | `vortexscans.com` | — |
-| Generic (catch-all) | `generic` | any URL not matched above | — |
+| Site | Adapter Key | Browser Rendering |
+|------|------------|-------------------|
+| AsuraScans | `asurascans` | ✅ FlareSolverr / Playwright |
+| Reaper Scans | `reaperscans` | — |
+| Webtoon | `webtoon` | — |
+| manhuaus.com | `manhuaus` | — |
+| Arena Scans | `arenascans` | — |
+| Comix.to | `comixto` | ✅ Playwright only |
+| Mgeko | `mgeko` | ✅ + click to load all |
+| MGRead | `mgread` | ✅ + click to load all |
+| Thunder Scans | `thunderscans` | ✅ + click show all |
+| Infinite Level Up | `infinitelevelup` | — |
+| Ultimate of All Ages | `ultimateofallages` | ✅ FlareSolverr / Playwright |
+| Vortex Scans | `vortexscans` | — |
+| Generic (catch-all) | `generic` | — |
 
-> **Browser rendering note:** Sites marked ✅ use `fetchRenderedHtml` via the FlareSolverr → Playwright fallback chain. Sites marked "click to load all" also need a button click after rendering to reveal the full chapter list — this works locally via Playwright but **not** on Render (FlareSolverr returns the page without clicking).
-
-Use `detectAdapterKey(url)` from `@manhwa-tracker/parser` to resolve the right adapter automatically.
+> Sites marked "click to load all" need a button interaction after rendering. This works locally via Playwright but **not** on Render (FlareSolverr returns the page without clicking).
 
 ### Fix Adapter Keys
 
-Sources added before per-site detection was implemented may have `adapterKey = 'website'` stored in the database instead of the correct key (e.g. `asurascans`).
+Sources added before per-site detection existed may have a stale `adapterKey = 'website'` in the DB.
 
-To fix all stale keys in one shot:
+**Fix in one click:** go to **Sources → Fix Adapters** (wand icon, top-right). This calls `manhwa.redetectAdapterKeys`, re-runs `detectAdapterKey(url)` for every website source, and refreshes the page.
 
-1. Go to the **Sources** page in the web UI
-2. Click the **Fix Adapters** button (wand icon, top-right)
-3. The button calls `manhwa.redetectAdapterKeys` which loops over every website source row, runs `detectAdapterKey(url)` and writes the correct key back — then invalidates the query cache so the page refreshes immediately.
+---
 
-Alternatively, trigger it via tRPC directly:
+## Telegram Watcher
 
-```ts
-await trpc.manhwa.redetectAdapterKeys.mutate();
-// returns: { fixed: N }  — N = number of rows updated
-```
+How it works:
+- **New chapter posted** in a tracked channel → automatically added to the database
+- **You read messages** in a tracked channel → your last-read chapter updates automatically
+- Purely event-driven — no historical scanning (avoids cross-promotion false positives)
 
-## Sources Management
-
-The **Unified Sources** page (`/sources`) lets you manage every source in one place:
-
-- **Two tabs**: Websites / Telegram
-- **Domain filter chips** — one chip per unique hostname in the DB (e.g. `asurascans.com (12)`, `asuracomic.net (3)`). Each chip is coloured by its adapter. Chips reset when switching tabs.
-- **Adapter badges** — every row/card shows a colour-coded adapter badge (orange for asurascans, red for reaperscans, violet for thunderscans, etc.)
-- **Inline URL editing** — click the pencil icon to edit a source URL directly. The adapter key is automatically re-detected from the new URL on save.
-- **Mobile card layout** — on screens smaller than `md` breakpoint, sources render as tap-friendly cards with a full-width Edit URL button instead of the desktop table.
-- **Fix Adapters button** — top-right; one-click batch re-detection for all website sources.
-
-### Adapter Badge Colours
-
-| Adapter | Colour |
-|---------|--------|
-| `asurascans` | Orange |
-| `reaperscans` | Red |
-| `webtoon` | Sky blue |
-| `thunderscans` | Violet |
-| `manhuaus` | Yellow |
-| `infinitelevelup` | Emerald |
-| `mgeko` | Pink |
-| `arenascans` | Cyan |
-| `comixto` | Fuchsia |
-| `mgread` | Rose |
-| `ultimateofallages` | Teal |
-| `telegram` | Blue |
-| `generic` | Zinc |
+The watcher runs as part of the Worker on Render. It connects via the MTProto personal account using `teleproto`.

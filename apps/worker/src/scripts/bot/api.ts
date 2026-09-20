@@ -35,11 +35,12 @@ export async function apiCall<T = any>(
         ...(body ? { 'Content-Length': Buffer.byteLength(data) } : {}),
       },
     }, (res) => {
-      let chunks = '';
-      res.on('data', (chunk) => { chunks += chunk; });
+      const chunks: Buffer[] = [];
+      res.on('data', (chunk) => { chunks.push(chunk); });
       res.on('end', () => {
         try {
-          const json = JSON.parse(chunks) as { ok: boolean; result: T; description?: string };
+          const bodyString = Buffer.concat(chunks).toString('utf-8');
+          const json = JSON.parse(bodyString) as { ok: boolean; result: T; description?: string };
           if (!json.ok) {
             reject(new Error(`Bot API error in ${method}: ${json.description}`));
           } else {

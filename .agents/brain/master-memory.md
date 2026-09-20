@@ -50,6 +50,7 @@ Automatically tracks reading progress. When user downloads the latest chapter fr
 - **Cloudflare fallback chain**: `http.ts` now tries FlareSolverr → Playwright headless browser → fails; the `looksLikeCloudflareChallenge` check gates both layers OK
 - **Codebase-wide 230-line refactor** complete (2026-09-18) — all files now under 230 lines ✅
   (see Active Work for the full list of extracted files)
+- **Infrastructure Upgrades** (2026-09-19): Drizzle ORM upgraded to 0.45.2, Docker base image upgraded to Node 24-alpine with non-root user, Security Headers (X-Content-Type-Options, etc.) added to Express APIs, and GitHub Actions pinned to SHA hashes.
 - **`publishedAt` stored in DB**: `insertChaptersBulk` in `libs/database/src/sync.repository.ts` writes
   `published_at` to the chapters table for all newly-discovered chapters. Historical chapters (bulk-imported
   before this fix) have `published_at = NULL` — they show `isReal: false` in cadence calculations and
@@ -210,3 +211,4 @@ functionality is needed, it has to be written from scratch.
 - Phase 2: Architecture migration (Next.js → Vite + Express) ✅
 - Phase 3: Telegram sync, Website adapters expanded, Render & Vercel deployment ✅
 - Phase 4: Split `apps/api` into `apps/api` (fast) + `apps/worker` (long-running) ✅
+- Phase 4 (Infrastructure): Drizzle 0.45.2, Node 24, Security Headers, GH Action SHA pins ✅

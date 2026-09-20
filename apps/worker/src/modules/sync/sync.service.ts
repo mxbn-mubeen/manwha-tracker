@@ -3,6 +3,8 @@ import type { SyncScope, SyncResult, SyncRun } from '@manhwa-tracker/shared';
 import { runWebsiteSync } from './sync.website';
 import { renderSyncCompleteBanner } from './sync.utils';
 
+import { randomUUID } from 'crypto';
+
 const IS_SYNCING_KEY = 'sys_is_syncing';
 
 // If a sync claims to still be running after this long, treat the lock as
@@ -13,23 +15,7 @@ const STALE_LOCK_MS = 15 * 60 * 1000;
 export async function getIsSyncing(): Promise<boolean> {
   const repo = new SettingsRepository();
   const val = await repo.get(IS_SYNCING_KEY);
-  if (val !== 'true') return false;
-
-  const updatedAt = await repo.getUpdatedAt(IS_SYNCING_KEY);
-  if (updatedAt && Date.now() - updatedAt.getTime() > STALE_LOCK_MS) {
-    console.warn(
-      `[sync] sys_is_syncing has been true since ${updatedAt.toISOString()} — ` +
-      'treating as an abandoned lock from a killed run and clearing it.',
-    );
-    await repo.set(IS_SYNCING_KEY, 'false');
-    return false;
-  }
-  return true;
-}
-
-export async function setIsSyncing(value: boolean): Promise<void> {
-  const repo = new SettingsRepository();
-  await repo.set(IS_SYNCING_KEY, value ? 'true' : 'false');
+  return val !== null && val !== 'false';
 }
 
 export async function getSyncHistory(): Promise<SyncRun[]> {
@@ -50,11 +36,21 @@ export class SyncService {
     triggeredBy: string = 'manual',
     options?: { forceFullRefresh?: boolean; manhwaIds?: number[] },
   ): Promise<SyncResult> {
-    const isCurrentlySyncing = await getIsSyncing();
-    if (isCurrentlySyncing) {
+    const ownerToken = randomUUID();
+    const settingsRepo = new SettingsRepository();
+    
+    // Atomic Compare-And-Swap (CAS) lock acquisition
+    const claimed = await settingsRepo.claimLock(IS_SYNCING_KEY, ownerToken, STALE_LOCK_MS);
+    if (!claimed) {
       throw new Error("Sync is already running in the background");
     }
-    await setIsSyncing(true);
+
+    // Set up a cleanup hook in case the process is SIGTERMed mid-run
+    const releaseHook = async () => {
+      await settingsRepo.releaseLock(IS_SYNCING_KEY, ownerToken).catch(() => {});
+    };
+    process.once('SIGTERM', releaseHook);
+    process.once('SIGINT', releaseHook);
 
     // Write a 'running' row immediately so killed syncs appear in history
     // rather than vanishing completely. Will be updated to 'completed'/'failed' in finally.
@@ -161,7 +157,9 @@ export class SyncService {
       return result;
     } finally {
       if (keepAliveInterval) clearInterval(keepAliveInterval);
-      await setIsSyncing(false);
+      process.removeListener('SIGTERM', releaseHook);
+      process.removeListener('SIGINT', releaseHook);
+      await settingsRepo.releaseLock(IS_SYNCING_KEY, ownerToken);
     }
   }
 }

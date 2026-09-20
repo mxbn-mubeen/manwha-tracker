@@ -1,7 +1,7 @@
 import { SyncRepository } from "@manhwa-tracker/database";
 import type { SyncResult, SyncSourceRow } from "@manhwa-tracker/shared";
 import { getAdapter } from "@manhwa-tracker/parser";
-import { type SourceOutcome, humanizeSourceName, describeSourceError } from "./sync.utils";
+import { type SourceOutcome, humanizeSourceName, describeSourceError, formatDuration } from "./sync.utils";
 
 export async function processSingleSource(
   source: any,
@@ -17,6 +17,10 @@ export async function processSingleSource(
   let isWinner = false;
 
   try {
+    const { isSafeUrl } = await import("@manhwa-tracker/parser");
+    if (!isSafeUrl(source.url)) {
+      throw new Error(`SSRF Prevention: URL rejected (${source.url})`);
+    }
     const adapter = getAdapter(source.adapterKey, source.url);
     let timeoutId: NodeJS.Timeout;
     const timeoutPromise = new Promise<never>((_, reject) => {
@@ -42,6 +46,7 @@ export async function processSingleSource(
         manhwaTitle: source.manhwaTitle,
         status: "error",
         chaptersFound: 0,
+        maxChapterNum: 0,
         newChapters: 0,
         reason:
           "Got a response but found no chapters — site may be blocking the request.",
@@ -62,6 +67,7 @@ export async function processSingleSource(
           manhwaTitle: source.manhwaTitle,
           status: "error",
           chaptersFound: chapters.length,
+          maxChapterNum: maxChapter,
           newChapters: 0,
           reason: `Detected chapter ${maxChapter} but ${existingMax} chapters already exist for this manhwa — likely a parsing failure, skipped this result.`,
           durationMs: Date.now() - startMs,
@@ -100,6 +106,7 @@ export async function processSingleSource(
           manhwaTitle: source.manhwaTitle,
           status: "success",
           chaptersFound: chapters.length,
+          maxChapterNum: maxChapter,
           newChapters: insertedCount,
           reason: null,
           durationMs: Date.now() - startMs,
@@ -119,34 +126,33 @@ export async function processSingleSource(
       manhwaTitle: source.manhwaTitle,
       status: isBlocked ? "blocked" : "error",
       chaptersFound: 0,
+      maxChapterNum: 0,
       newChapters: 0,
       reason: describeSourceError(err),
       durationMs: Date.now() - startMs,
     };
   }
 
-  const durationLabel =
-    outcome.durationMs >= 1000 ? `${(outcome.durationMs / 1000).toFixed(2)}s` : `${outcome.durationMs}ms`;
+  const durationLabel = formatDuration(outcome.durationMs);
 
   lines.push(`Source: ${humanizeSourceName(outcome.sourceUrl)}`);
   if (outcome.status === "success") {
     if (outcome.newChapters > 0) {
       lines.push(`Found: ${outcome.chaptersFound}`);
       lines.push(`New: +${outcome.newChapters}`);
-      lines.push("Status: ✓ New chapters");
+      lines.push(`Status: ✓ New chapters (${durationLabel})`);
     } else {
-      lines.push("Status: ✓ No new chapters");
+      lines.push(`Status: ✓ No new chapters (${durationLabel})`);
     }
   } else if (outcome.status === "blocked") {
-    lines.push("Status: ✗ Blocked");
+    lines.push(`Status: ✗ Blocked (${durationLabel})`);
     if (outcome.reason) lines.push(`Reason: ${outcome.reason}`);
   } else {
     const isRegressionRejection = outcome.reason?.includes("likely a parsing failure") ?? false;
-    lines.push(`Status: ✗ ${isRegressionRejection ? "Parsing issue" : "Issue"}`);
+    lines.push(`Status: ✗ ${isRegressionRejection ? "Parsing issue" : "Issue"} (${durationLabel})`);
     if (outcome.reason) lines.push(`Reason: ${outcome.reason}`);
     if (isRegressionRejection) lines.push("Action: Result rejected");
   }
-  lines.push(`Time: ${durationLabel}`);
 
   const rowStatus: SyncSourceRow["status"] =
     outcome.status === "blocked"

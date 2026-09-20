@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { manhwa, progress, chapters } from '../schema';
-import { eq, sql, and, gt, isNull, inArray, desc } from 'drizzle-orm';
+import { eq, sql, and, gt, lt, isNull, inArray, desc } from 'drizzle-orm';
 
 // Re-export so existing imports of ManhwaRepository still resolve.
 // Read operations (getAll, getById) live in manhwa.read.repository.ts.
@@ -26,6 +26,25 @@ export class ManhwaRepository {
 
   async getDeletedManhwa() {
     return await db.select().from(manhwa).where(sql`${manhwa.deletedAt} IS NOT NULL`).orderBy(desc(manhwa.deletedAt));
+  }
+
+  /**
+   * Hard-delete manhwa that have been soft-deleted for longer than `retentionDays` days.
+   * Returns the number of rows permanently removed.
+   * Default retention is 30 days (configurable per call so tests can pass 0).
+   */
+  async purgeExpiredSoftDeleted(retentionDays = 30): Promise<number> {
+    const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+    const result = await db
+      .delete(manhwa)
+      .where(
+        and(
+          sql`${manhwa.deletedAt} IS NOT NULL`,
+          lt(manhwa.deletedAt, cutoff),
+        )
+      )
+      .returning({ id: manhwa.id });
+    return result.length;
   }
   async createManual(data: {
     title: string;

@@ -1,7 +1,7 @@
 # Architecture — Manhwa Tracker
 
 project_root: F:\manwha-tracker
-last_updated: 2026-09-18
+last_updated: 2026-09-19
 
 ## Monorepo Structure (Actual as of 2026-09-07)
 
@@ -254,6 +254,7 @@ manwha-tracker/
 │       │   │   ├── score.ts
 │       │   │   ├── search.ts
 │       │   │   ├── search.test.ts
+│       │   │   ├── search-ranking.test.ts
 │       │   │   ├── similarity.ts
 │       │   │   └── tokenize.ts
 │       │   ├── cadence.ts                  evaluateCadence() — median gap, MAD, isIrregular, isOverdue

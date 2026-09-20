@@ -21,9 +21,9 @@ export function formatRelative(date: Date): string {
 }
 
 export function formatDuration(ms: number): string {
-  const totalSec = ms >= 1000 ? ms / 1000 : ms;
-  if (totalSec < 1)   return `${Math.round(totalSec * 1000)}ms`;
-  if (totalSec < 60)  return `${totalSec.toFixed(1)}s`;
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  const totalSec = ms / 1000;
+  if (totalSec < 60) return `${totalSec.toFixed(1)}s`;
   const m = Math.floor(totalSec / 60);
   const s = Math.round(totalSec % 60);
   if (m < 60) return s > 0 ? `${m}m ${s}s` : `${m}m`;

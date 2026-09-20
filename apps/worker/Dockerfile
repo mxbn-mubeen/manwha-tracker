@@ -1,5 +1,5 @@
 # ── Stage 1: deps ─────────────────────────────────────────────────────────────
-FROM node:20-alpine AS deps
+FROM node:24-alpine AS deps
 
 RUN corepack enable && corepack prepare pnpm@9 --activate
 
@@ -37,9 +37,13 @@ RUN pnpm --filter @manhwa-tracker/parser build
 RUN pnpm --filter worker build
 
 # ── Stage 3: runtime ──────────────────────────────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 
 RUN corepack enable && corepack prepare pnpm@9 --activate
+
+# Non-root user — reduces blast radius if the process is compromised
+RUN addgroup --system --gid 1001 appgroup \
+ && adduser  --system --uid 1001 --ingroup appgroup appuser
 
 WORKDIR /app
 
@@ -61,9 +65,16 @@ COPY --from=builder /app/libs/parser/dist ./libs/parser/dist
 COPY --from=builder /app/libs/shared/dist ./libs/shared/dist
 COPY --from=builder /app/libs/utils/dist ./libs/utils/dist
 
+# Hand ownership of the app tree to the non-root user
+RUN chown -R appuser:appgroup /app
+USER appuser
+
 ENV PORT=3002
 ENV NODE_ENV=production
 
 EXPOSE 3002
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://localhost:3002/health || exit 1
 
 CMD ["node", "apps/worker/dist/server.js"]

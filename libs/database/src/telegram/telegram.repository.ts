@@ -104,15 +104,11 @@ export class TelegramRepository extends TelegramSourceRepository {
 
   async markAsReadIfNewer(manhwaId: number, chapterId: number, chapterNum: number): Promise<boolean> {
     const result = await db.execute(sql`
-      INSERT INTO progress (manhwa_id, chapter_id, last_read_at, is_completed)
-      VALUES (${manhwaId}, ${chapterId}, NOW(), false)
+      INSERT INTO progress (manhwa_id, chapter_id, last_read_chapter_num, last_read_at, is_completed)
+      VALUES (${manhwaId}, ${chapterId}, ${chapterNum}, NOW(), false)
       ON CONFLICT (manhwa_id) DO UPDATE 
-      SET chapter_id = ${chapterId}, last_read_at = NOW()
-      WHERE (
-        SELECT chapter_num FROM chapters WHERE id = ${chapterId}
-      ) > COALESCE((
-        SELECT chapter_num FROM chapters WHERE id = progress.chapter_id
-      ), 0)
+      SET chapter_id = ${chapterId}, last_read_chapter_num = ${chapterNum}, last_read_at = NOW()
+      WHERE ${chapterNum} > COALESCE(progress.last_read_chapter_num, 0)
       RETURNING id;
     `);
 
