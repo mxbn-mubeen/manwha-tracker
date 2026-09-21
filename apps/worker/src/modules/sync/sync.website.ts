@@ -22,42 +22,7 @@ export async function clearSyncProgress(): Promise<void> {
   await repo.delete(SYNC_PROGRESS_KEY);
 }
 
-const WEEKLY_REFRESH_SETTINGS_KEY = "sys_last_weekly_cadence_refresh";
-// How long to wait before allowing the trigger to fire again. Needs to be
-// long enough that the ~48 half-hour sync cycles that happen over a single
-// Sunday don't all re-trigger it, but short enough that a slightly early or
-// late cron run still catches it. 20 hours gives real margin either way.
-const WEEKLY_REFRESH_COOLDOWN_MS = 20 * 60 * 60 * 1000;
 
-/**
- * Returns true exactly once per week — on the first sync cycle that lands
- * on or after Sunday 00:00 UTC — and false every other time. This is a
- * global override, separate from (and stronger than) the per-manhwa cadence
- * prediction and the per-source 7-day staleness floor: once a week, every
- * source in the entire library gets a real check regardless of what cadence
- * currently predicts, so the release-pattern data for the whole library
- * gets a scheduled full recalibration rather than relying purely on
- * per-source drift-based triggers.
- *
- * Uses UTC — consistent with every other timestamp in this project (the
- * GitHub Actions cron schedule, all logged sync timestamps). If "Sunday
- * midnight" was meant in a different timezone, this will fire at the wrong
- * local time.
- */
-async function checkAndClaimWeeklyRefresh(): Promise<boolean> {
-  const now = new Date();
-  if (now.getUTCDay() !== 0 /* Sunday */) return false;
-
-  const repo = new SettingsRepository();
-  const lastRefreshStr = await repo.get(WEEKLY_REFRESH_SETTINGS_KEY);
-  const lastRefresh = lastRefreshStr ? new Date(lastRefreshStr) : null;
-  const msSinceLastRefresh = lastRefresh ? now.getTime() - lastRefresh.getTime() : Infinity;
-
-  if (msSinceLastRefresh <= WEEKLY_REFRESH_COOLDOWN_MS) return false; // already fired this week
-
-  await repo.set(WEEKLY_REFRESH_SETTINGS_KEY, now.toISOString());
-  return true;
-}
 
 import { processManhwaSources } from "./sync.processor";
 import { renderSyncStartBanner } from "./sync.utils";
@@ -123,13 +88,8 @@ export async function runWebsiteSync(
   const mode = result.triggeredBy === "manual" ? "manual" : "scheduled";
   console.log(renderSyncStartBanner(webSourcesGrouped.size, mode, new Date()));
 
-  // A scoped (single-manhwa) sync never claims the weekly slot — see this
-  // function's doc comment above for why.
-  const isSundayAutoRefresh = isScoped ? false : await checkAndClaimWeeklyRefresh();
-  const forceFullCheck = isSundayAutoRefresh || (options?.forceFullRefresh ?? false);
-  const refreshReason = isSundayAutoRefresh
-    ? "Sunday 00:00 UTC full recalibration"
-    : (options?.refreshReason ?? "Full refresh");
+  const forceFullCheck = options?.forceFullRefresh ?? false;
+  const refreshReason = options?.refreshReason ?? "Full refresh";
 
   if (forceFullCheck) {
     console.log(

@@ -18,7 +18,10 @@ import { SyncService } from '../../modules/sync/sync.service';
 
 async function main() {
   const service = new SyncService();
-  const result = await service.run('websites', 'github-cron');
+  const isFullRefresh = process.env.FORCE_FULL_REFRESH === 'true';
+  const result = await service.run('websites', 'github-cron', {
+    forceFullRefresh: isFullRefresh
+  });
 
   console.log(
     `[cron-sync] scanned=${result.scannedSources} newChapters=${result.newChapters} ` +

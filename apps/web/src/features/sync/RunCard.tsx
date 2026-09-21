@@ -8,12 +8,13 @@ import { STATUS_CONFIG, formatRelative, formatDuration } from './run-card.utils'
 
 export function RunCard({ run, onClose }: { run: SyncRun, onClose: () => void }) {
   const [open, setOpen] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'new' | 'issues' | 'errors' | 'skipped'>('all');
+  const [filter, setFilter] = useState<'all' | 'new' | 'unchanged' | 'issues' | 'errors' | 'skipped'>('all');
   const [search, setSearch] = useState('');
   
-  const newCount    = run.rows.filter((r: SyncSourceRow) => r.status === 'new').length;
-  const issueCount  = run.rows.filter((r: SyncSourceRow) => r.status === 'issue' || r.status === 'failed').length;
-  const skippedCount = run.rows.filter((r: SyncSourceRow) => r.status === 'skipped').length;
+  const newCount       = run.rows.filter((r: SyncSourceRow) => r.status === 'new').length;
+  const unchangedCount = run.rows.filter((r: SyncSourceRow) => r.status === 'no_new').length;
+  const issueCount     = run.rows.filter((r: SyncSourceRow) => r.status === 'issue' || r.status === 'failed').length;
+  const skippedCount   = run.rows.filter((r: SyncSourceRow) => r.status === 'skipped').length;
   // Top-level errors — e.g. a whole manhwa group's processing throwing before
   // any per-source row could even be pushed — are distinct from per-row
   // issues/failures above and were previously written to the DB but never
@@ -34,6 +35,7 @@ export function RunCard({ run, onClose }: { run: SyncRun, onClose: () => void })
     const matchesTab =
       filter === 'all' ? true :
       filter === 'new' ? r.status === 'new' :
+      filter === 'unchanged' ? r.status === 'no_new' :
       filter === 'issues' ? (r.status === 'issue' || r.status === 'failed') :
       filter === 'skipped' ? r.status === 'skipped' :
       true;
@@ -109,30 +111,30 @@ export function RunCard({ run, onClose }: { run: SyncRun, onClose: () => void })
             >
               New ({newCount})
             </button>
-            {issueCount > 0 && (
-              <button 
-                onClick={() => setFilter('issues')}
-                className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'issues' ? 'bg-amber-500/20 text-amber-400' : 'text-zinc-500 hover:text-amber-400 hover:bg-amber-500/10'}`}
-              >
-                Issues ({issueCount})
-              </button>
-            )}
-            {skippedCount > 0 && (
-              <button 
-                onClick={() => setFilter('skipped')}
-                className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'skipped' ? 'bg-zinc-700/50 text-zinc-300' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700/30'}`}
-              >
-                Skipped ({skippedCount})
-              </button>
-            )}
-            {runErrors.length > 0 && (
-              <button 
-                onClick={() => setFilter('errors')}
-                className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'errors' ? 'bg-red-500/20 text-red-400' : 'text-zinc-500 hover:text-red-400 hover:bg-red-500/10'}`}
-              >
-                Errors ({runErrors.length})
-              </button>
-            )}
+            <button 
+              onClick={() => setFilter('unchanged')}
+              className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'unchanged' ? 'bg-zinc-700/50 text-zinc-300' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700/30'}`}
+            >
+              Unchanged ({unchangedCount})
+            </button>
+            <button 
+              onClick={() => setFilter('issues')}
+              className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'issues' ? 'bg-amber-500/20 text-amber-400' : 'text-zinc-500 hover:text-amber-400 hover:bg-amber-500/10'}`}
+            >
+              Issues ({issueCount})
+            </button>
+            <button 
+              onClick={() => setFilter('skipped')}
+              className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'skipped' ? 'bg-zinc-700/50 text-zinc-300' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700/30'}`}
+            >
+              Skipped ({skippedCount})
+            </button>
+            <button 
+              onClick={() => setFilter('errors')}
+              className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === 'errors' ? 'bg-red-500/20 text-red-400' : 'text-zinc-500 hover:text-red-400 hover:bg-red-500/10'}`}
+            >
+              Errors ({runErrors.length})
+            </button>
             <div className="ml-auto relative shrink-0">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-600 pointer-events-none" />
               <input

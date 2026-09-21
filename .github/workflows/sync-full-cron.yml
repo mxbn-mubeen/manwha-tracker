@@ -1,0 +1,47 @@
+name: Sync manhwa websites (Full Refresh)
+
+# Runs a full website sync once a week on Sunday at 00:00 UTC. 
+# This bypasses cadence checks and forces a check of all registered website sources.
+on:
+  schedule:
+    - cron: '0 0 * * 0' # 00:00 UTC on Sunday
+  workflow_dispatch: {} # allows manually triggering a full refresh from the Actions tab
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    # Full refresh takes longer since it checks everything, bump timeout to 45 mins
+    timeout-minutes: 45
+
+    # Spin up a local FlareSolverr container just for this workflow run.
+    services:
+      flaresolverr:
+        image: ghcr.io/flaresolverr/flaresolverr:latest
+        ports:
+          - 8191:8191
+        env:
+          LOG_LEVEL: info
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm run build --filter worker
+
+      - name: Run full sync
+        working-directory: apps/worker
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          FLARESOLVERR_URL: http://localhost:8191/v1
+          FORCE_FULL_REFRESH: 'true'
+        run: pnpm run cron:sync
