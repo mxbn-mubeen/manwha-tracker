@@ -109,7 +109,7 @@ export class ManhwaRepository {
     if (chapterIdsToDelete.length > 0) {
       if (newChapterId) {
         await db.update(progress)
-          .set({ chapterId: newChapterId })
+          .set({ chapterId: newChapterId, lastReadChapterNum: chapterNum })
           .where(inArray(progress.chapterId, chapterIdsToDelete));
       }
       await db.delete(chapters).where(inArray(chapters.id, chapterIdsToDelete));

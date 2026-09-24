@@ -24,33 +24,43 @@ export const vortexScansAdapter: WebsiteAdapter = {
   },
 
   isChapterLocked(outerHtml, text) {
-    // VortexScans marks inaccessible chapters with:
-    // 1. Coin/premium paywall — coin icon class, data-coin, emoji
-    // 2. Timer/early-access — countdown timer shown until a future release date.
-    //    These appear as <span class="chapter-time"> or data-time attributes,
-    //    or the text itself contains "Available in" / "Unlocks in" patterns.
-    // 3. Lock icon / "Premium" label — older Madara style, kept as defence-in-depth.
+    // Signals confirmed by live HTML inspection of vortex-raw.html (2026-09-24):
+    //
+    // LOCKED chapters have:
+    //   1. class="...text-yellow-600..." or class="...text-yellow-500..."
+    //      → the coin-count badge wrapper (e.g. <div class="flex items-center gap-1.5 text-yellow-600 ...">)
+    //   2. A padlock SVG overlay on the thumbnail with path starting "M12 1.5a5.25 5.25 0 0 0-5.25 5.25"
+    //      → rendered as <div class="absolute inset-0 bg-black/50 ..."><svg ...><path .../></svg></div>
+    //
+    // FREE chapters that just became free have:
+    //   class="lucide lucide-lock-open ..."  ← open padlock = "Free now" badge
+    //   This MUST be excluded — it trips the naive /lock/i class check and causes false positives.
+    //
+    // Kept as defence-in-depth for older Madara-style pages that may still use data-coin / data-premium:
+    //   data-coin, data-premium
+
+    // Exclude the open-padlock "Free now" badge from triggering lock detection
+    if (/lucide-lock-open/i.test(outerHtml)) return false;
+
     return (
-      /class="[^"]*coin|data-coin/i.test(outerHtml) ||
-      /🪙|💰/u.test(outerHtml) ||
-      outerHtml.includes('data-premium') ||
-      outerHtml.includes('class="premium') ||
-      outerHtml.includes('"premium"') ||
-      outerHtml.includes('class="lock') ||
-      outerHtml.includes('svg-lock') ||
-      // Timer-locked / early-access chapters:
-      /class="[^"]*timer|data-timer|data-time\b/i.test(outerHtml) ||
-      /class="[^"]*countdown/i.test(outerHtml) ||
-      /available in|unlocks in|releases in/i.test(text) ||
-      /premium|🔒|locked/i.test(text)
+      // Coin badge: yellow wrapper around the SVG coin icon + count number
+      /class="[^"]*text-yellow-(?:600|500)/i.test(outerHtml) ||
+      // Padlock SVG overlay on the chapter thumbnail (closed lock path, unique to locked chapters)
+      outerHtml.includes("M12 1.5a5.25 5.25 0 0 0-5.25 5.25") ||
+      // Legacy Madara data attributes (older page style, kept as fallback)
+      /data-coin|data-premium/i.test(outerHtml) ||
+      // Plain text indicators (timer-locked early-access chapters)
+      /available in|unlocks in|releases in/i.test(text)
     );
   },
+
 
   async chapterList(url) {
     const html = await fetchRenderedHtml(url, { waitForSelector: "a[href*='chapter']" });
     return extractChaptersFromHtml(html, url, {
       resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
       isChapterLocked: (outerHtml, text) => this.isChapterLocked!(outerHtml, text),
+      lockScope: "row",
     });
   },
 
@@ -59,6 +69,7 @@ export const vortexScansAdapter: WebsiteAdapter = {
     return debugExtractChapters(html, url, {
       resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
       isChapterLocked: (outerHtml, text) => this.isChapterLocked!(outerHtml, text),
+      lockScope: "row",
     });
   },
 

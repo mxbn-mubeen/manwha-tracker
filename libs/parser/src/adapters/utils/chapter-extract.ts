@@ -59,6 +59,88 @@ export interface ExtractChaptersOptions {
    * If omitted, falls back to the generic LOCKED_CHAPTER_INDICATOR heuristic.
    */
   isChapterLocked?: (outerHtml: string, text: string) => boolean;
+  /**
+   * What HTML/text `isChapterLocked` gets to look at for each chapter link.
+   * - 'anchor' (default): only the <a> element itself.
+   * - 'row': the <a> plus its nearest wrapper that still contains just this one
+   *   chapter link, so a lock badge / icon / "Early Access" pill rendered NEXT TO
+   *   the link (a sibling, not a child) is seen too. Opt-in per adapter so sites
+   *   that already work are not affected.
+   */
+  lockScope?: 'anchor' | 'row';
+}
+
+const MAX_ROW_CLIMB = 3;
+
+/**
+ * Climb from a chapter link to the smallest wrapper that represents that chapter's
+ * row: keep going up while the parent still contains at most ONE chapter-looking
+ * link (this one), stopping before it would swallow neighbouring chapters.
+ */
+function getChapterRow($: cheerio.CheerioAPI, anchor: cheerio.Cheerio<any>): cheerio.Cheerio<any> {
+  let row = anchor;
+  for (let i = 0; i < MAX_ROW_CLIMB; i++) {
+    const parent = row.parent();
+    if (!parent.length || parent.is("body, html")) break;
+    let chapterLinks = 0;
+    parent.find("a").each((_, a) => {
+      const $a = $(a);
+      if (CHAPTER_REGEX.test(`${$a.text()} ${$a.attr("href") ?? ""}`)) chapterLinks++;
+      if (chapterLinks > 1) return false; // early exit — already too broad
+      return undefined;
+    });
+    if (chapterLinks > 1) break;
+    row = parent;
+  }
+  return row;
+}
+
+export interface ChapterAnchorDiagnostic {
+  chapterNum: number;
+  text: string;
+  lockedByAnchor: boolean;
+  lockedByRow: boolean;
+  anchorHtml: string;
+  rowHtml: string;
+}
+
+/**
+ * Diagnostic helper: for the first `limit` chapter links on a page, report whether
+ * the lock check fires on the <a> alone vs on its surrounding row, together with
+ * the raw markup — so a site's real lock markup can be inspected instead of guessed.
+ */
+export function describeChapterAnchors(
+  html: string,
+  baseUrl: string,
+  isChapterLocked: (outerHtml: string, text: string) => boolean,
+  limit = 10,
+): ChapterAnchorDiagnostic[] {
+  const $ = cheerio.load(html);
+  const slug = deriveSlug(baseUrl)?.toLowerCase() ?? null;
+  const strip = (h: string) => h.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const out: ChapterAnchorDiagnostic[] = [];
+  $("a").each((_, el) => {
+    if (out.length >= limit) return false;
+    const $el = $(el);
+    const href = $el.attr("href") ?? "";
+    const text = strip($el.html() || "") || $el.text().trim();
+    const match = `${text} ${href}`.match(CHAPTER_REGEX);
+    if (!match || !match[1]) return undefined;
+    if (slug && !href.toLowerCase().includes(slug)) return undefined;
+    const row = getChapterRow($, $el);
+    const anchorHtml = $.html(el);
+    const rowHtml = $.html(row);
+    out.push({
+      chapterNum: parseFloat(match[1]),
+      text,
+      lockedByAnchor: isChapterLocked(anchorHtml, text),
+      lockedByRow: isChapterLocked(rowHtml, strip(row.html() || "")),
+      anchorHtml: anchorHtml.slice(0, 500),
+      rowHtml: rowHtml.slice(0, 900),
+    });
+    return undefined;
+  });
+  return out;
 }
 
 function scanAndFilterChapters(html: string, baseUrl: string, options?: ExtractChaptersOptions): ChapterExtractDebugInfo {
@@ -73,10 +155,18 @@ function scanAndFilterChapters(html: string, baseUrl: string, options?: ExtractC
       const htmlContent = $(el).html() || "";
       const text = htmlContent.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() || $(el).text().trim();
       
-      const isLocked = options?.isChapterLocked 
-        ? options.isChapterLocked(outerHtml, text)
+      let lockHtml = outerHtml;
+      let lockText = text;
+      if (options?.lockScope === "row" && CHAPTER_REGEX.test(`${text} ${href}`)) {
+        const row = getChapterRow($, $(el));
+        lockHtml = $.html(row);
+        lockText = (row.html() || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+      }
+
+      const isLocked = options?.isChapterLocked
+        ? options.isChapterLocked(lockHtml, lockText)
         : (LOCKED_CHAPTER_INDICATOR.test(text) || (!href && !!$(el).attr("data-coin"))); // Keep fallback for existing generic sites
-        
+
       if (isLocked) return;
       const match = `${text} ${href}`.match(CHAPTER_REGEX);
       if (!match || !match[1]) return;

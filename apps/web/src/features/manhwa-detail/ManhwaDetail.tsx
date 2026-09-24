@@ -33,14 +33,37 @@ export function ManhwaDetailPage() {
   }, [manhwa]);
 
   const updateProgressMutation = trpc.manhwa.updateProgress.useMutation({
-    onSuccess: () => {
-      utils.manhwa.getById.invalidate(numericId);
-      utils.manhwa.getAll.invalidate();
+    // Update the cached page data immediately so the UI never waits on the
+    // network (Vercel cold start + Neon round trips can take a few seconds).
+    onMutate: async ({ chapter }) => {
+      // Stop any in-flight refetch from overwriting the optimistic value
+      await utils.manhwa.getById.cancel(numericId);
+      const previous = utils.manhwa.getById.getData(numericId);
+      utils.manhwa.getById.setData(numericId, (old: typeof manhwa) =>
+        old
+          ? {
+              ...old,
+              progress: {
+                ...old.progress,
+                lastChapter: chapter,
+                latestChapter: old.progress?.latestChapter ?? 0,
+                lastReadAt: new Date(),
+              },
+            }
+          : old
+      );
+      return { previous };
     },
-    onError: () => {
+    onError: (_err, _vars, ctx) => {
       toast.error('Failed to update progress');
-      setLocalChapter(manhwa?.progress?.lastChapter ?? 0);
-    }
+      if (ctx?.previous) utils.manhwa.getById.setData(numericId, ctx.previous);
+      setLocalChapter(ctx?.previous?.progress?.lastChapter ?? 0);
+    },
+    onSuccess: () => {
+      // Library/dashboard lists refresh the next time they are opened, instead
+      // of re-running the heavy getAll + getById queries right after every click.
+      utils.manhwa.getAll.invalidate(undefined, { refetchType: 'none' });
+    },
   });
 
   const handleProgressChange = (newChapter: number) => {

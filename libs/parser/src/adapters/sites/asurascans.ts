@@ -22,7 +22,17 @@ export const asuraScansAdapter: WebsiteAdapter = {
   },
 
   isChapterLocked(outerHtml, text) {
-    return /early access/i.test(text);
+    if (/early access/i.test(text)) return true;
+    // Lock badges are often icon-only (an <svg>, no visible text), or carry the
+    // word only in a class / aria-label / title. Look at the TAGS only, with
+    // href/src removed, so a series slug like "the-lock-..." can't trip this.
+    const tags = (outerHtml.match(/<[^>]+>/g) ?? [])
+      .join(" ")
+      .replace(/\s(?:href|src|srcset|data-src)="[^"]*"/gi, "");
+    // Use (?<![a-z]) instead of \b before 'lock' so hyphenated class names like
+    // 'chapter-locked-row' or 'lock-icon' are still caught (\b fails there because
+    // '-' is not a word character, so \b sees no boundary between '-' and 'l').
+    return /early[-_ ]?access|padlock|(?<![a-z])lock(?:ed)?(?![a-z])|data-coin|\bcoins?\b/i.test(tags);
   },
 
   async chapterList(url) {
@@ -33,6 +43,7 @@ export const asuraScansAdapter: WebsiteAdapter = {
     return extractChaptersFromHtml(html, url, {
       resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
       isChapterLocked: (outerHtml, text) => this.isChapterLocked!(outerHtml, text),
+      lockScope: "row",
     });
   },
 
@@ -41,6 +52,7 @@ export const asuraScansAdapter: WebsiteAdapter = {
     return debugExtractChapters(html, url, {
       resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
       isChapterLocked: (outerHtml, text) => this.isChapterLocked!(outerHtml, text),
+      lockScope: "row",
     });
   },
 

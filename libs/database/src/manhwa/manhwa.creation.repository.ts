@@ -88,7 +88,11 @@ export class ManhwaCreationRepository {
 
       if (readChap) {
         await db.update(progress)
-          .set({ chapterId: readChap.id, lastReadAt: new Date() })
+          .set({
+            chapterId: readChap.id,
+            lastReadChapterNum: data.lastChapter,
+            lastReadAt: new Date(),
+          })
           .where(eq(progress.id, progressRow.id));
       }
     }
