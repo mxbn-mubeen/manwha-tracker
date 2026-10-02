@@ -28,16 +28,12 @@ export const thunderscansAdapter: WebsiteAdapter = {
   },
 
   async chapterList(url) {
-    // fetchRenderedHtml required — chapters above ~34 are JS-rendered and
-    // invisible to a plain HTTP fetch. Confirmed Sept 2026 against
-    // en-thunderscans.com: the static HTML only contained the first batch
-    // of chapters; the full list appeared only after JS execution.
-    // clickSelector: ThunderScans shows a "Show All" button that expands
-    // the full chapter list — without clicking it, only the first page is
-    // captured even with full JS rendering.
+    // fetchRenderedHtml required — the full chapter list is JS-rendered.
+    // No clickSelector needed: ThunderScans renders all chapters in the initial
+    // page load; there is no "Show All" button on the live site (confirmed
+    // Sept 2026 against en-thunderscans.com via headless browser inspection).
     const html = await fetchRenderedHtml(url, {
       waitForSelector: "a[href*='chapter']",
-      clickSelector: "button.show-all, a.show-all, [class*='show-all'], button:has-text('Show All'), button:has-text('Show all')",
     });
     const $ = cheerio.load(html);
     // Thunderscans duplicates the latest and first chapter in a <div class="lastend">
@@ -49,19 +45,24 @@ export const thunderscansAdapter: WebsiteAdapter = {
     return extractChaptersFromHtml(cleanedHtml, url, {
       resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
       isChapterLocked: (outerHtml, text) => this.isChapterLocked!(outerHtml, text),
+      // disableSlugScope: ThunderScans renamed this series mid-run; old chapters
+      // use one URL slug and newer chapters use a different slug derived from the
+      // new title. Slug-scoped scan finds the old half and never falls back,
+      // so we disable it and rely on the declaredCount cap instead.
+      disableSlugScope: true,
     });
   },
 
   async debugChapterList(url) {
     const html = await fetchRenderedHtml(url, {
       waitForSelector: "a[href*='chapter']",
-      clickSelector: "button.show-all, a.show-all, [class*='show-all'], button:has-text('Show All'), button:has-text('Show all')",
     });
     const $ = cheerio.load(html);
     $('.lastend').remove(); // mirror chapterList()'s DOM surgery so the diagnostic reflects the same input
     return debugExtractChapters($.html(), url, {
       resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
       isChapterLocked: (outerHtml, text) => this.isChapterLocked!(outerHtml, text),
+      disableSlugScope: true, // mirror chapterList()
     });
   },
 

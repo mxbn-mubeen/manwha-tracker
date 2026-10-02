@@ -80,29 +80,8 @@ async function runWatcherGeneration(attempt = 0): Promise<void> {
     }
     throw err; // genuine unexpected failure — let it surface normally
   }
-  const { client, transport } = await connectTelegramClient({
-    session: SESSION,
-    apiId: API_ID,
-    apiHash: API_HASH,
-    options: {
-      // -1 = retry forever *at the transport level* for ordinary hiccups.
-      // This is no longer our only line of defense against a wedged
-      // connection — the health-check + watchdog below will tear the whole
-      // client down and rebuild it if this connection stops making progress.
-      connectionRetries: -1,
-      retryDelay: 2000,
-      // Default is 10s, which is tight for a container with inconsistent egress —
-      // bumping it cuts down on false-positive TIMEOUTs from normal latency spikes.
-      timeout: 60,
-      // GramJS doesn't support a `catchUp` constructor option on this package
-      // version, so rely on the separate reconcile pass to backfill missed updates.
-    },
-  });
-  console.log(`[watcher] Connected to Telegram using ${transport} transport.`);
-
-  // Disable internal logging to prevent memory leaks over long idling periods
-  // @ts-expect-error: GramJS log level types are restrictive but 'none' is supported at runtime
-  client.setLogLevel("none");
+  let client: TelegramClient | undefined;
+  let transport: string | undefined;
 
   // Track intervals so we can clear them on graceful shutdown / rebuild.
   const intervals: ReturnType<typeof setInterval>[] = [];
@@ -118,9 +97,11 @@ async function runWatcherGeneration(attempt = 0): Promise<void> {
     if (tornDown) return;
     tornDown = true;
     for (const id of intervals) clearInterval(id);
-    client.disconnect().catch(() => {
-      /* best-effort */
-    });
+    if (client) {
+      client.disconnect().catch(() => {
+        /* best-effort */
+      });
+    }
   };
 
   /** Graceful, permanent stop — used for session death. No restart follows. */
@@ -154,20 +135,33 @@ async function runWatcherGeneration(attempt = 0): Promise<void> {
   };
 
   try {
-    await client.connect();
+    const connected = await connectTelegramClient({
+      session: SESSION,
+      apiId: API_ID,
+      apiHash: API_HASH,
+      options: {
+        connectionRetries: -1,
+        retryDelay: 2000,
+        timeout: 60,
+      },
+    });
+    client = connected.client;
+    transport = connected.transport;
   } catch (err) {
     const deathMarker = isSessionDeathError(err);
     if (deathMarker) {
       handleSessionDeath(deathMarker, shutdown);
       return;
     }
-    // Genuine connectivity issue at startup (network unreachable, DC down) —
-    // back off and retry instead of letting it bubble up and kill the process.
-    rebuild(
-      `initial connect failed: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    rebuild(`initial connect failed: ${err instanceof Error ? err.message : String(err)}`);
     return;
   }
+
+  console.log(`[watcher] Connected to Telegram using ${transport} transport.`);
+
+  // Disable internal logging to prevent memory leaks over long idling periods
+  // @ts-expect-error: GramJS log level types are restrictive but 'none' is supported at runtime
+  client.setLogLevel("none");
   console.log("[watcher] Connected to Telegram.");
   touchActivity();
 

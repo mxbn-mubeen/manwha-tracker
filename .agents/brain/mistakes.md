@@ -429,3 +429,51 @@ Append-only log. Never delete entries.
 - Date: 2026-09-10
 
 
+
+---
+
+- Problem: ThunderScans "Pig-Slaughtering Blade..." showed only Ch.34 as latest despite the site having Ch.63.
+- Cause: Series was renamed mid-run; old chapters (0-34) use old URL slug, new chapters (35-63) use new slug. Slug-scoped scan found results for old slug and never fell back. Also extractDeclaredChapterCount returns null (no stat widget), and since resolveLatestReference was provided the DOM-order heuristic never ran — no cap to filter related-series chapter 97.
+- Fix: Added disableSlugScope option to ExtractChaptersOptions. Fixed scanAndFilterChapters to fall through to DOM-order heuristic when both resolveLatestReference returns null AND declaredCount is null. Removed nonexistent clickSelector from ThunderScans adapter. Verified: final 64 chapters (0-63), Ch.97 correctly filtered.
+- Status: Resolved
+- Date: 2026-10-02
+
+---
+
+- Problem: AsuraScans detected Ch.66 of Dukedom's Legendary Prodigy as free; it is early access behind Asura+ Premium paywall.
+- Cause: isChapterLocked only checked for 'early access' text and lock/coin tags. Asura+ Premium uses 'PREMIUM' badge text and premium CSS classes.
+- Fix: Extended isChapterLocked to also match premium/asura+ in text and tag attributes.
+- Status: Resolved in code — requires live resync to confirm against real HTML.
+- Date: 2026-10-02
+
+---
+
+- Problem: 500 errors on all tRPC endpoints (Failed to load library). Then 401 after restart.
+- Cause: APP_SECRET missing from .env (API fails closed). VITE_APP_SECRET not loaded — Vite defaulted to apps/web/ not root workspace.
+- Fix: Added APP_SECRET + VITE_APP_SECRET to root .env. Added envDir: '../../' to apps/web/vite.config.ts.
+- Status: Resolved
+- Date: 2026-10-02
+---
+
+- Problem: Telegram watcher route threw 401 Unauthorized because the frontend couldn't attach an httpOnly session cookie (port 3000 to port 3002).
+- Cause: The watcher tRPC server (pps/worker/src/trpc/index.ts) relied on cookie-based authentication, which failed in a cross-origin context from the standalone worker server.
+- Fix: Switched worker tRPC server to use x-app-secret header authentication instead of cookies, matching the cross-service auth pattern.
+- Status: Resolved
+- Date: 2026-10-02
+
+---
+
+- Problem: 403 Forbidden when saving Telegram settings in the Web UI.
+- Cause: The 	elegram_phone_hint field was not present in ALLOWED_KEYS inside settings.router.ts.
+- Fix: Added 	elegram_phone_hint to ALLOWED_KEYS.
+- Status: Resolved
+- Date: 2026-10-02
+
+---
+
+- Problem: Telegram watcher process completely crashed and exited if the initial MTProto connection failed (e.g. ISP blocked it).
+- Cause: connectTelegramClient threw an exception that was not caught inside a try/catch block, leaving a top-level unhandled rejection that killed the entire Node.js worker process.
+- Fix: Refactored unWatcherGeneration to declare variables early and wrapped connectTelegramClient in a try/catch block. Now it gracefully delays and calls ebuild to retry in the background without crashing the server.
+- Status: Resolved
+- Date: 2026-10-02
+

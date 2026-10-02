@@ -68,6 +68,15 @@ export interface ExtractChaptersOptions {
    *   that already work are not affected.
    */
   lockScope?: 'anchor' | 'row';
+  /**
+   * When true, skip the slug-scoped chapter link scan entirely and match ALL
+   * chapter links on the page regardless of their URL. Use for sites where
+   * chapter URLs use a different slug than the series page (e.g. after a
+   * series rename — ThunderScans renamed "Butcher Blade" mid-run, so
+   * ch 0–34 use the old slug and ch 35+ use the new one; slug-scoped scan
+   * only finds the old half and never falls back because it gets results).
+   */
+  disableSlugScope?: boolean;
 }
 
 const MAX_ROW_CLIMB = 3;
@@ -192,7 +201,7 @@ function scanAndFilterChapters(html: string, baseUrl: string, options?: ExtractC
     return found;
   };
 
-  let found = slug ? scan(true) : new Map<number, ChapterInfo>();
+  let found = (!options?.disableSlugScope && slug) ? scan(true) : new Map<number, ChapterInfo>();
   const usedSlugScopedScan = found.size > 0;
   if (found.size === 0) {
     found = scan(false);
@@ -234,7 +243,14 @@ function scanAndFilterChapters(html: string, baseUrl: string, options?: ExtractC
   let referenceNum: number | null = null;
   if (options?.resolveLatestReference) {
     referenceNum = options.resolveLatestReference(found, html);
-  } else if (declaredCount === null) {
+  }
+  // Fall through to the DOM-order heuristic when the adapter's
+  // resolveLatestReference returned null (e.g. site has no declared-count
+  // stat widget) AND there is no declared count to cap with instead.
+  // Without this fallthrough, slug-scope-disabled scans (used for renamed
+  // series) pick up related-series links from sidebar widgets and have no
+  // way to trim them — the DOM-order cap handles that case cleanly.
+  if (referenceNum === null && declaredCount === null) {
     const domOrderValues = Array.from(found.values()); // Map preserves insertion = DOM order
     // Look at the first 5 links and take the max to bypass "Read First Chapter" buttons at the top
     const firstFew = domOrderValues.slice(0, 5).map(c => c.chapterNum);
