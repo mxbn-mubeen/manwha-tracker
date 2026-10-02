@@ -7,7 +7,8 @@ import { TRPCError } from "@trpc/server";
 const repo = new SettingsRepository();
 const ALLOWED_KEYS = new Set([
   "START_TELEGRAM_WATCHER",
-  "START_TELEGRAM_BOT"
+  "START_TELEGRAM_BOT",
+  "telegram_phone_hint"
 ]);
 
 export const settingsRouter = createTRPCRouter({

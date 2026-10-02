@@ -25,16 +25,30 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
 export const createTRPCRouter = t.router;
 
 /**
- * Every procedure requires a valid session cookie verified by the shared SESSION_SECRET.
+ * Every tRPC procedure on the worker requires a valid APP_SECRET header.
+ * This matches the same check used by the raw sync.run Express route.
+ * The previous session-cookie approach was removed because no route ever
+ * issued the cookie, making every call permanently fail with 401.
  */
 const requireSecret = t.middleware(({ ctx, next }) => {
-  const session = ctx.req.signedCookies?.session;
-  
-  if (!session || session !== 'authenticated') {
-    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Invalid or missing session cookie.' });
+  const configuredSecret = process.env.APP_SECRET;
+  if (!configuredSecret) {
+    throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'APP_SECRET not configured on worker.' });
+  }
+
+  const providedSecret = ctx.req.header('x-app-secret') ?? '';
+  const expected = Buffer.from(configuredSecret);
+  const provided = Buffer.from(providedSecret);
+  const isAuthorized =
+
+    expected.length === provided.length && timingSafeEqual(expected, provided);
+
+  if (!isAuthorized) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Invalid or missing app secret.' });
   }
 
   return next();
 });
 
 export const publicProcedure = t.procedure.use(requireSecret);
+
