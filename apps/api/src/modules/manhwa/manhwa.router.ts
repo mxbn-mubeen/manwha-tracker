@@ -206,6 +206,16 @@ export const manhwaRouter = createTRPCRouter({
       }
     }),
 
+  deleteChaptersBulk: publicProcedure
+    .input(z.array(z.coerce.number().int().positive()))
+    .mutation(async ({ input }) => {
+      try {
+        return await service.deleteChaptersBulk(input);
+      } catch (err) {
+        throw toSafeError(err, 'manhwa.deleteChaptersBulk');
+      }
+    }),
+
   redetectAdapterKeys: publicProcedure
     .mutation(async () => {
       try {

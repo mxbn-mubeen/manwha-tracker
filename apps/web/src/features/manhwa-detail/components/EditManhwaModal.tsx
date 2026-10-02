@@ -97,61 +97,63 @@ export function EditManhwaModal({
       onPointerDown={onClose}
     >
       <Card
-        className="bg-[#161719] border-border/30 p-6 rounded-2xl w-full max-w-md shadow-2xl overflow-y-auto max-h-[90vh]"
+        className="bg-[#111214]/90 backdrop-blur-2xl border-white/10 p-6 rounded-2xl w-full max-w-md shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar"
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <h2 id="edit-modal-title" className="text-xl font-bold text-white mb-4">
+        <h2 id="edit-modal-title" className="text-xl font-bold text-white mb-6 tracking-tight">
           Edit Manhwa
         </h2>
 
-        <div className="space-y-4">
+        <div className="space-y-5">
           <div>
-            <label htmlFor="edit-title" className="text-sm font-medium text-zinc-400">Title</label>
+            <label htmlFor="edit-title" className="text-[11px] uppercase tracking-wider font-semibold text-zinc-500 mb-1.5 block">Title</label>
             <input
               id="edit-title"
               type="text"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              className="mt-1 bg-[#0e0f11] border border-border/50 text-white text-sm rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="bg-black/40 border border-white/10 text-white text-sm rounded-xl px-4 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all placeholder:text-zinc-600"
             />
           </div>
 
           <div>
-            <label htmlFor="edit-genres" className="text-sm font-medium text-zinc-400">Genres (comma separated)</label>
+            <label htmlFor="edit-genres" className="text-[11px] uppercase tracking-wider font-semibold text-zinc-500 mb-1.5 block">Genres <span className="text-zinc-600 normal-case tracking-normal font-normal">(comma separated)</span></label>
             <input
               id="edit-genres"
               type="text"
               value={editGenres}
               onChange={(e) => setEditGenres(e.target.value)}
-              className="mt-1 bg-[#0e0f11] border border-border/50 text-white text-sm rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="bg-black/40 border border-white/10 text-white text-sm rounded-xl px-4 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all placeholder:text-zinc-600"
               placeholder="Action, Fantasy"
             />
           </div>
 
           <div>
-            <label htmlFor="edit-description" className="text-sm font-medium text-zinc-400">Description</label>
+            <label htmlFor="edit-description" className="text-[11px] uppercase tracking-wider font-semibold text-zinc-500 mb-1.5 block">Description</label>
             <textarea
               id="edit-description"
               value={editDescription}
               onChange={(e) => setEditDescription(e.target.value)}
               rows={4}
-              className="mt-1 bg-[#0e0f11] border border-border/50 text-white text-sm rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
+              className="bg-black/40 border border-white/10 text-white text-sm rounded-xl px-4 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all resize-none placeholder:text-zinc-600 custom-scrollbar"
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium text-zinc-400">Cover URL or Image Upload</label>
+            <label className="text-[11px] uppercase tracking-wider font-semibold text-zinc-500 mb-1.5 block">Cover Image</label>
             {editCoverUrl && (
-              <div className="mt-1 mb-2 flex items-center gap-4 bg-[#0e0f11] p-3 rounded-lg border border-border/50">
-                <img src={getProxiedImageUrl(editCoverUrl)} alt="Cover preview" className="w-16 h-16 object-cover rounded shadow-md" />
+              <div className="mb-3 flex items-center justify-between gap-4 bg-black/40 p-3 rounded-xl border border-white/10 group">
+                <div className="flex items-center gap-4">
+                  <img src={getProxiedImageUrl(editCoverUrl)} alt="Cover preview" className="w-12 h-16 object-cover rounded-md shadow-md ring-1 ring-white/10" />
+                  <span className="text-xs text-zinc-400 truncate max-w-[150px]">Current cover</span>
+                </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                  className="text-red-400 opacity-80 group-hover:opacity-100 hover:text-red-300 hover:bg-red-500/10 h-8"
                   onClick={() => setEditCoverUrl("")}
                 >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Remove
+                  <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
             )}
@@ -159,11 +161,15 @@ export function EditManhwaModal({
               type="text"
               value={editCoverUrl}
               onChange={(e) => setEditCoverUrl(e.target.value)}
-              placeholder="https://..."
-              className="mt-1 bg-[#0e0f11] border border-border/50 text-white text-sm rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-amber-500"
+              placeholder="Paste image URL..."
+              className="bg-black/40 border border-white/10 text-white text-sm rounded-xl px-4 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all placeholder:text-zinc-600"
             />
-            <div className="mt-2 flex items-center gap-2">
-              <span className="text-xs text-zinc-500">Or upload:</span>
+            <div className="mt-3 flex items-center gap-3">
+              <div className="flex-1 h-px bg-white/5"></div>
+              <span className="text-[10px] uppercase font-semibold text-zinc-600 tracking-wider">Or</span>
+              <div className="flex-1 h-px bg-white/5"></div>
+            </div>
+            <div className="mt-3">
               <input
                 id="edit-cover-file"
                 type="file"
@@ -171,22 +177,24 @@ export function EditManhwaModal({
                 onChange={handleFileUpload}
                 title="Upload cover image"
                 aria-label="Upload cover image"
-                className="text-xs text-zinc-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-zinc-800 file:text-amber-500 hover:file:bg-zinc-700 w-full overflow-hidden"
+                className="text-sm text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-white/5 file:text-white hover:file:bg-white/10 w-full overflow-hidden transition-all cursor-pointer"
               />
             </div>
           </div>
         </div>
 
-        <ManageChaptersSection
-          manhwaId={manhwaId}
-          expanded={chaptersExpanded}
-          onToggle={() => setChaptersExpanded((v) => !v)}
-        />
+        <div className="mt-6 border-t border-white/10 pt-4">
+          <ManageChaptersSection
+            manhwaId={manhwaId}
+            expanded={chaptersExpanded}
+            onToggle={() => setChaptersExpanded((v) => !v)}
+          />
+        </div>
 
-        <div className="mt-8 flex justify-between items-center">
+        <div className="mt-8 flex justify-between items-center pt-2">
           <Button
             variant="ghost"
-            className="text-red-500 hover:text-red-400 hover:bg-red-500/10 px-3 h-9"
+            className="text-red-500 hover:text-red-400 hover:bg-red-500/10 px-3 h-10 rounded-xl"
             disabled={deleteMutation.isPending}
             onClick={() => {
               if (confirm("Move this manhwa to Recently Deleted?\n\nYou'll have 30 days to recover it.")) {
@@ -198,15 +206,15 @@ export function EditManhwaModal({
             Delete
           </Button>
           <div className="flex gap-2">
-            <Button variant="ghost" className="h-9 px-4 text-zinc-300 hover:text-white" onClick={onClose}>
+            <Button variant="ghost" className="h-10 px-5 text-zinc-400 hover:text-white rounded-xl" onClick={onClose}>
               Cancel
             </Button>
             <Button
-              className="bg-amber-500 hover:bg-amber-600 text-amber-950 font-semibold h-9 px-4"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-10 px-6 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95"
               onClick={handleUpdate}
               disabled={updateMutation.isPending || !editTitle.trim()}
             >
-              Save Changes
+              Save
             </Button>
           </div>
         </div>

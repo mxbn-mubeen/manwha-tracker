@@ -64,18 +64,10 @@ export class ManhwaRepository {
   }
 
   /**
-   * Manually set/bump the latest known chapter number, e.g. when a source missed one,
-   * or to correct a previous typo (e.g. accidentally entered 266 instead of 265).
-   * "Latest chapter" is derived elsewhere as MAX(chapter_num), so a stray higher row
-   * left over from a mistake would otherwise keep winning forever no matter what
-   * lower number gets entered afterward — this was a real bug reported directly.
-   *
-   * Fix: if the new value is lower than an existing MANUAL entry (sourceId IS NULL),
-   * that manual entry was almost certainly the mistake being corrected right now, so
-   * remove it. Genuinely scraped/Telegram-sourced chapters (sourceId NOT NULL) are
-   * never touched here — only ever-manual entries can be walked back down, since a
-   * real chapter someone actually posted shouldn't silently disappear just because
-   * someone later typed a lower number for an unrelated reason.
+   * Manually set/bump the latest known chapter number.
+   * If the new value is lower than existing entries, it trims ALL chapters above it 
+   * (both manual and scraped). This allows the input to act as an aggressive trim tool 
+   * to quickly fix scraper false-positives (like premium chapters).
    */
   async setLatestChapter(manhwaId: number, chapterNum: number) {
     const chaptersToDelete = await db
@@ -84,7 +76,6 @@ export class ManhwaRepository {
       .where(
         and(
           eq(chapters.manhwaId, manhwaId),
-          isNull(chapters.sourceId),
           gt(chapters.chapterNum, chapterNum),
         )
       );
@@ -187,5 +178,10 @@ export class ManhwaRepository {
    */
   async deleteChapter(chapterId: number) {
     await db.delete(chapters).where(eq(chapters.id, chapterId));
+  }
+
+  async deleteChaptersBulk(chapterIds: number[]) {
+    if (!chapterIds.length) return;
+    await db.delete(chapters).where(inArray(chapters.id, chapterIds));
   }
 }

@@ -56,3 +56,10 @@
 @utility glow {
   box-shadow: 0 0 20px 0 rgba(245, 158, 11, 0.15);
 }
+
+@utility custom-scrollbar {
+  &::-webkit-scrollbar { width: 6px; height: 6px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+  &::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+}

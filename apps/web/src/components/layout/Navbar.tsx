@@ -12,8 +12,8 @@ export function Navbar() {
   const utils = trpc.useUtils()
 
   const [historyOpen, setHistoryOpen] = useState(false)
-  const [searchOpen, setSearchOpen]   = useState(false)
-  const [menuCoords, setMenuCoords] = useState<{top: number, right: number} | null>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [menuCoords, setMenuCoords] = useState<{ top: number, right: number } | null>(null)
 
   // Cmd+K / Ctrl+K opens global search
   useEffect(() => {
@@ -95,10 +95,10 @@ export function Navbar() {
               </div>
               <span className="font-bold text-lg hidden sm:inline-block">Manhwa</span>
             </Link>
-            
+
             <nav className="flex items-center gap-1 sm:gap-4 text-sm font-medium text-muted-foreground shrink-0">
-              <Link 
-                to="/dashboard" 
+              <Link
+                to="/dashboard"
                 className={`transition-colors hover:text-foreground shrink-0 ${location.pathname === '/dashboard' ? 'text-foreground bg-white/5 px-2 sm:px-3 py-1.5 rounded-md' : 'px-2 sm:px-3 py-1.5'}`}
               >
                 <div className="flex items-center gap-2">
@@ -111,8 +111,8 @@ export function Navbar() {
                   <span className="hidden sm:inline">Dashboard</span>
                 </div>
               </Link>
-              <Link 
-                to="/library" 
+              <Link
+                to="/library"
                 className={`transition-colors hover:text-foreground shrink-0 ${location.pathname === '/library' ? 'text-foreground bg-white/5 px-2 sm:px-3 py-1.5 rounded-md' : 'px-2 sm:px-3 py-1.5'}`}
               >
                 <div className="flex items-center gap-2">
@@ -120,8 +120,8 @@ export function Navbar() {
                   <span className="hidden sm:inline">Library</span>
                 </div>
               </Link>
-              <Link 
-                to="/sources" 
+              <Link
+                to="/sources"
                 className={`transition-colors hover:text-foreground shrink-0 ${location.pathname === '/sources' ? 'text-foreground bg-white/5 px-2 sm:px-3 py-1.5 rounded-md' : 'px-2 sm:px-3 py-1.5'}`}
               >
                 <div className="flex items-center gap-2">
@@ -129,8 +129,8 @@ export function Navbar() {
                   <span className="hidden sm:inline">Sources</span>
                 </div>
               </Link>
-              <Link 
-                to="/stats" 
+              <Link
+                to="/stats"
                 className={`transition-colors hover:text-foreground shrink-0 ${location.pathname === '/stats' ? 'text-foreground bg-white/5 px-2 sm:px-3 py-1.5 rounded-md' : 'px-2 sm:px-3 py-1.5'}`}
               >
                 <div className="flex items-center gap-2">
@@ -201,11 +201,11 @@ export function Navbar() {
               </Button>
               {menuCoords && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-[190]" 
-                    onClick={() => setMenuCoords(null)} 
+                  <div
+                    className="fixed inset-0 z-[190]"
+                    onClick={() => setMenuCoords(null)}
                   />
-                  <div 
+                  <div
                     className="fixed w-56 rounded-lg border border-border/30 bg-[#161719] shadow-lg z-[200] py-1"
                     style={{ top: menuCoords.top, right: menuCoords.right }}
                   >

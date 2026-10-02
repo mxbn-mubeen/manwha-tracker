@@ -35,13 +35,18 @@ export const asuraScansAdapter: WebsiteAdapter = {
     // '-' is not a word character, so \b sees no boundary between '-' and 'l').
     return /early[-_ ]?access|padlock|(?<![a-z])lock(?:ed)?(?![a-z])|data-coin|\bcoins?\b|premium|asura[\-_+]?plus?|asura-plus/i.test(tags);
   },
-
   async chapterList(url) {
     // fetchRenderedHtml lets the browser run JS so EARLY ACCESS tags appear
     // in the DOM — the LOCKED_CHAPTER_INDICATOR in chapter-extract.ts then
     // filters them out naturally.
     const html = await fetchRenderedHtml(url, { waitForSelector: "a[href*='chapter']" });
-    return extractChaptersFromHtml(html, url, {
+    
+    // AsuraScans appends an 8-character hex hash to series URLs (e.g. -3ec3b16f)
+    // but chapter URLs do not include it. Strip the hash so slug-scoped
+    // scanning correctly matches the chapter links and ignores sidebar recommendations.
+    const slugScopeUrl = url.replace(/-[a-f0-9]{8}(\/?)$/i, '$1');
+    
+    return extractChaptersFromHtml(html, slugScopeUrl, {
       resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
       isChapterLocked: (outerHtml, text) => this.isChapterLocked!(outerHtml, text),
       lockScope: "row",
@@ -50,7 +55,9 @@ export const asuraScansAdapter: WebsiteAdapter = {
 
   async debugChapterList(url) {
     const html = await fetchRenderedHtml(url, { waitForSelector: "a[href*='chapter']" });
-    return debugExtractChapters(html, url, {
+    const slugScopeUrl = url.replace(/-[a-f0-9]{8}(\/?)$/i, '$1');
+    
+    return debugExtractChapters(html, slugScopeUrl, {
       resolveLatestReference: (_, h) => this.extractLatestChapterNum(h, url),
       isChapterLocked: (outerHtml, text) => this.isChapterLocked!(outerHtml, text),
       lockScope: "row",

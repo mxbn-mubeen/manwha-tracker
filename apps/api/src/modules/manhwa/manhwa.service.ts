@@ -135,6 +135,10 @@ export class ManhwaService {
     return await this.repo.deleteChapter(chapterId);
   }
 
+  async deleteChaptersBulk(chapterIds: number[]) {
+    return await this.repo.deleteChaptersBulk(chapterIds);
+  }
+
   async redetectAllAdapterKeys() {
     return await this.sourcesRepo.redetectAllAdapterKeys();
   }

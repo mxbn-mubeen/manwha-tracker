@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -38,11 +38,10 @@ function SyncLockCard() {
     <div className="rounded-xl border border-border/20 bg-[#111214] p-6">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-lg flex items-center justify-center border ${
-            isSyncing
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center border ${isSyncing
               ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
               : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-          }`}>
+            }`}>
             {isSyncing ? <RefreshCw className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
           </div>
           <div>
@@ -119,11 +118,10 @@ function TelegramWatcherCard() {
     <div className="rounded-xl border border-border/20 bg-[#111214] p-6">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-lg flex items-center justify-center border ${
-            displayEnabled
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center border ${displayEnabled
               ? 'bg-blue-500/10 border-blue-500/20 text-blue-400'
               : 'bg-zinc-800/60 border-border/20 text-zinc-500'
-          }`}>
+            }`}>
             {displayEnabled ? <RadioTower className="w-5 h-5" /> : <Radio className="w-5 h-5" />}
           </div>
           <div>
@@ -144,14 +142,12 @@ function TelegramWatcherCard() {
           aria-checked={displayEnabled}
           onClick={toggle}
           disabled={isLoading || setMutation.isPending}
-          className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${
-            displayEnabled ? 'bg-blue-500' : 'bg-zinc-700'
-          }`}
+          className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${displayEnabled ? 'bg-blue-500' : 'bg-zinc-700'
+            }`}
         >
           <span
-            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${
-              displayEnabled ? 'translate-x-5' : 'translate-x-0'
-            }`}
+            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${displayEnabled ? 'translate-x-5' : 'translate-x-0'
+              }`}
           />
         </button>
       </div>
