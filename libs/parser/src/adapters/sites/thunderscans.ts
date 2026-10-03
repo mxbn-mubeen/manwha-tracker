@@ -56,6 +56,7 @@ export const thunderscansAdapter: WebsiteAdapter = {
         return lastendChapterNum ?? this.extractLatestChapterNum!(h, url);
       },
       isChapterLocked: (outerHtml, text) => this.isChapterLocked!(outerHtml, text),
+      lockScope: 'row',
       // disableSlugScope: ThunderScans renamed this series mid-run; old chapters
       // use one URL slug and newer chapters use a different slug derived from the
       // new title. Slug-scoped scan finds only the old half, so we disable it.
@@ -75,6 +76,7 @@ export const thunderscansAdapter: WebsiteAdapter = {
       resolveLatestReference: (_, h) =>
         lastendChapterNum ?? this.extractLatestChapterNum!(h, url),
       isChapterLocked: (outerHtml, text) => this.isChapterLocked!(outerHtml, text),
+      lockScope: 'row',
       disableSlugScope: true,
     });
   },
