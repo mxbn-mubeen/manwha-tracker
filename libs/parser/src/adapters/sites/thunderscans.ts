@@ -45,6 +45,15 @@ export const thunderscansAdapter: WebsiteAdapter = {
     // at the top of the list. The latest chapter here might be coin-locked.
     // The actual free chapters are in the standard list below.
     $('.lastend').remove();
+    // Strip "Related Series" section links. ThunderScans renders a Related
+    // Series widget whose entries have a "View Latest Chapter" button linking
+    // to the *series homepage* (e.g. /comics/infinite-level-up-in-murim/) not
+    // a chapter URL. Because disableSlugScope is required here (series rename),
+    // the extraction sees every link on the page — including these — and
+    // misidentifies them as high-numbered chapters of the current series.
+    // On ThunderScans, real chapter links always contain /chapter/ in the path;
+    // series-homepage links never do. Removing them before extraction is safe.
+    stripRelatedSeriesLinks($);
     const cleanedHtml = $.html();
     return extractChaptersFromHtml(cleanedHtml, url, {
       resolveLatestReference: (_, h) => {
@@ -72,6 +81,7 @@ export const thunderscansAdapter: WebsiteAdapter = {
     // Mirror chapterList() exactly so the diagnostic reflects the same logic
     const lastendChapterNum = readLastendChapter($);
     $('.lastend').remove();
+    stripRelatedSeriesLinks($);
     return debugExtractChapters($.html(), url, {
       resolveLatestReference: (_, h) =>
         lastendChapterNum ?? this.extractLatestChapterNum!(h, url),
@@ -107,4 +117,23 @@ function readLastendChapter($: cheerio.CheerioAPI): number | null {
     if (found === null || num > found) found = num;
   });
   return found;
+}
+
+/**
+ * Remove links that point to a ThunderScans series homepage rather than a
+ * specific chapter. On ThunderScans, valid chapter URLs always contain
+ * '/chapter/' in their path (e.g. /comics/series-slug/chapter/42/).
+ * The "Related Series" widget at the bottom of each series page renders a
+ * "View Latest Chapter" button for each related series that links to the
+ * series homepage (e.g. /comics/infinite-level-up-in-murim/). When
+ * disableSlugScope is active these get misidentified as chapters of the
+ * current series — removing them beforehand is safe and targeted.
+ */
+function stripRelatedSeriesLinks($: cheerio.CheerioAPI): void {
+  $('a[href]').each((_, el) => {
+    const href = $(el).attr('href') ?? '';
+    if (href.includes('/comics/') && !href.includes('/chapter/')) {
+      $(el).remove();
+    }
+  });
 }
