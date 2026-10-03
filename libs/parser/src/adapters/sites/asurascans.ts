@@ -22,8 +22,8 @@ export const asuraScansAdapter: WebsiteAdapter = {
   },
 
   isChapterLocked(outerHtml, text) {
-    // Match text visible in the chapter row: "Early Access", "Premium", "Asura+", etc.
-    if (/early.?access|premium|\basura\+/i.test(text)) return true;
+    // Match text visible in the chapter row: "Early Access", "Premium", "Asura+", "Unlocks in", etc.
+    if (/early.?access|premium|\basura\+|unlocks? in/i.test(text)) return true;
     // Lock badges are often icon-only (an <svg>, no visible text), or carry the
     // word only in a class / aria-label / title. Look at the TAGS only, with
     // href/src removed, so a series slug like "the-lock-..." can't trip this.
