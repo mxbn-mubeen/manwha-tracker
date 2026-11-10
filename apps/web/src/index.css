@@ -63,3 +63,104 @@
   &::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
   &::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
 }
+
+/* ─── Buttery-smooth global animations ─── */
+
+/* Page-level fade-in + slide-up for content areas */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@utility animate-page-enter {
+  animation: page-enter 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Grid card stagger — each child delays based on --i */
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@utility animate-card-enter {
+  animation: card-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+/* Collapse/expand panel slide */
+@keyframes panel-expand {
+  from { opacity: 0; max-height: 0; }
+  to   { opacity: 1; max-height: 1200px; }
+}
+@keyframes panel-collapse {
+  from { opacity: 1; max-height: 1200px; }
+  to   { opacity: 0; max-height: 0; }
+}
+@utility animate-panel-expand {
+  animation: panel-expand 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  overflow: hidden;
+}
+
+/* Modal backdrop + content scale-in */
+@keyframes modal-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes modal-content-in {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@utility animate-modal-backdrop {
+  animation: modal-backdrop-in 0.2s ease-out both;
+}
+@utility animate-modal-content {
+  animation: modal-content-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 50ms;
+}
+
+/* Fade in for stat cards, analytics panels */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@utility animate-fade-up {
+  animation: fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+/* Subtle list item entrance */
+@keyframes list-item-enter {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@utility animate-list-enter {
+  animation: list-item-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+
+/* Button press micro-interaction */
+@utility btn-press {
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease;
+  &:active { transform: scale(0.97); }
+}
+
+/* Card hover lift */
+@utility card-hover-lift {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+  &:hover { transform: translateY(-2px); box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.4); }
+}
+
+/* Nav bubble pop micro-interaction */
+@keyframes bubble-pop {
+  0% { transform: scale(0.92); }
+  60% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+@utility animate-bubble {
+  animation: bubble-pop 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Smooth all transitions globally with will-change hints */
+@layer base {
+  * {
+    scroll-behavior: smooth;
+  }
+}

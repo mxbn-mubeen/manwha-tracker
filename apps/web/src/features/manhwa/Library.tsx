@@ -154,8 +154,10 @@ export function LibraryPage() {
         </div>
       ) : filtered && filtered.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-5">
-          {filtered.map((m) => (
-            <ManhwaCard key={m.id} manhwa={m} />
+          {filtered.map((m, i) => (
+            <div key={m.id} className="animate-card-enter" style={{ '--i': i } as React.CSSProperties}>
+              <ManhwaCard key={m.id} manhwa={m} />
+            </div>
           ))}
         </div>
       ) : (

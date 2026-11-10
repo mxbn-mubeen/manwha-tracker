@@ -91,7 +91,7 @@ export function TelegramSection() {
       </div>
 
       {/* Status Card */}
-      <Card className="p-5 space-y-4 bg-card border-border/50">
+      <div className="p-5 space-y-4 bg-[#111214] border border-border/20 rounded-xl shadow-sm">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-muted-foreground">Connection Status</span>
           {statusLoading ? (
@@ -101,21 +101,21 @@ export function TelegramSection() {
               <CheckCircle2 size={12} /> Connected
             </Badge>
           ) : (
-            <Badge variant="outline" className="gap-1.5 text-red-400 border-red-500/30">
+            <Badge variant="outline" className="gap-1.5 text-red-400 border border-red-500/30 bg-red-500/10">
               <XCircle size={12} /> Not connected
             </Badge>
           )}
         </div>
 
         {status && (
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-2 gap-4 text-sm bg-[#161719]/60 p-3 rounded-lg border border-border/10">
             <div>
               <p className="text-muted-foreground text-xs mb-0.5">Phone</p>
-              <p className="font-mono">{status.phone ? `+${status.phone}` : '—'}</p>
+              <p className="font-mono text-zinc-200">{status.phone ? `+${status.phone}` : '—'}</p>
             </div>
             <div>
               <p className="text-muted-foreground text-xs mb-0.5">Session source</p>
-              <p className="font-mono text-xs">
+              <p className="font-mono text-xs text-zinc-300">
                 {status.source === 'database' ? '🗄 Database' : status.source === 'env' ? '🔒 .env file' : '—'}
               </p>
             </div>
@@ -123,10 +123,10 @@ export function TelegramSection() {
         )}
 
         {status?.source === 'database' && (
-          <div className="border-t border-border/50 pt-3">
+          <div className="border-t border-border/20 pt-3">
             <Button
               variant="ghost" size="sm"
-              className="text-red-400 hover:text-red-300 hover:bg-red-500/10 gap-2"
+              className="text-red-400 hover:text-red-300 hover:bg-red-500/10 gap-2 btn-press"
               onClick={() => deleteMutation.mutate()}
               disabled={deleteMutation.isPending}
             >
@@ -134,7 +134,7 @@ export function TelegramSection() {
             </Button>
           </div>
         )}
-      </Card>
+      </div>
 
       <TelegramLoginWizard
         step={step}

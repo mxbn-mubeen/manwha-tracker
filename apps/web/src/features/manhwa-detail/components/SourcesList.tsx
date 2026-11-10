@@ -1,11 +1,11 @@
-import { useState } from 'react';
-import { Plus, Send, Trash2 } from 'lucide-react';
+import { Send, Trash2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { StatusBadge, computeStatus, timeAgo } from './SourceStatusBadge';
 import { getAdapterBadgeClass } from '@/features/sources/utils/adapterColors';
+import { AddSourceForm } from './AddSourceForm';
 
 interface Source {
   url: string | null;
@@ -22,17 +22,6 @@ interface SourcesListProps {
 
 export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListProps) {
   const utils = trpc.useUtils();
-  const [newSourceUrl, setNewSourceUrl] = useState('');
-  const [newSourceType, setNewSourceType] = useState<'telegram' | 'website'>('telegram');
-
-  const addSourceMutation = trpc.manhwa.addSource.useMutation({
-    onSuccess: () => {
-      toast.success('Source added!');
-      setNewSourceUrl('');
-      utils.manhwa.getById.invalidate(manhwaId);
-    },
-    onError: (err) => toast.error(err.message || 'Failed to add source'),
-  });
 
   const removeSourceMutation = trpc.manhwa.removeSource.useMutation({
     onSuccess: () => {
@@ -41,10 +30,6 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
     },
     onError: () => toast.error('Failed to remove source'),
   });
-
-  const handleAddSource = () => {
-    addSourceMutation.mutate({ manhwaId, url: newSourceUrl.trim(), type: newSourceType });
-  };
 
   return (
     <div className="space-y-4 pt-2">
@@ -162,40 +147,7 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
         <p className="text-sm text-muted-foreground">No sources linked for this manhwa.</p>
       )}
 
-      <Card className="bg-transparent border border-dashed border-border/50 p-4 rounded-xl mt-4">
-        <p className="text-sm font-medium text-white mb-3">Add a source</p>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <select
-            value={newSourceType}
-            onChange={(e) => setNewSourceType(e.target.value as 'telegram' | 'website')}
-            className="bg-[#161719] border border-border/50 text-white text-sm rounded-lg px-3 py-2 w-full sm:w-[140px] focus:outline-none focus:ring-1 focus:ring-amber-500"
-          >
-            <option value="telegram">Telegram</option>
-            <option value="website">Website</option>
-          </select>
-          <div className="flex-1 flex gap-2">
-            <input
-              type="text"
-              value={newSourceUrl}
-              onChange={(e) => setNewSourceUrl(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && newSourceUrl.trim() && !addSourceMutation.isPending) handleAddSource(); }}
-              placeholder={newSourceType === 'telegram' ? '@channel_name or t.me/...' : 'https://example.com/...'}
-              className="bg-[#161719] border border-border/50 text-white text-sm rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-amber-500 placeholder:text-muted-foreground"
-            />
-            <Button
-              className="bg-amber-500 hover:bg-amber-600 text-amber-950 px-3 shrink-0 rounded-lg"
-              onClick={handleAddSource}
-              disabled={addSourceMutation.isPending || !newSourceUrl.trim()}
-            >
-              {addSourceMutation.isPending ? (
-                <div className="h-4 w-4 border-2 border-amber-950/40 border-t-amber-950 rounded-full animate-spin" />
-              ) : (
-                <Plus className="h-5 w-5" />
-              )}
-            </Button>
-          </div>
-        </div>
-      </Card>
+      <AddSourceForm manhwaId={manhwaId} />
     </div>
   );
 }

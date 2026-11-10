@@ -25,7 +25,7 @@ export function ManhwaCard({ manhwa }: { manhwa: Manhwa }) {
   return (
     <Link
       to={`/manhwa/${manhwa.id}`}
-      className="group relative rounded-xl overflow-hidden aspect-[3/4] bg-zinc-900 border border-border/50 transition-all hover:border-amber-500/50 hover:glow block"
+      className="group relative rounded-xl overflow-hidden aspect-[3/4] bg-zinc-900 border border-border/50 transition-all hover:border-amber-500/50 hover:glow card-hover-lift block"
     >
         {manhwa.coverUrl && !imgFailed ? (
           <img

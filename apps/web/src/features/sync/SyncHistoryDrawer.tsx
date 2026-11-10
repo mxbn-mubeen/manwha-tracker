@@ -25,7 +25,7 @@ export function SyncHistoryDrawer({ open, onClose }: SyncHistoryDrawerProps) {
     <Sheet open={open} onOpenChange={(v: boolean) => !v && onClose()}>
       <SheetContent
         side="right"
-        className="w-full sm:max-w-4xl bg-[#0d0e10] border-border/30 flex flex-col"
+        className="w-full sm:max-w-4xl bg-[#111214] border-border/20 flex flex-col p-4 sm:p-6"
       >
         <SheetHeader className="pb-4 border-b border-border/20">
           <SheetTitle className="text-white flex items-center gap-2">

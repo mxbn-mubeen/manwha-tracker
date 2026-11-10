@@ -48,7 +48,7 @@ export function TelegramLoginWizard({
     <>
       {/* Entry button */}
       {(step === 'idle' || step === 'success') && (
-        <Card className="p-5 space-y-4 bg-card border-border/50">
+        <Card className="p-5 space-y-4 bg-[#111214] border-border/20 rounded-xl">
           <div>
             <h3 className="text-sm font-semibold mb-0.5">
               {isConnected ? 'Re-connect Account' : 'Connect Account'}
@@ -70,7 +70,7 @@ export function TelegramLoginWizard({
 
       {/* Step 1 — Phone */}
       {step === 'phone' && (
-        <Card className="p-5 space-y-4 bg-card border-border/50">
+        <Card className="p-5 space-y-4 bg-[#111214] border-border/20 rounded-xl">
           <StepHeader icon={<Phone size={16} className="text-blue-400" />} title="Enter your phone number" step={1} />
           <p className="text-xs text-muted-foreground">
             Use the international format, e.g. <code className="font-mono bg-white/5 px-1 rounded">+919876543210</code>
@@ -102,7 +102,7 @@ export function TelegramLoginWizard({
 
       {/* Step 2 — OTP */}
       {step === 'code' && (
-        <Card className="p-5 space-y-4 bg-card border-border/50">
+        <Card className="p-5 space-y-4 bg-[#111214] border-border/20 rounded-xl">
           <StepHeader icon={<KeyRound size={16} className="text-amber-400" />} title="Enter the verification code" step={2} />
           <p className="text-xs text-muted-foreground">
             Check your Telegram app for a message from <strong>Telegram</strong> with a 5-digit code.
@@ -136,7 +136,7 @@ export function TelegramLoginWizard({
 
       {/* Step 3 — 2FA */}
       {step === '2fa' && (
-        <Card className="p-5 space-y-4 bg-card border-border/50">
+        <Card className="p-5 space-y-4 bg-[#111214] border-border/20 rounded-xl">
           <StepHeader icon={<ShieldCheck size={16} className="text-purple-400" />} title="Two-step verification" step={3} />
           <p className="text-xs text-muted-foreground">
             Your account has Two-Step Verification enabled. Enter your Telegram password to continue.

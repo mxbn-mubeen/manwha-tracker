@@ -3,9 +3,10 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Loader2, Pencil, Check, X, Link2, Copy, RefreshCw, Trash2, ImageOff } from "lucide-react";
+import { Loader2, Pencil, Check, X, Link2, Copy, RefreshCw, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getAdapterBadgeClass } from "../utils/adapterColors";
+import { ManhwaCoverImage } from "./ManhwaCoverImage";
 
 export function SourceRow({ source }: { source: any }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -57,12 +58,8 @@ export function SourceRow({ source }: { source: any }) {
     <tr className="hover:bg-white/[0.02] transition-colors group">
       <td className="px-6 py-4 whitespace-nowrap min-w-[250px]">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-14 rounded overflow-hidden bg-[#161719] border border-border/20 shrink-0 flex items-center justify-center">
-            {source.manhwaCover ? (
-              <img src={source.manhwaCover} alt={source.manhwaTitle} className="w-full h-full object-cover" />
-            ) : (
-              <ImageOff className="w-4 h-4 text-zinc-600" />
-            )}
+          <div className="w-10 h-14 rounded overflow-hidden bg-zinc-900 border border-border/20 shrink-0">
+            <ManhwaCoverImage src={source.manhwaCover} alt={source.manhwaTitle} />
           </div>
           <div className="flex flex-col min-w-0">
             <Link to={`/manhwa/${source.manhwaId}`} className="font-medium hover:underline text-zinc-200 truncate" title={source.manhwaTitle}>
