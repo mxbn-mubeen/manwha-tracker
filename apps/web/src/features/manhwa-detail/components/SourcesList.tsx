@@ -1,11 +1,8 @@
-import { Send, Trash2 } from 'lucide-react';
+import { Send, Globe, Trash2, ExternalLink, Clock, BookOpen } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { StatusBadge, computeStatus, timeAgo } from './SourceStatusBadge';
 import { getAdapterBadgeClass } from '@/features/sources/utils/adapterColors';
-import { AddSourceForm } from './AddSourceForm';
 
 interface Source {
   url: string | null;
@@ -33,89 +30,125 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
 
   return (
     <div className="space-y-4 pt-2">
-      <h3 className="text-xl font-bold text-white mb-4">Sources</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-base font-bold text-white flex items-center gap-2">
+          <span>Sources</span>
+          <span className="text-xs font-mono font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full">
+            {sources?.length ?? 0} linked
+          </span>
+        </h3>
+      </div>
 
       {sources && sources.length > 0 ? (
-        sources.map((source, i: number) => {
-          if (!source.url || !source.type) return null;
-          const isTelegram = source.type === 'telegram';
+        <div className="space-y-3">
+          {sources.map((source, i: number) => {
+            if (!source.url || !source.type) return null;
+            const isTelegram = source.type === 'telegram';
 
-          // Derive adapter key from URL for icon coloring
-          const adapterKey = (() => {
-            if (isTelegram) return 'telegram';
+            // Derive adapter key from URL for badge & icon styling
+            const adapterKey = (() => {
+              if (isTelegram) return 'telegram';
+              try {
+                const host = new URL(
+                  source.url.startsWith('http') ? source.url : 'https://' + source.url
+                ).hostname
+                  .replace('www.', '')
+                  .split('.')[0];
+                const hostMap: Record<string, string> = {
+                  asurascans: 'asurascans',
+                  asuracomic: 'asurascans',
+                  reaperscans: 'reaperscans',
+                  webtoon: 'webtoon',
+                  thunderscans: 'thunderscans',
+                  'en-thunderscans': 'thunderscans',
+                  manhuaus: 'manhuaus',
+                  mgeko: 'mgeko',
+                  mgread: 'mgread',
+                  arenascan: 'arenascans',
+                  arenascans: 'arenascans',
+                  comixto: 'comixto',
+                  vortexscans: 'vortexscans',
+                  infinitelevelup: 'infinitelevelup',
+                  theultimateofallages: 'ultimateofallages',
+                };
+                return hostMap[host ?? ''] ?? 'generic';
+              } catch {
+                return 'generic';
+              }
+            })();
+
+            const badgeCls = getAdapterBadgeClass(adapterKey);
+            const iconBg = badgeCls.split(' ').find((c) => c.startsWith('bg-')) ?? 'bg-amber-500/10';
+            const iconText = badgeCls.split(' ').find((c) => c.startsWith('text-')) ?? 'text-amber-400';
+
+            let displayName = 'Unknown';
             try {
-              const host = new URL(source.url.startsWith('http') ? source.url : 'https://' + source.url).hostname.replace('www.', '').split('.')[0];
-              // Map hostname to adapter key
-              const hostMap: Record<string, string> = {
-                'asurascans': 'asurascans', 'asuracomic': 'asurascans',
-                'reaperscans': 'reaperscans',
-                'webtoon': 'webtoon',
-                'thunderscans': 'thunderscans', 'en-thunderscans': 'thunderscans',
-                'manhuaus': 'manhuaus',
-                'mgeko': 'mgeko',
-                'mgread': 'mgread',
-                'arenascan': 'arenascans', 'arenascans': 'arenascans',
-                'comixto': 'comixto',
-                'vortexscans': 'vortexscans',
-                'infinitelevelup': 'infinitelevelup',
-                'theultimateofallages': 'ultimateofallages',
-              };
-              return hostMap[host ?? ''] ?? 'generic';
-            } catch { return 'generic'; }
-          })();
+              displayName = isTelegram
+                ? '@' + (source.url.split('/').pop() ?? source.url)
+                : new URL(source.url.startsWith('http') ? source.url : 'https://' + source.url).hostname;
+            } catch {
+              return null;
+            }
 
-          // Extract the Tailwind text and bg class from the badge class string
-          const badgeCls = getAdapterBadgeClass(adapterKey);
-          // e.g. "bg-orange-500/20 text-orange-400 border-orange-500/30" → text-orange-400 + bg-orange-500/20
-          const iconBg = badgeCls.split(' ').find(c => c.startsWith('bg-')) ?? 'bg-emerald-500/10';
-          const iconText = badgeCls.split(' ').find(c => c.startsWith('text-')) ?? 'text-emerald-400';
+            const status = computeStatus(source.latestChapterNum, latestChapter, sources);
+            const leaderSource = sources.find(
+              (s) => computeStatus(s.latestChapterNum, latestChapter, sources) === 'leading'
+            );
+            const leaderDiscoveredAt = leaderSource?.lastDiscoveredAt ?? null;
 
-          let displayName = 'Unknown';
-          try {
-            displayName = isTelegram
-              ? '@' + (source.url.split('/').pop() ?? source.url)
-              : new URL(source.url.startsWith('http') ? source.url : 'https://' + source.url).hostname;
-          } catch {
-            return null;
-          }
-
-          const status = computeStatus(source.latestChapterNum, latestChapter, sources);
-          const leaderSource = sources.find(s => computeStatus(s.latestChapterNum, latestChapter, sources) === 'leading');
-          const leaderDiscoveredAt = leaderSource?.lastDiscoveredAt ?? null;
-
-          return (
-            <div key={i} className="relative group/source">
-              <a href={source.url} target="_blank" rel="noopener noreferrer" className="block">
-                <Card className="bg-[#161719] border-border/30 p-4 rounded-xl group-hover/source:border-amber-500/30 transition-colors pr-14">
-                  <div className="flex items-start gap-4">
-                    <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isTelegram ? 'bg-blue-500/10 text-blue-400' : `${iconBg} ${iconText}`}`}>
+            return (
+              <div
+                key={i}
+                className="group relative bg-[#111214] hover:bg-[#161719] border border-border/20 hover:border-amber-500/40 rounded-2xl p-4 sm:p-5 transition-all shadow-sm card-hover-lift"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+                  {/* Left: Source Icon & Domain Identity */}
+                  <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
+                    <div
+                      className={`h-11 w-11 rounded-xl flex items-center justify-center shrink-0 border shadow-sm ${
+                        isTelegram
+                          ? 'bg-sky-500/10 text-sky-400 border-sky-500/25 shadow-sky-500/10'
+                          : `${iconBg} ${iconText} border-white/5`
+                      }`}
+                    >
                       {isTelegram ? (
-                        <Send size={18} className="-ml-0.5" />
+                        <Send size={19} className="-ml-0.5" />
                       ) : (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-                          <path d="M2 12H22" stroke="currentColor" strokeWidth="2" />
-                          <path d="M12 2C15.3137 2 18 6.47715 18 12C18 17.5228 15.3137 22 12 22C8.68629 22 6 17.5228 6 12C6 6.47715 8.68629 2 12 2Z" stroke="currentColor" strokeWidth="2" />
-                        </svg>
+                        <Globe size={19} />
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2 flex-wrap">
-                        <h4 className="font-semibold text-white truncate max-w-[200px] sm:max-w-[300px]">{displayName}</h4>
-                        <span className="text-xs text-muted-foreground shrink-0">{isTelegram ? 'Telegram' : 'Website'}</span>
-                        {!isTelegram && adapterKey !== 'generic' && (
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded border font-mono shrink-0 ${badgeCls}`}>{adapterKey}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 mt-1 flex-wrap">
-                        <span className="text-sm font-medium text-zinc-300">
-                          {source.latestChapterNum !== null ? `Ch. ${source.latestChapterNum}` : '—'}
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <a
+                          href={source.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-bold text-white hover:text-amber-300 text-sm sm:text-base transition-colors truncate max-w-[240px] sm:max-w-[360px]"
+                          title={displayName}
+                        >
+                          {displayName}
+                        </a>
+
+                        <span
+                          className={`text-[10px] font-mono px-2 py-0.5 rounded-full border font-semibold shrink-0 ${
+                            isTelegram
+                              ? 'bg-sky-500/10 text-sky-400 border-sky-500/25'
+                              : 'bg-amber-500/10 text-amber-400 border-amber-500/25'
+                          }`}
+                        >
+                          {isTelegram ? 'Telegram' : 'Website'}
                         </span>
-                        {source.lastDiscoveredAt && (
-                          <span className="text-xs text-muted-foreground/60">Last discovered {timeAgo(source.lastDiscoveredAt)}</span>
+
+                        {!isTelegram && adapterKey !== 'generic' && (
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full border font-mono font-semibold shrink-0 ${badgeCls}`}>
+                            {adapterKey}
+                          </span>
                         )}
                       </div>
-                      <div className="mt-1.5">
+
+                      {/* Status & Timing */}
+                      <div className="flex items-center gap-3 mt-2 flex-wrap">
                         <StatusBadge
                           status={status}
                           sourceChapter={source.latestChapterNum}
@@ -123,31 +156,66 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
                           thisDiscoveredAt={source.lastDiscoveredAt}
                           leaderDiscoveredAt={leaderDiscoveredAt}
                         />
+
+                        {source.lastDiscoveredAt && (
+                          <span className="text-xs text-zinc-500 font-mono flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-zinc-500" />
+                            Discovered {timeAgo(source.lastDiscoveredAt)}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
-                </Card>
-              </a>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="opacity-100 sm:opacity-0 sm:group-hover/source:opacity-100 sm:group-focus-within/source:opacity-100 transition-opacity text-zinc-500 hover:text-red-400 hover:bg-red-500/10 absolute right-3 top-3"
-                onClick={() => {
-                  if (confirm('Are you sure you want to remove this source?')) {
-                    removeSourceMutation.mutate({ manhwaId, url: source.url as string });
-                  }
-                }}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          );
-        })
-      ) : (
-        <p className="text-sm text-muted-foreground">No sources linked for this manhwa.</p>
-      )}
 
-      <AddSourceForm manhwaId={manhwaId} />
+                  {/* Right: Chapter Badge & Action Buttons */}
+                  <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/10">
+                    {/* Chapter Readout */}
+                    <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-white bg-white/5 border border-border/20 px-3 py-1.5 rounded-xl">
+                      <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                      <span>
+                        {source.latestChapterNum !== null
+                          ? `Ch. ${source.latestChapterNum}`
+                          : 'No chapters yet'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      {/* Visit link */}
+                      <a
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="h-8 w-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-colors btn-press"
+                        title="Visit source"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+
+                      {/* Remove source */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm('Are you sure you want to remove this source?')) {
+                            removeSourceMutation.mutate({ manhwaId, url: source.url as string });
+                          }
+                        }}
+                        className="h-8 w-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors btn-press"
+                        title="Remove source"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="p-8 text-center text-zinc-500 text-sm bg-[#111214] border border-border/20 rounded-2xl">
+          No sources added yet. Use the form below to connect a website or Telegram channel.
+        </div>
+      )}
     </div>
   );
 }

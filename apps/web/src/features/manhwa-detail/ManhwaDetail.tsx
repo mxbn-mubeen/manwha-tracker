@@ -101,13 +101,14 @@ export function ManhwaDetailPage() {
   const latestChapter = manhwa.progress?.latestChapter ?? 0;
 
   return (
-    <div className="max-w-5xl mx-auto pb-20 mt-6">
-      <Button variant="ghost" size="sm" asChild className="mb-6 -ml-3 text-muted-foreground hover:text-foreground">
-        <Link to="/library">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Link>
-      </Button>
+    <div className="max-w-5xl mx-auto pb-20 mt-4">
+      <Link
+        to="/library"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#111214] border border-border/20 hover:border-amber-500/30 text-xs font-semibold text-zinc-400 hover:text-white transition-all btn-press mb-6"
+      >
+        <ArrowLeft className="h-3.5 w-3.5 text-zinc-400" />
+        <span>Back to Library</span>
+      </Link>
 
       <div className="flex flex-col md:flex-row gap-10">
         {/* Left Column - Poster and Actions */}

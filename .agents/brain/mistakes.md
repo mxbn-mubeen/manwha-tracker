@@ -549,3 +549,10 @@ ebuild to retry in the background without crashing the server.
 - Status: Resolved
 - Date: 2026-11-10
 
+- Problem: Modals (such as Edit Manhwa and Manage Sources) were displaced, off-center, or partially cut off at the bottom on desktop and mobile view.
+- Cause: Two interacting factors: 1) `<main>` applied `@utility animate-page-enter` with persistent `transform: translateY(0)` under `animation-fill-mode: both`. Under CSS Transforms Level 1, any persistent transform turns an element into the containing block for all `position: fixed` descendants, anchoring modals to `<main>` instead of the browser viewport. 2) Modals were rendered directly in page JSX rather than through a React portal, and lacked sticky headers/footers for mobile screens.
+- Fix: 1) Changed CSS animation keyframes (`page-enter`, `card-enter`, `fade-up`, etc.) to end at `transform: none`, clearing the containing block on animation completion. 2) Converted `EditManhwaModal`, `ManageSourcesModal`, and `GlobalSearch` to render into `document.body` via `createPortal`. 3) Added sticky headers with close buttons, scrollable bodies, sticky action footers, and background scroll locks (`document.body.style.overflow = 'hidden'`).
+- Status: Resolved
+- Date: 2026-11-11
+
+

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Search } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
@@ -24,8 +24,16 @@ export function LibraryPage() {
   usePageTitle('Library');
 
   const { data: manhwas, isLoading } = trpc.manhwa.getAll.useQuery();
-  const [search, setSearch] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
+  const initialSearch = searchParams.get('search') || searchParams.get('q') || '';
+  const [search, setSearch] = useState(initialSearch);
+
+  useEffect(() => {
+    const q = searchParams.get('search') || searchParams.get('q');
+    if (q !== null) {
+      setSearch(q);
+    }
+  }, [searchParams]);
 
   const filterParam = searchParams.get('filter');
 

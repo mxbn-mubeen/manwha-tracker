@@ -1,11 +1,11 @@
-import { Star, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Star, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 
 interface Source {
   latestChapterNum: number | null;
   lastDiscoveredAt: Date | string | null;
 }
 
-/** Returns a compact relative time string like "2 min ago", "just now", "3 days ago". */
+/** Returns a compact relative time string like "2m ago", "just now", "3d ago". */
 export function timeAgo(dateRaw: Date | string | null): string {
   if (!dateRaw) return 'never';
   const date = typeof dateRaw === 'string' ? new Date(dateRaw) : dateRaw;
@@ -14,11 +14,11 @@ export function timeAgo(dateRaw: Date | string | null): string {
   const s = Math.floor(diffMs / 1000);
   if (s < 60) return `${s}s ago`;
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m} min ago`;
+  if (m < 60) return `${m}m ago`;
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h ago`;
   const d = Math.floor(h / 24);
-  return `${d} day${d !== 1 ? 's' : ''} ago`;
+  return `${d}d ago`;
 }
 
 export type SourceStatus = 'leading' | 'synced' | 'behind' | 'unknown';
@@ -29,8 +29,8 @@ export function computeStatus(
   allSources: Source[],
 ): SourceStatus {
   if (sourceChapter === null) return 'unknown';
-  const allKnown = allSources.filter(s => s.latestChapterNum !== null);
-  const allSame = allKnown.length > 1 && allKnown.every(s => s.latestChapterNum === sourceChapter);
+  const allKnown = allSources.filter((s) => s.latestChapterNum !== null);
+  const allSame = allKnown.length > 1 && allKnown.every((s) => s.latestChapterNum === sourceChapter);
   if (allSame) return 'synced';
   if (sourceChapter >= globalMax) return 'leading';
   return 'behind';
@@ -56,25 +56,36 @@ interface StatusBadgeProps {
   leaderDiscoveredAt: Date | string | null;
 }
 
-export function StatusBadge({ status, sourceChapter, globalMax, thisDiscoveredAt, leaderDiscoveredAt }: StatusBadgeProps) {
+export function StatusBadge({
+  status,
+  sourceChapter,
+  globalMax,
+  thisDiscoveredAt,
+  leaderDiscoveredAt,
+}: StatusBadgeProps) {
   if (status === 'unknown') {
-    return <span className="text-xs text-muted-foreground/60">— No chapters synced yet</span>;
+    return (
+      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-zinc-400 bg-white/5 border border-border/20 px-2.5 py-0.5 rounded-full">
+        <Clock className="w-3 h-3 text-zinc-500" />
+        <span>No chapters synced yet</span>
+      </span>
+    );
   }
 
   if (status === 'leading') {
     return (
-      <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-400">
-        <Star className="h-3 w-3 fill-amber-400" />
-        Leading source
+      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/35 px-2.5 py-0.5 rounded-full shadow-sm shadow-amber-500/10">
+        <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+        <span>Leading source</span>
       </span>
     );
   }
 
   if (status === 'synced') {
     return (
-      <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400">
-        <CheckCircle2 className="h-3 w-3" />
-        Synced
+      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/35 px-2.5 py-0.5 rounded-full shadow-sm shadow-emerald-500/10">
+        <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+        <span>Synced with leader</span>
       </span>
     );
   }
@@ -90,13 +101,10 @@ export function StatusBadge({ status, sourceChapter, globalMax, thisDiscoveredAt
   }
 
   return (
-    <span className="inline-flex items-center gap-2 text-xs font-medium text-orange-400/80">
-      <span className="inline-flex items-center gap-1">
-        <AlertTriangle className="h-3 w-3" />
-        Behind by {diff} chapter{diff !== 1 ? 's' : ''}
-      </span>
-      {timeDiffLabel && <span className="text-zinc-500">·</span>}
-      {timeDiffLabel && <span className="text-zinc-400 font-normal">{timeDiffLabel} than leader</span>}
+    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-orange-300 bg-orange-500/15 border border-orange-500/35 px-2.5 py-0.5 rounded-full">
+      <AlertTriangle className="h-3 w-3 text-orange-400 shrink-0" />
+      <span>Behind by {diff} ch</span>
+      {timeDiffLabel && <span className="text-orange-400/60 font-normal">({timeDiffLabel})</span>}
     </span>
   );
 }

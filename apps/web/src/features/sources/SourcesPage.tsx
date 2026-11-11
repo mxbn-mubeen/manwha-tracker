@@ -4,6 +4,8 @@ import {
   Loader2,
   Globe,
   Layers,
+  Send,
+  CheckCircle2,
   SlidersHorizontal,
 } from "lucide-react";
 import { WebsiteFilterPanel } from "./components/WebsiteFilterPanel";
@@ -81,16 +83,17 @@ export function SourcesPage() {
             Manage, organize, and inspect all {sources.length} sources across {uniqueManhwasCount} tracked titles.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5 shrink-0">
           <button
+            type="button"
             onClick={() => setShowStats((prev) => !prev)}
-            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-all ${
+            className={`flex items-center gap-2 px-3.5 h-9 text-xs font-semibold rounded-xl border transition-all btn-press shadow-sm ${
               showStats
-                ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
-                : "bg-[#161719] border-border/20 text-zinc-400 hover:text-white"
+                ? "bg-amber-500/15 border-amber-500/40 text-amber-300 shadow-amber-500/10"
+                : "bg-[#161719] hover:bg-[#202225] border-border/30 text-zinc-300 hover:text-white"
             }`}
           >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
             <span>{showStats ? "Hide Analytics" : "Show Analytics"}</span>
           </button>
           <FixAdapterKeysButton />
@@ -99,30 +102,71 @@ export function SourcesPage() {
 
       {/* Analytics & Filters Drawer (collapsible to keep page clean) */}
       {showStats && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mt-2 animate-panel-expand">
-          <div className="grid grid-cols-2 gap-4 lg:col-span-1">
-            <div className="bg-[#111214] border border-border/20 rounded-xl p-4 flex flex-col justify-between animate-fade-up" style={{ '--i': 0 } as React.CSSProperties}>
-              <div className="bg-amber-500/10 text-amber-500 w-9 h-9 rounded-lg flex items-center justify-center mb-3 border border-amber-500/20">
-                <Layers className="w-4 h-4" />
+        <div className="space-y-4 animate-panel-expand">
+          {/* 4 Balanced Equal-Width Metric Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Total Sources */}
+            <div
+              className="bg-[#111214] border border-border/20 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-sm card-hover-lift animate-fade-up"
+              style={{ '--i': 0 } as React.CSSProperties}
+            >
+              <div className="bg-amber-500/10 text-amber-400 w-10 h-10 rounded-xl flex items-center justify-center mb-3 border border-amber-500/20 shrink-0">
+                <Layers className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-zinc-500 text-[10px] font-medium uppercase tracking-wider">Total Sources</p>
-                <p className="text-2xl font-bold text-white tracking-tight">{sources.length}</p>
-                <p className="text-zinc-500 text-xs mt-0.5">{uniqueManhwasCount} titles tracked</p>
+                <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">Total Sources</p>
+                <p className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-0.5">{sources.length}</p>
+                <p className="text-zinc-400 text-xs mt-1 font-mono">{uniqueManhwasCount} titles tracked</p>
               </div>
             </div>
-            <div className="bg-[#111214] border border-border/20 rounded-xl p-4 flex flex-col justify-between animate-fade-up" style={{ '--i': 1 } as React.CSSProperties}>
-              <div className="bg-blue-500/10 text-blue-500 w-9 h-9 rounded-lg flex items-center justify-center mb-3 border border-blue-500/20">
-                <Globe className="w-4 h-4" />
+
+            {/* Websites */}
+            <div
+              className="bg-[#111214] border border-border/20 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-sm card-hover-lift animate-fade-up"
+              style={{ '--i': 1 } as React.CSSProperties}
+            >
+              <div className="bg-amber-500/10 text-amber-400 w-10 h-10 rounded-xl flex items-center justify-center mb-3 border border-amber-500/20 shrink-0">
+                <Globe className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-zinc-500 text-[10px] font-medium uppercase tracking-wider">Providers</p>
-                <p className="text-2xl font-bold text-white tracking-tight">{uniqueProvidersCount}</p>
-                <p className="text-zinc-500 text-xs mt-0.5">{uniqueDomains.length} domains + Telegram</p>
+                <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">Websites</p>
+                <p className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-0.5">{websiteSources.length}</p>
+                <p className="text-zinc-400 text-xs mt-1 font-mono">{uniqueDomains.length} unique domains</p>
+              </div>
+            </div>
+
+            {/* Telegram */}
+            <div
+              className="bg-[#111214] border border-border/20 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-sm card-hover-lift animate-fade-up"
+              style={{ '--i': 2 } as React.CSSProperties}
+            >
+              <div className="bg-sky-500/10 text-sky-400 w-10 h-10 rounded-xl flex items-center justify-center mb-3 border border-sky-500/20 shrink-0">
+                <Send className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">Telegram</p>
+                <p className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-0.5">{telegramSources.length}</p>
+                <p className="text-zinc-400 text-xs mt-1 font-mono">Direct messenger channels</p>
+              </div>
+            </div>
+
+            {/* Providers */}
+            <div
+              className="bg-[#111214] border border-border/20 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-sm card-hover-lift animate-fade-up"
+              style={{ '--i': 3 } as React.CSSProperties}
+            >
+              <div className="bg-emerald-500/10 text-emerald-400 w-10 h-10 rounded-xl flex items-center justify-center mb-3 border border-emerald-500/20 shrink-0">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">Active Providers</p>
+                <p className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-0.5">{uniqueProvidersCount}</p>
+                <p className="text-zinc-400 text-xs mt-1 font-mono">{uniqueAdapters.length} scrapers + Telegram</p>
               </div>
             </div>
           </div>
 
+          {/* Full-width Website Filter Panel */}
           <WebsiteFilterPanel
             uniqueDomains={uniqueDomains}
             domainToAdapter={domainToAdapter}
@@ -130,8 +174,8 @@ export function SourcesPage() {
             setDomainFilter={setDomainFilter}
             allCount={websiteSources.length}
             countForDomain={(d) => websiteSources.filter((s) => getHost(s.url) === d).length}
-            displayAdapters={uniqueAdapters.slice(0, 5)}
-            remainingAdapters={Math.max(0, uniqueAdapters.length - 5)}
+            displayAdapters={uniqueAdapters.slice(0, 6)}
+            remainingAdapters={Math.max(0, uniqueAdapters.length - 6)}
           />
         </div>
       )}

@@ -1,7 +1,7 @@
 # Architecture — Manhwa Tracker
 
 project_root: F:\manwha-tracker
-last_updated: 2026-09-19
+last_updated: 2026-11-11
 
 ## Monorepo Structure (Actual as of 2026-09-07)
 
@@ -60,8 +60,11 @@ manwha-tracker/
 │   │   ├── src/
 │   │   │   ├── components/
 │   │   │   │   ├── layout/
-│   │   │   │   │   └── AppShell.tsx
-│   │   │   │   └── ui/       shadcn/ui components (badge, button, card, input, sheet, tabs)
+│   │   │   │   │   ├── AppShell.tsx
+│   │   │   │   │   ├── Logo.tsx              Squircle amber logo mark + wordmark
+│   │   │   │   │   ├── Navbar.tsx            Top nav — sync split button, search trigger, settings link
+│   │   │   │   │   └── SyncSplitButton.tsx   Sync button with dropdown arrow (run / status)
+│   │   │   │   └── ui/                       shadcn/ui primitives (badge, button, card, error-boundary, input, sheet, tabs)
 │   │   │   ├── features/
 │   │   │   │   ├── dashboard/
 │   │   │   │   │   ├── components/
@@ -74,21 +77,25 @@ manwha-tracker/
 │   │   │   │   │   │   ├── AddManhwaForm.tsx
 │   │   │   │   │   │   └── ManhwaCard.tsx
 │   │   │   │   │   ├── AddManhwa.tsx
-│   │   │   │   │   └── Library.tsx
+│   │   │   │   │   └── Library.tsx           Grid + search + status filter; syncs ?search= param from genre pills
 │   │   │   │   ├── manhwa-detail/
 │   │   │   │   │   ├── components/
-│   │   │   │   │   │   ├── EditManhwaModal.tsx
-│   │   │   │   │   │   ├── ManageChaptersSection.tsx
-│   │   │   │   │   │   ├── ManhwaCadenceInfo.tsx     Extracted from ManhwaHeader (cadence display)
-│   │   │   │   ├── ManhwaHeader.tsx
-│   │   │   │   │   │   ├── ManhwaPoster.tsx
-│   │   │   │   │   │   ├── ProgressCard.tsx
-│   │   │   │   │   │   ├── SourceStatusBadge.tsx
-│   │   │   │   │   │   ├── SourcesList.tsx
-│   │   │   │   │   │   └── UnreadManhwaStrip.tsx
+│   │   │   │   │   │   ├── AddSourceForm.tsx
+│   │   │   │   │   │   ├── ChapterQuickEdit.tsx  Latest chapter display + +1/+2/+5 quick-increment (extracted 2026-11-11)
+│   │   │   │   │   │   ├── EditManhwaModal.tsx   createPortal modal with scroll-lock
+│   │   │   │   │   │   ├── ManageChaptersSection.tsx  Used by EditManhwaModal
+│   │   │   │   │   │   ├── ManhwaCadenceInfo.tsx      Release pattern badge (irregular / upcoming / new today)
+│   │   │   │   │   │   ├── ManhwaHeader.tsx      Title, status pill, genre color pills, description, cadence + chapter toolbar
+│   │   │   │   │   │   ├── ManhwaPoster.tsx      Cover image, Continue Reading CTA, Edit Manhwa button
+│   │   │   │   │   │   ├── ProgressCard.tsx      Reading progress bar + caught-up state
+│   │   │   │   │   │   ├── SourceStatusBadge.tsx Leading / Synced / Behind / Pending badge
+│   │   │   │   │   │   ├── SourcesList.tsx       Per-source cards with status badges + delete
+│   │   │   │   │   │   └── UnreadManhwaStrip.tsx Arrow carousel of unread manhwa with cover images
 │   │   │   │   │   └── ManhwaDetail.tsx
 │   │   │   │   ├── search/
-│   │   │   │   │   └── GlobalSearch.tsx
+│   │   │   │   │   ├── components/
+│   │   │   │   │   │   └── SearchQuickNav.tsx    Quick-nav pills rendered inside GlobalSearch
+│   │   │   │   │   └── GlobalSearch.tsx          createPortal full-viewport search overlay
 │   │   │   │   ├── settings/
 │   │   │   │   │   ├── components/
 │   │   │   │   │   │   ├── RecentlyDeletedSection.tsx
@@ -99,19 +106,35 @@ manwha-tracker/
 │   │   │   │   │   └── Settings.tsx
 │   │   │   │   ├── sources/
 │   │   │   │   │   ├── components/
-│   │   │   │   │   │   ├── FixAdapterKeysButton.tsx
-│   │   │   │   │   │   ├── SourceCard.tsx
-│   │   │   │   │   │   ├── SourceRow.tsx
-│   │   │   │   │   │   ├── SourcesPanels.tsx
+│   │   │   │   │   │   ├── FixAdapterKeysButton.tsx     Re-detect Adapters action button
+│   │   │   │   │   │   ├── FlatTableSourcesView.tsx     Flat tabular sources list (uses SourceCard)
+│   │   │   │   │   │   ├── ManageSourcesModal.tsx       createPortal modal; wraps ManhwaSourcesView
+│   │   │   │   │   │   ├── ManhwaCoverImage.tsx         SSRF-safe proxied cover image with fallback
+│   │   │   │   │   │   ├── ManhwaSourceListRow.tsx      Single row in ManhwaSourcesView list mode
+│   │   │   │   │   │   ├── ManhwaSourcesCardGrid.tsx    Card grid mode for ManhwaSourcesView
+│   │   │   │   │   │   ├── ManhwaSourcesView.tsx        Grouped-by-manhwa sources view (list/grid toggle)
+│   │   │   │   │   │   ├── ProviderSourcesView.tsx      Grouped-by-adapter view
+│   │   │   │   │   │   ├── SourceCard.tsx               Used by FlatTableSourcesView
+│   │   │   │   │   │   ├── SourceDetailRow.tsx          Shared row used by ManageSourcesModal / ProviderSourcesView
+│   │   │   │   │   │   ├── SourceInputSection.tsx       Add-source form row (used by AddManhwaForm + AddSourceForm)
+│   │   │   │   │   │   ├── SourceRow.tsx                Used by FlatTable, RunCard, SyncHistoryDrawer
+│   │   │   │   │   │   ├── SourcesControlBar.tsx        Filter bar rendered by SourcesPage
 │   │   │   │   │   │   ├── TelegramPanel.tsx
-│   │   │   │   │   │   └── WebsiteFilterPanel.tsx
+│   │   │   │   │   │   └── WebsiteFilterPanel.tsx       Domain pills + adapter legend filter (added 2026-11-11)
 │   │   │   │   │   ├── utils/
 │   │   │   │   │   │   ├── adapterColors.ts
-│   │   │   │   │   │   └── sourceHelpers.ts
+│   │   │   │   │   │   └── sourceHelpers.ts             adapterDotColor, getHost helpers
 │   │   │   │   │   └── SourcesPage.tsx
 │   │   │   │   ├── stats/
+│   │   │   │   │   ├── components/
+│   │   │   │   │   │   └── LongestSeriesCard.tsx
 │   │   │   │   │   └── StatsPage.tsx
 │   │   │   │   └── sync/
+│   │   │   │       ├── components/
+│   │   │   │       │   ├── RunGroupItem.tsx
+│   │   │   │       │   ├── RunRowItem.tsx
+│   │   │   │       │   └── SyncManhwaCard.tsx
+│   │   │   │       ├── run-card.utils.tsx
 │   │   │   │       ├── RunCard.tsx
 │   │   │   │       └── SyncHistoryDrawer.tsx
 │   │   │   ├── lib/
@@ -119,9 +142,11 @@ manwha-tracker/
 │   │   │   │   ├── usePageTitle.ts
 │   │   │   │   └── utils.ts
 │   │   │   ├── utils/
-│   │   │   │   └── image.ts
+│   │   │   │   ├── genreColors.ts    getGenreBadgeClass() — maps genre names to Tailwind color classes (added 2026-11-11)
+│   │   │   │   ├── image.ts          getProxiedImageUrl() — SSRF-safe image proxy helper
+│   │   │   │   └── source.ts         isTelegramUrl() helper
 │   │   │   ├── App.tsx
-│   │   │   ├── index.css
+│   │   │   ├── index.css             Global styles + Tailwind v4 + animation keyframes (fixed fill-mode 2026-11-11)
 │   │   │   ├── main.tsx
 │   │   │   └── providers.tsx
 │   │   ├── .env.example
@@ -515,6 +540,9 @@ source to scrape a cover from.
 - Singleton (Neon DB connection in `libs/database/src/db.ts`)
 - Upsert Pattern (`onConflictDoUpdate` instead of transactions)
 - Client-side Status Derivation (per-source Leading/Synced/Behind computed in `SourcesList.tsx`)
+- Portal Pattern (`createPortal(…, document.body)`) used by `EditManhwaModal`, `ManageSourcesModal`, `GlobalSearch` — prevents CSS `transform` containing-block from trapping `position: fixed` children (fixed 2026-11-11)
+- Animation Fill-mode Fix: keyframes in `index.css` end with `transform: none` (not `translateY(0)`) so `animation-fill-mode: both` does not create a stacking/containing context (fixed 2026-11-11)
+- Genre Color Mapping (`utils/genreColors.ts`): `getGenreBadgeClass(genre)` maps genre strings to Tailwind color classes; used by `ManhwaHeader` genre pills that link to `/library?search={genre}` (added 2026-11-11)
 
 ## Dependencies Worth Knowing
 

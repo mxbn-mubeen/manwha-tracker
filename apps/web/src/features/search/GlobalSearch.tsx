@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { trpc } from '@/lib/trpc';
 import { Search, X, ArrowRight, CornerDownLeft } from 'lucide-react';
@@ -68,12 +69,17 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
     setSelectedIndex(0);
   }, [query]);
 
-  // Focus input when opened
+  // Focus input and lock body scroll when opened
   useEffect(() => {
     if (open) {
       setQuery('');
       setSelectedIndex(0);
       setTimeout(() => inputRef.current?.focus(), 50);
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
     }
   }, [open]);
 
@@ -105,7 +111,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-start justify-center pt-[10vh] sm:pt-[14vh] px-4 animate-modal-backdrop"
       onPointerDown={onClose}
@@ -261,6 +267,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
           <span>Esc to exit</span>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
