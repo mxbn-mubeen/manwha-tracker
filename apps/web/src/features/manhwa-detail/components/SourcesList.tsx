@@ -3,6 +3,7 @@ import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import { StatusBadge, computeStatus, timeAgo } from './SourceStatusBadge';
 import { getAdapterBadgeClass } from '@/features/sources/utils/adapterColors';
+import { AddSourceForm } from './AddSourceForm';
 
 interface Source {
   url: string | null;
@@ -24,6 +25,7 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
     onSuccess: () => {
       toast.success('Source removed');
       utils.manhwa.getById.invalidate(manhwaId);
+      utils.manhwa.getAll.invalidate();
     },
     onError: () => toast.error('Failed to remove source'),
   });
@@ -216,6 +218,9 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
           No sources added yet. Use the form below to connect a website or Telegram channel.
         </div>
       )}
+
+      {/* Add Source Input Form */}
+      <AddSourceForm manhwaId={manhwaId} />
     </div>
   );
 }

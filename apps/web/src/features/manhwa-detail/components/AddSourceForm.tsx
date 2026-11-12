@@ -17,6 +17,7 @@ export function AddSourceForm({ manhwaId }: AddSourceFormProps) {
       toast.success('Source added!');
       setNewSourceUrl('');
       utils.manhwa.getById.invalidate(manhwaId);
+      utils.manhwa.getAll.invalidate();
     },
     onError: (err) => toast.error(err.message || 'Failed to add source'),
   });

@@ -555,4 +555,12 @@ ebuild to retry in the background without crashing the server.
 - Status: Resolved
 - Date: 2026-11-11
 
+---
+
+- Problem: "Add Source" form was missing from the Manhwa Detail page, leaving users with no way to connect new website or Telegram sources from the details view (and leaving the empty state text referencing a nonexistent form).
+- Cause: During the redesign of `SourcesList.tsx` in commit `690e329`, `<AddSourceForm manhwaId={manhwaId} />` was accidentally omitted from the bottom of the component.
+- Fix: Restored `import { AddSourceForm }` and rendered `<AddSourceForm manhwaId={manhwaId} />` below the sources list in `SourcesList.tsx`. Added `utils.manhwa.getAll.invalidate()` to both `AddSourceForm` and `SourcesList` mutations to keep library and global sources lists synchronized immediately on addition/removal.
+- Status: Resolved
+- Date: 2026-11-12
+
 

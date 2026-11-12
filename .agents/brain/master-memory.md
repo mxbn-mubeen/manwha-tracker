@@ -1,7 +1,7 @@
 # Manhwa Tracker — Master Memory
 
 project_root: F:\manwha-tracker
-last_brain_review: 2026-09-18
+last_brain_review: 2026-11-12
 
 ## What This Project Does
 
