@@ -63,7 +63,7 @@ export function ProgressCard({
                 size="icon"
                 className="h-7 w-7 text-zinc-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors btn-press"
                 onClick={() => onProgressChange(localChapter - 1)}
-                disabled={localChapter <= 0 || isPending}
+                disabled={localChapter <= 0}
                 aria-label="Decrease chapter"
               >
                 <ChevronDown className="h-4 w-4" />
@@ -78,7 +78,7 @@ export function ProgressCard({
                 size="icon"
                 className="h-7 w-7 text-zinc-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors btn-press"
                 onClick={() => onProgressChange(localChapter + 1)}
-                disabled={isPending || (latestChapter > 0 && localChapter >= latestChapter)}
+                disabled={latestChapter > 0 && localChapter >= latestChapter}
                 aria-label="Increase chapter"
               >
                 <ChevronUp className="h-4 w-4" />
@@ -121,7 +121,6 @@ export function ProgressCard({
                 type="button"
                 className="text-xs font-semibold text-amber-400 hover:text-amber-300 hover:underline transition-colors flex items-center gap-1 cursor-pointer"
                 onClick={() => onProgressChange(latestChapter)}
-                disabled={isPending}
               >
                 Mark as caught up
               </button>

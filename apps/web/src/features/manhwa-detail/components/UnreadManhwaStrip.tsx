@@ -1,9 +1,10 @@
 import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { trpc } from '@/lib/trpc';
-import { Sparkles, ChevronLeft, ChevronRight, ArrowRight, BookOpen } from 'lucide-react';
-import { getUnreadCount, formatUnreadCount } from '@/lib/utils';
-import { ManhwaCoverImage } from '@/features/sources/components/ManhwaCoverImage';
+import { Sparkles, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
+import { getUnreadCount } from '@/lib/utils';
+import { toast } from 'sonner';
+import { UnreadStripCard } from './UnreadStripCard';
 
 interface UnreadManhwaStripProps {
   currentManhwaId: number;
@@ -11,7 +12,46 @@ interface UnreadManhwaStripProps {
 
 export function UnreadManhwaStrip({ currentManhwaId }: UnreadManhwaStripProps) {
   const { data: all = [] } = trpc.manhwa.getAll.useQuery();
+  const utils = trpc.useUtils();
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const updateProgressMutation = trpc.manhwa.updateProgress.useMutation({
+    onMutate: async ({ manhwaId, chapter }) => {
+      await utils.manhwa.getAll.cancel();
+      const previous = utils.manhwa.getAll.getData();
+
+      utils.manhwa.getAll.setData(undefined, (old) => {
+        if (!old) return old;
+        return old.map((m) => {
+          if (m.id !== manhwaId) return m;
+          return {
+            ...m,
+            progress: {
+              ...m.progress,
+              lastChapter: chapter,
+              latestChapter: m.progress?.latestChapter ?? chapter,
+              lastReadAt: new Date(),
+            },
+          };
+        });
+      });
+
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      toast.error('Failed to update progress');
+      if (ctx?.previous) utils.manhwa.getAll.setData(undefined, ctx.previous);
+    },
+    onSuccess: (_data, vars) => {
+      toast.success(`Ch. ${vars.chapter} marked as read`);
+      utils.manhwa.getAll.invalidate(undefined, { refetchType: 'none' });
+    },
+  });
+
+  const handleAdvance = (manhwaId: number, targetChapter: number, latest: number) => {
+    const clamped = Math.min(Math.max(0, targetChapter), latest || targetChapter);
+    updateProgressMutation.mutate({ manhwaId, chapter: clamped });
+  };
 
   const unread = all
     .filter((m) => {
@@ -65,7 +105,7 @@ export function UnreadManhwaStrip({ currentManhwaId }: UnreadManhwaStripProps) {
             <button
               type="button"
               onClick={() => scroll('left')}
-              className="h-7 w-7 rounded flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-colors btn-press"
+              className="h-7 w-7 rounded flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-colors btn-press cursor-pointer"
               aria-label="Scroll left"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -73,7 +113,7 @@ export function UnreadManhwaStrip({ currentManhwaId }: UnreadManhwaStripProps) {
             <button
               type="button"
               onClick={() => scroll('right')}
-              className="h-7 w-7 rounded flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-colors btn-press"
+              className="h-7 w-7 rounded flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-colors btn-press cursor-pointer"
               aria-label="Scroll right"
             >
               <ChevronRight className="w-4 h-4" />
@@ -95,64 +135,9 @@ export function UnreadManhwaStrip({ currentManhwaId }: UnreadManhwaStripProps) {
         ref={scrollRef}
         className="flex overflow-x-auto gap-3.5 sm:gap-4 pb-2 pt-1 snap-x scroll-smooth select-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
       >
-        {unread.map((m) => {
-          const latest = m.progress?.latestChapter ?? 0;
-          const last = m.progress?.lastChapter ?? 0;
-          const behind = getUnreadCount(latest, last);
-          const progressPercent = latest > 0 ? Math.min(100, Math.max(0, (last / latest) * 100)) : 0;
-
-          return (
-            <Link
-              key={m.id}
-              to={`/manhwa/${m.id}`}
-              className="group flex flex-col min-w-[150px] sm:min-w-[170px] max-w-[195px] flex-1 bg-[#161719]/70 hover:bg-[#161719] border border-border/20 hover:border-amber-500/40 rounded-xl p-3 transition-all duration-200 card-hover-lift shrink-0 snap-start"
-            >
-              {/* Cover Art with Badge */}
-              <div className="relative w-full aspect-[2/3] rounded-lg overflow-hidden bg-zinc-900 border border-white/5 mb-2.5">
-                <ManhwaCoverImage
-                  src={m.coverUrl}
-                  alt={m.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-
-                {/* Unread Chapter Pill Badge */}
-                <div className="absolute top-2 right-2 bg-black/85 backdrop-blur-md border border-amber-500/40 px-2 py-0.5 rounded-full shadow-lg shadow-black/40">
-                  <span className="text-[10px] font-bold text-amber-300 flex items-center gap-0.5 font-mono">
-                    +{formatUnreadCount(behind)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Title & Metadata */}
-              <div className="flex-1 flex flex-col justify-between min-w-0">
-                <div>
-                  <h3
-                    className="text-xs sm:text-sm font-semibold text-white group-hover:text-amber-300 transition-colors line-clamp-2 leading-snug mb-1"
-                    title={m.title}
-                  >
-                    {m.title}
-                  </h3>
-                </div>
-
-                <div className="mt-2 space-y-1.5">
-                  {/* Miniature Progress Track */}
-                  <div className="w-full bg-zinc-800/80 rounded-full h-1 overflow-hidden border border-white/5">
-                    <div
-                      className="bg-amber-500 h-full rounded-full transition-all duration-300"
-                      style={{ width: `${progressPercent}%` }}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
-                    <span>Ch. {last}</span>
-                    <span className="text-zinc-600">/</span>
-                    <span className="text-zinc-300">{latest || '?'}</span>
-                  </div>
-                </div>
-              </div>
-            </Link>
-          );
-        })}
+        {unread.map((m) => (
+          <UnreadStripCard key={m.id} manhwa={m} onAdvance={handleAdvance} />
+        ))}
       </div>
     </section>
   );

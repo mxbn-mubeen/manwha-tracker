@@ -273,3 +273,16 @@ Append-only log. Never delete entries.
 - Alternatives considered: Retry FlareSolverr (same outcome, wastes time); accept the failure (breaks sync for those sites); self-host a dedicated FlareSolverr (not free).
 - Affected modules: libs/parser/src/adapters/http.ts (fetchHtml — added `solveViaFlareSolverr` + `fetchRenderedHtml` fallback chain behind `looksLikeCloudflareChallenge` guard)
 - Date: 2026-08-31
+
+---
+
+- Decision: Added 1-click Quick Action controls on Manhwa cards, batch "Mark All Caught Up" on Dashboard, and direct reader links to eliminate page-hopping friction.
+- Reason: When new chapters were detected across multiple series, users had to navigate into each manhwa detail page, scroll to sources, click external link, return, click Continue Ch. X, and navigate back to the dashboard/library. This page-hopping loop was repetitive and slow.
+- Alternatives considered: Global auto-mark as read without user action (rejected — user may not have actually read the chapter yet); Modal quick-view (rejected — still adds an unnecessary click/modal layer compared to inline action buttons).
+- Affected modules:
+  - apps/web/src/features/manhwa/components/ManhwaCard.tsx (inline Read, +1, and All action bar with optimistic tRPC cache updates)
+  - apps/web/src/features/dashboard/components/ContinueReading.tsx ("Mark all caught up" bulk button with optimistic UI)
+  - apps/web/src/features/manhwa-detail/components/ManhwaPoster.tsx (direct "Open Chapter Source ↗" and "Mark All Caught Up" buttons)
+  - apps/web/src/features/manhwa-detail/components/ProgressCard.tsx (removed network-pending button lock to allow rapid chapter stepping)
+  - apps/web/src/features/manhwa-detail/components/UnreadManhwaStrip.tsx & UnreadStripCard.tsx (extracted card component to honor 230-line limit and added inline quick actions to the "Up Next" carousel)
+- Date: 2026-11-16

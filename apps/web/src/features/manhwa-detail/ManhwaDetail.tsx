@@ -99,6 +99,10 @@ export function ManhwaDetailPage() {
   }
 
   const latestChapter = manhwa.progress?.latestChapter ?? 0;
+  const readingUrl =
+    manhwa.sources?.find((s: { type?: string | null; url?: string | null }) => s.type === 'website' && s.url)?.url ??
+    manhwa.sources?.find((s: { url?: string | null }) => s.url)?.url ??
+    null;
 
   return (
     <div className="max-w-5xl mx-auto pb-20 mt-4">
@@ -117,7 +121,9 @@ export function ManhwaDetailPage() {
           title={manhwa.title}
           localChapter={localChapter}
           latestChapter={latestChapter}
+          readingUrl={readingUrl}
           onContinueReading={() => handleProgressChange(localChapter + 1)}
+          onMarkCaughtUp={() => handleProgressChange(latestChapter)}
           onEdit={() => setIsEditModalOpen(true)}
         />
 

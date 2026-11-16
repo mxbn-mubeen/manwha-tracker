@@ -1,4 +1,4 @@
-import { Edit, BookOpen, CheckCircle2 } from 'lucide-react';
+import { Edit, BookOpen, CheckCircle2, ExternalLink, CheckCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ManhwaCoverImage } from '@/features/sources/components/ManhwaCoverImage';
 
@@ -7,7 +7,9 @@ interface ManhwaPosterProps {
   title: string;
   localChapter: number;
   latestChapter: number;
+  readingUrl?: string | null;
   onContinueReading: () => void;
+  onMarkCaughtUp?: () => void;
   onEdit: () => void;
 }
 
@@ -16,10 +18,13 @@ export function ManhwaPoster({
   title,
   localChapter,
   latestChapter,
+  readingUrl,
   onContinueReading,
+  onMarkCaughtUp,
   onEdit,
 }: ManhwaPosterProps) {
   const isCaughtUp = latestChapter > 0 && localChapter >= latestChapter;
+  const unreadCount = Math.max(0, latestChapter - localChapter);
 
   return (
     <div className="shrink-0 mx-auto md:mx-0 w-60 sm:w-64 flex flex-col gap-3">
@@ -39,6 +44,19 @@ export function ManhwaPoster({
           </div>
         )}
       </div>
+
+      {/* ── Direct Source Reader Link (if available) ── */}
+      {!isCaughtUp && readingUrl && (
+        <a
+          href={readingUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center justify-center gap-2 bg-[#161719] hover:bg-zinc-800 border border-amber-500/30 hover:border-amber-500/60 text-amber-400 hover:text-amber-300 rounded-xl h-10 font-bold text-xs transition-all btn-press shadow-sm"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+          <span>Open Chapter Source ↗</span>
+        </a>
+      )}
 
       {/* ── Continue Reading Primary CTA Button ── */}
       <Button
@@ -65,6 +83,18 @@ export function ManhwaPoster({
           )}
         </div>
       </Button>
+
+      {/* ── Quick Mark Caught Up Button ── */}
+      {!isCaughtUp && unreadCount > 1 && onMarkCaughtUp && (
+        <button
+          type="button"
+          onClick={onMarkCaughtUp}
+          className="w-full flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:text-emerald-300 rounded-xl h-10 font-bold text-xs transition-all btn-press cursor-pointer"
+        >
+          <CheckCheck className="w-3.5 h-3.5" />
+          <span>Mark All Caught Up (Ch. {latestChapter})</span>
+        </button>
+      )}
 
       {/* ── Edit Manhwa Action Button ── */}
       <button
