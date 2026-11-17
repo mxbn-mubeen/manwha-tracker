@@ -1,14 +1,35 @@
 import { useState, useRef, useEffect } from 'react';
-import { LogIn, LogOut, User as UserIcon, ShieldCheck } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { LogIn, LogOut, ShieldCheck, BarChart3, Globe, Settings, Plus, RefreshCw, History } from 'lucide-react';
 import { useSession, signOut } from '@/lib/auth-client';
 import { toast } from 'sonner';
 import { AuthModal } from '@/features/auth/AuthModal';
+import { trpc } from '@/lib/trpc';
 
-export function UserMenu() {
+export function UserMenu({ onOpenHistory }: { onOpenHistory?: () => void }) {
   const { data: session } = useSession();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const utils = trpc.useUtils();
+
+  const { data: isSyncing = false } = trpc.sync.isSyncing.useQuery(undefined, {
+    refetchInterval: (query) => (query.state.data ? 2000 : 30000),
+  });
+
+  const syncMutation = trpc.sync.run.useMutation({
+    onSuccess: async (result) => {
+      await utils.manhwa.getAll.invalidate();
+      if (!result || (result as any).startedAsync) {
+        toast.info('🔄 Sync started in background.');
+      } else {
+        toast.success(`Sync finished: ${result.scannedSources} sources, ${result.newChapters} new chapters`);
+      }
+    },
+    onError: (err) => {
+      toast.error(`Sync failed: ${err.message}`);
+    },
+  });
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -88,6 +109,80 @@ export function UserMenu() {
                 <ShieldCheck className="w-3 h-3" />
                 <span>ADMINISTRATOR</span>
               </div>
+            )}
+          </div>
+
+          <div className="py-1 border-b border-border/15">
+            <Link
+              to="/stats"
+              onClick={() => setDropdownOpen(false)}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/5 transition-colors"
+            >
+              <BarChart3 className="w-3.5 h-3.5 text-amber-400" />
+              <span>Analytics & Stats</span>
+            </Link>
+
+            {isAdmin && (
+              <>
+                <Link
+                  to="/sources"
+                  onClick={() => setDropdownOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/5 transition-colors"
+                >
+                  <Globe className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Sources Manager</span>
+                </Link>
+
+                <Link
+                  to="/settings"
+                  onClick={() => setDropdownOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/5 transition-colors"
+                >
+                  <Settings className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Settings & Bot</span>
+                </Link>
+
+                <Link
+                  to="/add"
+                  onClick={() => setDropdownOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/5 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Add Manhwa</span>
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    syncMutation.mutate({ scope: 'all', forceFullRefresh: false });
+                  }}
+                  disabled={syncMutation.isPending || isSyncing}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${syncMutation.isPending || isSyncing ? 'animate-spin' : ''}`} />
+                    <span>Sync All Sources</span>
+                  </div>
+                  {isSyncing && (
+                    <span className="text-[10px] text-amber-400 font-mono">Syncing...</span>
+                  )}
+                </button>
+
+                {onOpenHistory && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      onOpenHistory();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                  >
+                    <History className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Sync History</span>
+                  </button>
+                )}
+              </>
             )}
           </div>
 

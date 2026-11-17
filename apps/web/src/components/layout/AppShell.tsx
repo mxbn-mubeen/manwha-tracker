@@ -15,11 +15,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [location.pathname])
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col w-full overflow-x-hidden">
       <Navbar />
       <main
         key={animKey}
-        className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 animate-page-enter"
+        className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 animate-page-enter overflow-x-hidden"
       >
         {children}
       </main>

@@ -69,11 +69,11 @@ export function Navbar() {
                 <span className="hidden sm:inline">Library</span>
               </Link>
 
-              {/* Sources — only for Admin */}
+              {/* Sources — only for Admin (hidden on mobile, accessible via UserMenu) */}
               {isAdmin && (
                 <Link
                   to="/sources"
-                  className={`transition-all duration-200 px-2.5 sm:px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs sm:text-sm shrink-0 btn-press ${
+                  className={`hidden md:inline-flex transition-all duration-200 px-2.5 sm:px-3 py-1.5 rounded-lg items-center gap-2 text-xs sm:text-sm shrink-0 btn-press ${
                     location.pathname === '/sources'
                       ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm shadow-amber-500/10 font-semibold animate-bubble'
                       : 'text-zinc-400 hover:text-white hover:bg-white/[0.06] border border-transparent'
@@ -84,11 +84,11 @@ export function Navbar() {
                 </Link>
               )}
 
-              {/* Stats — only for signed-in users */}
+              {/* Stats — only for signed-in users (hidden on mobile, accessible via UserMenu) */}
               {user && (
                 <Link
                   to="/stats"
-                  className={`transition-all duration-200 px-2.5 sm:px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs sm:text-sm shrink-0 btn-press ${
+                  className={`hidden md:inline-flex transition-all duration-200 px-2.5 sm:px-3 py-1.5 rounded-lg items-center gap-2 text-xs sm:text-sm shrink-0 btn-press ${
                     location.pathname === '/stats'
                       ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm shadow-amber-500/10 font-semibold animate-bubble'
                       : 'text-zinc-400 hover:text-white hover:bg-white/[0.06] border border-transparent'
@@ -102,7 +102,7 @@ export function Navbar() {
           </div>
 
           {/* ── Right Side: Search, Tool Controls Capsule & Action ── */}
-          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {/* Search Pill Button */}
             <button
               type="button"
@@ -117,9 +117,9 @@ export function Navbar() {
               </span>
             </button>
 
-            {/* Tools Capsule Container — only for Admin */}
+            {/* Tools Capsule Container — only for Admin (hidden on mobile/tablet, accessible via UserMenu) */}
             {isAdmin && (
-              <div className="flex items-center bg-[#111214]/90 border border-border/30 p-1 rounded-xl backdrop-blur-md shadow-inner gap-1 shrink-0">
+              <div className="hidden lg:flex items-center bg-[#111214]/90 border border-border/30 p-1 rounded-xl backdrop-blur-md shadow-inner gap-1 shrink-0">
                 {/* Sync History Drawer Trigger */}
                 <button
                   type="button"
@@ -149,11 +149,11 @@ export function Navbar() {
               </div>
             )}
 
-            {/* Primary Action Button — only for Admin */}
+            {/* Primary Action Button — only for Admin (hidden on mobile, accessible via UserMenu) */}
             {isAdmin && (
               <Link
                 to="/add"
-                className="flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-bold text-xs sm:text-sm px-3.5 py-2 rounded-xl shadow-md shadow-amber-500/20 hover:shadow-amber-500/30 transition-all btn-press shrink-0"
+                className="hidden sm:inline-flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-bold text-xs sm:text-sm px-3.5 py-2 rounded-xl shadow-md shadow-amber-500/20 hover:shadow-amber-500/30 transition-all btn-press shrink-0"
               >
                 <Plus className="h-4 w-4 stroke-[2.75]" />
                 <span className="hidden sm:inline whitespace-nowrap">Add Manhwa</span>
@@ -161,7 +161,7 @@ export function Navbar() {
             )}
 
             {/* User Account Menu / Sign In */}
-            <UserMenu />
+            <UserMenu onOpenHistory={() => setHistoryOpen(true)} />
           </div>
         </div>
       </header>
