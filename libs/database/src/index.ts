@@ -9,3 +9,5 @@ export * from "./manhwa/manhwa.creation.repository";
 export * from "./telegram/telegram.repository";
 export * from "./telegram/telegram.source.repository";
 export * from "./cover.repository";
+export * from "./schema/auth";
+

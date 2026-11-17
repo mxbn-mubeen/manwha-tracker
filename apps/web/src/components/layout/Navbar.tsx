@@ -5,6 +5,7 @@ import { SyncHistoryDrawer } from '@/features/sync/SyncHistoryDrawer';
 import { GlobalSearch } from '@/features/search/GlobalSearch';
 import { Logo } from './Logo';
 import { SyncSplitButton } from './SyncSplitButton';
+import { UserMenu } from './UserMenu';
 
 export function Navbar() {
   const location = useLocation();
@@ -143,6 +144,9 @@ export function Navbar() {
               <Plus className="h-4 w-4 stroke-[2.75]" />
               <span className="hidden sm:inline whitespace-nowrap">Add Manhwa</span>
             </Link>
+
+            {/* User Account Menu / Sign In */}
+            <UserMenu />
           </div>
         </div>
       </header>

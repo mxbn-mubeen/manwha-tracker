@@ -286,3 +286,17 @@ Append-only log. Never delete entries.
   - apps/web/src/features/manhwa-detail/components/ProgressCard.tsx (removed network-pending button lock to allow rapid chapter stepping)
   - apps/web/src/features/manhwa-detail/components/UnreadManhwaStrip.tsx & UnreadStripCard.tsx (extracted card component to honor 230-line limit and added inline quick actions to the "Up Next" carousel)
 - Date: 2026-11-16
+
+---
+
+- Decision: Integrated Neon's managed Better Auth for multi-user authentication.
+- Reason: User requested login/signup capability to allow readers to track their own progress while preserving the shared central catalog and existing Admin progress.
+- Alternatives considered: Custom hand-rolled JWT in Express (rejected in favor of Neon's native managed Better Auth integration which runs directly on Neon Cloud and syncs to PostgreSQL).
+- Affected modules:
+  - apps/web/src/lib/auth-client.ts (Better Auth client connected to Neon Auth endpoint)
+  - apps/web/src/features/auth/AuthModal.tsx (responsive dark-themed login & signup modal)
+  - apps/web/src/components/layout/UserMenu.tsx (navbar profile capsule with admin badge, user info, and sign-out)
+  - apps/web/src/components/layout/Navbar.tsx (integrated UserMenu)
+  - libs/database/src/schema/auth.ts (Better Auth Drizzle schema)
+  - .env & .env.example (added VITE_NEON_AUTH_URL and NEON_AUTH_URL)
+- Date: 2026-11-16

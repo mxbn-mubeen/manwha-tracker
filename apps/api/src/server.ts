@@ -4,7 +4,9 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
+import { toNodeHandler } from "better-auth/node";
 import { appRouter } from "./root";
+import { auth } from "./modules/auth/auth";
 import { CoverRepository } from "@manhwa-tracker/database";
 
 // Log and exit for unhandled async errors.
@@ -55,6 +57,10 @@ app.use((_req, res, next) => {
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   next();
 });
+
+// Better Auth — handles /api/auth/* (sign-in, sign-up, sign-out, session, etc.)
+// Must come before express.json() body parsing since Better Auth reads the raw body itself.
+app.all("/api/auth/*splat", (req, res) => toNodeHandler(auth)(req, res));
 
 // tRPC — all fast API routes (manhwa, settings, sync.getHistory, sync.isSyncing)
 // sync.run is intentionally excluded from this server — it runs on the worker.

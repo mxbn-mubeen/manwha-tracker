@@ -113,7 +113,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-start justify-center pt-[10vh] sm:pt-[14vh] px-4 animate-modal-backdrop"
+      className="fixed inset-0 z-[150] flex items-start justify-center pt-[10vh] sm:pt-[14vh] px-4 animate-modal-backdrop"
       onPointerDown={onClose}
     >
       <div className="absolute inset-0 bg-black/75 backdrop-blur-md" />

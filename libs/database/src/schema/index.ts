@@ -147,3 +147,5 @@ export type InsertSyncRunRow = typeof syncRuns.$inferInsert;
 export type ManhwaCover = typeof manhwaCovers.$inferSelect;
 export type InsertManhwaCover = typeof manhwaCovers.$inferInsert;
 
+// ── Better Auth tables ──────────────────────────────────────────────────────
+export * from './auth';

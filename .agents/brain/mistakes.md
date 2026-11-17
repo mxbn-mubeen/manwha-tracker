@@ -564,3 +564,11 @@ ebuild to retry in the background without crashing the server.
 - Date: 2026-11-12
 
 
+
+---
+
+- Problem: AuthModal auto-closed when typing in email/password fields. Modal also didn't appear above sticky header (z-index cut-off).
+- Cause: (1) Backdrop used `onClick={onClose}` — React synthetic click events bubble up from inner div even with `stopPropagation()` in some edge cases. (2) GlobalSearch had `z-[100]` matching AuthModal's `z-[100]`, rendering order could cause overlap. (3) GlobalSearch's global `keydown` listener (Escape) potentially intercepted keys while AuthModal was open.
+- Fix: (1) Changed backdrop to `onMouseDown` with explicit `e.target === backdropRef.current` guard — only fires when user clicks the bare backdrop, not when clicking inside the modal. (2) Inner modal div now has `onMouseDown={stopPropagation}` AND `onKeyDown={stopPropagation}` to block ALL event bubbling from modal content. (3) Added a capture-phase Escape listener inside AuthModal itself so it handles Escape first before GlobalSearch's bubble-phase listener. (4) Raised AuthModal z-index to `z-[200]`, GlobalSearch raised to `z-[150]` — AuthModal always wins. (5) Added show/hide password toggle, improved placeholder, autocomplete attributes, and form UX.
+- Status: Resolved
+- Date: 2026-11-16
