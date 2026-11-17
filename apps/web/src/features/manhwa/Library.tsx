@@ -14,7 +14,7 @@ type FilterValue = 'All' | 'My List' | 'Reading' | 'Unread' | 'Completed' | 'Hia
 
 export function LibraryPage() {
   usePageTitle('Library');
-  const { data: session } = useSession();
+  const { data: session, isPending: isSessionPending } = useSession();
   const user = session?.user;
 
   const FILTER_VALUES: FilterValue[] = useMemo(() => {
@@ -24,7 +24,10 @@ export function LibraryPage() {
     return ['All', 'Reading', 'Unread', 'Completed', 'Hiatus', 'Dropped'];
   }, [user]);
 
-  const { data: manhwas, isLoading } = trpc.manhwa.getAll.useQuery();
+  const { data: manhwas, isLoading: isManhwasLoading } = trpc.manhwa.getAll.useQuery(undefined, {
+    enabled: !isSessionPending,
+  });
+  const isLoading = isSessionPending || isManhwasLoading;
   const [searchParams, setSearchParams] = useSearchParams();
   const initialSearch = searchParams.get('search') || searchParams.get('q') || '';
   const [search, setSearch] = useState(initialSearch);

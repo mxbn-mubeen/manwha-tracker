@@ -13,11 +13,16 @@ import { AuthModal } from '@/features/auth/AuthModal';
 
 export function DashboardPage() {
   usePageTitle('Dashboard');
-  const { data: session } = useSession();
+  const { data: session, isPending: isSessionPending } = useSession();
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const { data: manhwas, isLoading, isError } = trpc.manhwa.getAll.useQuery();
-  const { data: telegramSourcesCount } = trpc.manhwa.getTelegramCount.useQuery();
+  const { data: manhwas, isLoading: isManhwasLoading, isError } = trpc.manhwa.getAll.useQuery(undefined, {
+    enabled: !isSessionPending,
+  });
+  const { data: telegramSourcesCount } = trpc.manhwa.getTelegramCount.useQuery(undefined, {
+    enabled: !isSessionPending,
+  });
 
+  const isLoading = isSessionPending || isManhwasLoading;
   const user = session?.user;
   const isAdmin = (user as any)?.role === 'admin';
 

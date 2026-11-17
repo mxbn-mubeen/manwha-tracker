@@ -20,20 +20,21 @@ function getAuthHeaders() {
 }
 
 function SessionSync() {
-  const { data: session } = useSession();
+  const { data: session, isPending } = useSession();
   const utils = trpc.useUtils();
 
   useEffect(() => {
+    if (isPending) return;
     const stored = localStorage.getItem('manhwa_user_id');
     const current = session?.user?.id ?? null;
     if (current && stored !== current) {
       localStorage.setItem('manhwa_user_id', current);
-      utils.manhwa.getAll.invalidate();
+      utils.manhwa.getAll.refetch();
     } else if (session === null && stored !== null) {
       localStorage.removeItem('manhwa_user_id');
-      utils.manhwa.getAll.invalidate();
+      utils.manhwa.getAll.refetch();
     }
-  }, [session, utils]);
+  }, [session, isPending, utils]);
 
   return null;
 }

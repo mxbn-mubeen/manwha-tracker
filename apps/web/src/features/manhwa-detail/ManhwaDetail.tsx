@@ -18,16 +18,17 @@ export function ManhwaDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const utils = trpc.useUtils();
-  const { data: session } = useSession();
+  const { data: session, isPending: isSessionPending } = useSession();
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
   const user = session?.user;
   const isAdmin = (user as any)?.role === 'admin';
 
   const numericId = Number(id!);
-  const { data: manhwa, isLoading } = trpc.manhwa.getById.useQuery(numericId, {
-    enabled: !!id && !isNaN(numericId),
+  const { data: manhwa, isLoading: isManhwaLoading } = trpc.manhwa.getById.useQuery(numericId, {
+    enabled: !!id && !isNaN(numericId) && !isSessionPending,
   });
+  const isLoading = isSessionPending || isManhwaLoading;
 
   usePageTitle(manhwa?.title);
 
