@@ -4,6 +4,14 @@ Append-only log. Never delete entries.
 
 ---
 
+- Problem: On page load, `manhwa.getAll` queried the backend before `useSession` had resolved, causing the client to fetch guest progress data (Ch. 0) and lock it in cache.
+- Cause: Queries had `enabled: true` by default, triggering at `t = 0ms` before session cookies were verified over the network.
+- Fix: Set `enabled: !isSessionPending` on `manhwa.getAll` and `manhwa.getById`, and changed `SessionSync` to trigger an active `.refetch()`.
+- Status: Resolved
+- Date: 2026-11-17
+
+---
+
 - Problem: Logged-in admin user saw all manhwas at "Ch. 0" with inflated unread counts (39,852) on the dashboard after logging in.
 - Cause: `providers.tsx` evaluated `(authClient as any).$store?.get?.()?.session?.user` to attach `x-user-id` to tRPC requests, which returned `undefined`. The backend treated requests as anonymous guest requests and returned 0 read progress for all titles.
 - Fix: Added a reactive `SessionSync` component in `providers.tsx` that synchronizes `session.user.id` to `localStorage` and reliably forwards `x-user-id` on every tRPC batch request, invalidating queries on session switch.
