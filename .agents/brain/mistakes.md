@@ -563,4 +563,39 @@ ebuild to retry in the background without crashing the server.
 - Status: Resolved
 - Date: 2026-11-12
 
+---
+
+- Problem: On mobile viewports (< sm), the Quick Action overlay buttons (`Read`, `+1`, `All`) in `ManhwaCard` overlapped with the manhwa title and chapter readout, and crowded the card width.
+- Cause: `ManhwaCard` placed the action bar at `bottom-15` (3.75rem / ~60px), which directly collided with the card's footer metadata (~64px tall). Additionally, on narrow mobile 2-column cards (~160px width), fixed padding and unscaled button text caused buttons to stretch edge-to-edge with no breathing room.
+- Fix: Repositioned the action bar to `bottom-[70px] sm:bottom-16` to cleanly sit above the footer info with an explicit gap, made mobile buttons slightly more compact (`h-6.5 sm:h-7`, `text-[10px] sm:text-[11px]`, `px-2`), tightened footer padding on mobile (`p-2.5 sm:p-3`, `text-xs sm:text-sm`), and enhanced the card's bottom gradient contrast (`from-black/95 via-black/50 via-40% to-black/10`).
+- Status: Resolved
+- Date: 2026-11-17
+
+---
+
+- Problem: Clicking on an unread manhwa card did not navigate to the manhwa detail page (`/manhwa/:id`).
+- Cause: The card's root element was converted to a plain `<div>` in commit `e4e4de3` with an `<a className="absolute inset-0 block z-0">` behind everything to allow nesting action buttons. When `unread > 0`, the quick action overlay (`z-20`), badges (`z-10`), and footer (`z-10`) covered the surface. Tapping on touch devices or clicking the title/footer/space failed to hit the `z-0` link or was intercepted.
+- Fix: Added `const navigate = useNavigate()` and an explicit `handleCardClick` handler on the outer card container that checks `!(e.target as HTMLElement).closest('button, a')` before navigating to `/manhwa/${manhwa.id}`. Applied to both `ManhwaCard` and `UnreadStripCard` with `cursor-pointer`.
+- Status: Resolved
+- Date: 2026-11-17
+
+---
+
+- Problem: Quick action buttons (`Read`, `+1`, `All`) and unread badge were inconsistently designed between `ManhwaCard` (Library/Dashboard) and `UnreadStripCard` (Detail page carousel). `ManhwaCard` had a large text label (`Read`), different padding and button sizes, and a solid amber badge, whereas `UnreadStripCard` used a compact icon-only `[ ↗ ]` button and a translucent black-amber pill badge.
+- Cause: Two separate implementations of quick action controls were created independently without shared styling conventions.
+- Fix: Unified `ManhwaCard` to match `UnreadStripCard` exactly: icon-only `[ ↗ ]` external link button (`h-6 px-1.5 rounded-md`), identical `+1` and `All` button proportions, and the sleek translucent pill unread badge (`bg-black/85 backdrop-blur-md border border-amber-500/40 text-amber-300`).
+- Status: Resolved
+- Date: 2026-11-17
+
+---
+
+- Problem: Floating quick action buttons in the middle or corners of manhwa cards obscured character faces/cover art and looked cluttered.
+- Cause: Overlaying floating action bars in the central area of narrow mobile cards directly conflicted with the artwork.
+- Fix: Docked the quick actions (`Read`, `+1`, `All`) cleanly at the very bottom inside the footer metadata panel below the progress bar. The upper ~75% of the card is now 100% clean and unobstructed cover art, with actions grouped together into an ergonomic bottom strip.
+- Status: Resolved
+- Date: 2026-11-17
+
+
+
+
 
