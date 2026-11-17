@@ -4,10 +4,8 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { toNodeHandler } from "better-auth/node";
 import { appRouter } from "./root";
 import { createTRPCContext } from "./trpc";
-import { auth } from "./modules/auth/auth";
 import { CoverRepository } from "@manhwa-tracker/database";
 
 // Log and exit for unhandled async errors.
@@ -33,35 +31,35 @@ app.use(
   cors({
     origin: function (origin, callback) {
       // Allow any origin
-      callback(null, origin || '*');
+      callback(null, origin || "*");
     },
     credentials: true,
   }),
 );
 
 app.use(express.json());
-app.use(cookieParser(process.env.SESSION_SECRET || 'fallback-secret-for-dev'));
+app.use(cookieParser(process.env.SESSION_SECRET || "fallback-secret-for-dev"));
 
 // ── Security headers ─────────────────────────────────────────────────────────
 // Applied to every response. Keeps the API hardened without pulling in helmet.
-app.disable('x-powered-by');
+app.disable("x-powered-by");
 app.use((_req, res, next) => {
   // Prevent MIME-sniffing attacks
-  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader("X-Content-Type-Options", "nosniff");
   // Disallow framing (clickjacking protection)
-  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader("X-Frame-Options", "DENY");
   // Don't leak the full referrer URL to third-party hosts
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   // This is a JSON API — no need to prefetch DNS for linked resources
-  res.setHeader('X-DNS-Prefetch-Control', 'off');
+  res.setHeader("X-DNS-Prefetch-Control", "off");
   // Restrict browser features that a JSON API never uses
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=()",
+  );
   next();
 });
 
-// Better Auth — handles /api/auth/* (sign-in, sign-up, sign-out, session, etc.)
-// Must come before express.json() body parsing since Better Auth reads the raw body itself.
-app.all("/api/auth/*splat", (req, res) => toNodeHandler(auth)(req, res));
 
 // tRPC — all fast API routes (manhwa, settings, sync.getHistory, sync.isSyncing)
 // sync.run is intentionally excluded from this server — it runs on the worker.
@@ -86,7 +84,7 @@ const coverRepo = new CoverRepository();
  * if it matches the stored hash, respond with immutable cache headers.
  */
 app.get("/cover/:id", async (req, res) => {
-  const manhwaId = parseInt(req.params.id || '', 10);
+  const manhwaId = parseInt(req.params.id || "", 10);
   if (isNaN(manhwaId)) {
     res.status(400).json({ error: "Invalid manhwa id." });
     return;
@@ -117,39 +115,51 @@ app.get("/cover/:id", async (req, res) => {
  * Upload a cover image as raw binary body (Content-Type: image/*)
  * Max size: 512 KB. Requires auth cookie.
  */
-app.post("/cover/:id", express.raw({ type: ["image/webp", "image/jpeg", "image/png", "image/*"], limit: "512kb" }), async (req, res) => {
-  const session = req.signedCookies?.session;
-  if (!session || session !== "authenticated") {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+app.post(
+  "/cover/:id",
+  express.raw({
+    type: ["image/webp", "image/jpeg", "image/png", "image/*"],
+    limit: "512kb",
+  }),
+  async (req, res) => {
+    const session = req.signedCookies?.session;
+    if (!session || session !== "authenticated") {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
 
-  const manhwaId = parseInt(req.params.id || '', 10);
-  if (isNaN(manhwaId)) {
-    res.status(400).json({ error: "Invalid manhwa id." });
-    return;
-  }
+    const manhwaId = parseInt(req.params.id || "", 10);
+    if (isNaN(manhwaId)) {
+      res.status(400).json({ error: "Invalid manhwa id." });
+      return;
+    }
 
-  const body = req.body as Buffer;
-  if (!Buffer.isBuffer(body) || body.length === 0) {
-    res.status(400).json({ error: "Body must be a non-empty binary image." });
-    return;
-  }
+    const body = req.body as Buffer;
+    if (!Buffer.isBuffer(body) || body.length === 0) {
+      res.status(400).json({ error: "Body must be a non-empty binary image." });
+      return;
+    }
 
-  const contentType = ((req.headers["content-type"] || "image/webp").split(";")[0] ?? "image/webp").trim();
+    const contentType = (
+      (req.headers["content-type"] || "image/webp").split(";")[0] ??
+      "image/webp"
+    ).trim();
 
-  const hash = await coverRepo.upsert(manhwaId, body, contentType).catch((err: Error) => {
-    console.error("[cover] Failed to upsert cover:", err.message);
-    return null;
-  });
+    const hash = await coverRepo
+      .upsert(manhwaId, body, contentType)
+      .catch((err: Error) => {
+        console.error("[cover] Failed to upsert cover:", err.message);
+        return null;
+      });
 
-  if (!hash) {
-    res.status(500).json({ error: "Failed to save cover." });
-    return;
-  }
+    if (!hash) {
+      res.status(500).json({ error: "Failed to save cover." });
+      return;
+    }
 
-  res.json({ ok: true, contentHash: hash });
-});
+    res.json({ ok: true, contentHash: hash });
+  },
+);
 
 app.get("/", (_req, res) => {
   res.json({

@@ -4,6 +4,14 @@ Append-only log. Never delete entries.
 
 ---
 
+- Problem: Vercel serverless API crashed on startup with `ERR_REQUIRE_ESM` and browser requests were blocked by CORS preflight failures.
+- Cause: `apps/api/src/server.ts` attempted to mount Better Auth handlers via ESM `better-auth/node` inside CommonJS, and `apps/api/src/vercel.ts` CORS headers lacked `x-user-id` and `authorization`.
+- Fix: Removed `better-auth/node` from `server.ts` (as Neon Auth hosts Better Auth directly) and included `x-user-id, authorization` in `Access-Control-Allow-Headers` in `vercel.ts` and `server.ts`.
+- Status: Resolved
+- Date: 2026-11-17
+
+---
+
 - Problem: On page load, `manhwa.getAll` queried the backend before `useSession` had resolved, causing the client to fetch guest progress data (Ch. 0) and lock it in cache.
 - Cause: Queries had `enabled: true` by default, triggering at `t = 0ms` before session cookies were verified over the network.
 - Fix: Set `enabled: !isSessionPending` on `manhwa.getAll` and `manhwa.getById`, and changed `SessionSync` to trigger an active `.refetch()`.

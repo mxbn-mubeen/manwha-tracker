@@ -15,7 +15,7 @@ function setCors(req: IncomingMessage, res: ServerResponse) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-app-secret');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-app-secret, x-user-id, authorization');
 }
 
 export default function handler(req: IncomingMessage, res: ServerResponse) {
