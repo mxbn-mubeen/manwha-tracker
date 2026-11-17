@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ExternalLink, Plus, Check } from 'lucide-react';
+import { ExternalLink, Plus, Check, BookmarkPlus } from 'lucide-react';
 import { cn, getUnreadCount, formatUnreadCount } from "@/lib/utils";
 import { getProxiedImageUrl } from "@/utils/image";
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +21,8 @@ export function ManhwaCard({ manhwa }: { manhwa: Manhwa }) {
     setImgFailed(false);
   }, [manhwa.coverUrl]);
 
-  const unread = getUnreadCount(manhwa.progress?.latestChapter, manhwa.progress?.lastChapter);
+  const isTracking = manhwa.progress?.isTracking ?? false;
+  const unread = isTracking ? getUnreadCount(manhwa.progress?.latestChapter, manhwa.progress?.lastChapter) : 0;
   const currentChapter = manhwa.progress?.lastChapter ?? 0;
   const latestChapter = manhwa.progress?.latestChapter ?? 0;
   const progressPercent = Math.min(
@@ -36,6 +37,14 @@ export function ManhwaCard({ manhwa }: { manhwa: Manhwa }) {
     manhwa.sources?.find((s: { type?: string | null; url?: string | null }) => s.type === 'website' && s.url) ??
     manhwa.sources?.find((s: { url?: string | null }) => s.url) ??
     null;
+
+  const startTrackingMutation = trpc.manhwa.startTracking.useMutation({
+    onSuccess: () => {
+      toast.success(`Added ${manhwa.title} to your reading list!`);
+      utils.manhwa.getAll.invalidate();
+    },
+    onError: () => toast.error('Failed to add to reading list'),
+  });
 
   const updateProgressMutation = trpc.manhwa.updateProgress.useMutation({
     onMutate: async ({ manhwaId, chapter }) => {
@@ -53,6 +62,7 @@ export function ManhwaCard({ manhwa }: { manhwa: Manhwa }) {
               lastChapter: chapter,
               latestChapter: m.progress?.latestChapter ?? chapter,
               lastReadAt: new Date(),
+              isTracking: true,
             },
           };
         });
@@ -103,8 +113,8 @@ export function ManhwaCard({ manhwa }: { manhwa: Manhwa }) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
       </Link>
 
-      {/* Unread Badge (Top Right) — only for logged in user */}
-      {user && unread > 0 && (
+      {/* Unread Badge (Top Right) — only for logged in user tracking this */}
+      {user && isTracking && unread > 0 && (
         <div className="absolute top-2 right-2 z-10 pointer-events-none">
           <Badge className="bg-amber-500 text-amber-950 font-bold border-none shadow-md">
             +{formatUnreadCount(unread)}
@@ -112,8 +122,8 @@ export function ManhwaCard({ manhwa }: { manhwa: Manhwa }) {
         </div>
       )}
 
-      {/* Quick Action Overlay (Center-hover on desktop, always accessible on touch) — only for logged in user */}
-      {user && unread > 0 && (
+      {/* Quick Action Overlay for tracking users */}
+      {user && isTracking && unread > 0 && (
         <div className="absolute inset-x-2 bottom-15 z-20 flex items-center justify-center gap-1.5 opacity-90 sm:opacity-0 sm:group-hover/card:opacity-100 transition-all duration-200 pointer-events-auto">
           {readingSource?.url && (
             <a
@@ -159,10 +169,29 @@ export function ManhwaCard({ manhwa }: { manhwa: Manhwa }) {
         </div>
       )}
 
+      {/* Start Tracking CTA overlay for logged-in users NOT yet tracking this manhwa */}
+      {user && !isTracking && (
+        <div className="absolute inset-x-3 bottom-14 z-20 flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover/card:opacity-100 transition-all duration-200 pointer-events-auto">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              startTrackingMutation.mutate({ manhwaId: manhwa.id });
+            }}
+            disabled={startTrackingMutation.isPending}
+            className="w-full h-8 rounded-xl bg-amber-500/95 hover:bg-amber-400 text-zinc-950 text-xs font-bold border border-amber-400/60 backdrop-blur-md flex items-center justify-center gap-1.5 transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-amber-500/20 cursor-pointer"
+          >
+            <BookmarkPlus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>+ Track</span>
+          </button>
+        </div>
+      )}
+
       {/* Card Footer Info */}
       <div className="absolute bottom-0 left-0 right-0 p-3 z-10 pointer-events-none">
         <h3 className="font-semibold text-sm line-clamp-1 mb-1 text-white">{manhwa.title}</h3>
-        {user ? (
+        {user && isTracking ? (
           <>
             <div className="flex items-center justify-between text-xs text-zinc-400">
               <span>Ch. {currentChapter}</span>

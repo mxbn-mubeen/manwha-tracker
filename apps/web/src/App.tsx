@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { DashboardPage } from './features/dashboard/Dashboard';
 import { LibraryPage } from './features/manhwa/Library';
 import { AddManhwaPage } from './features/manhwa/AddManhwa';
@@ -18,11 +19,39 @@ export function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/library" element={<LibraryPage />} />
-            <Route path="/add" element={<AddManhwaPage />} />
-            <Route path="/sources" element={<SourcesPage />} />
-            <Route path="/stats" element={<StatsPage />} />
+            <Route
+              path="/add"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <AddManhwaPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/sources"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <SourcesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/stats"
+              element={
+                <ProtectedRoute>
+                  <StatsPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/manhwa/:id" element={<ManhwaDetailPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <SettingsPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </AppShell>

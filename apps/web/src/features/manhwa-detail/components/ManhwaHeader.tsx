@@ -83,11 +83,11 @@ export function ManhwaHeader({
         {/* Status Dropdown Trigger */}
         <button
           type="button"
-          onClick={() => setDropdownOpen(!dropdownOpen)}
-          className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border transition-all btn-press ${
-            STATUS_BADGE_CLASS[currentStatus] ?? 'border-border/30 text-zinc-300 bg-[#161719]'
-          }`}
-          title="Click to change reading status"
+          onClick={() => isAdmin && setDropdownOpen(!dropdownOpen)}
+          className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border transition-all ${
+            isAdmin ? 'btn-press cursor-pointer' : 'cursor-default'
+          } ${STATUS_BADGE_CLASS[currentStatus] ?? 'border-border/30 text-zinc-300 bg-[#161719]'}`}
+          title={isAdmin ? 'Click to change status' : currentStatus}
         >
           <span className="relative flex h-2 w-2">
             <span
@@ -102,11 +102,13 @@ export function ManhwaHeader({
             />
           </span>
           <span>{currentStatus}</span>
-          <ChevronDown
-            className={`h-3 w-3 transition-transform duration-200 ${
-              dropdownOpen ? 'rotate-180' : ''
-            }`}
-          />
+          {isAdmin && (
+            <ChevronDown
+              className={`h-3 w-3 transition-transform duration-200 ${
+                dropdownOpen ? 'rotate-180' : ''
+              }`}
+            />
+          )}
         </button>
 
         {isAdmin && (
@@ -116,7 +118,7 @@ export function ManhwaHeader({
         )}
 
         {/* Dropdown Menu */}
-        {dropdownOpen && (
+        {isAdmin && dropdownOpen && (
           <div className="absolute top-full left-0 mt-2 w-40 bg-[#161719] border border-border/40 rounded-xl shadow-2xl py-1 z-50 overflow-hidden backdrop-blur-xl animate-card-enter">
             {statuses.map((s) => (
               <button

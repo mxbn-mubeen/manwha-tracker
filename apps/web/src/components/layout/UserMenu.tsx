@@ -24,6 +24,7 @@ export function UserMenu() {
   const handleSignOut = async () => {
     setDropdownOpen(false);
     try {
+      localStorage.removeItem('manhwa_user_id');
       await signOut();
       toast.success('Signed out successfully');
     } catch {

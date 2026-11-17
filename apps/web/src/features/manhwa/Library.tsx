@@ -8,20 +8,21 @@ import { ManhwaCard } from '@/features/manhwa/components/ManhwaCard';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { search as utilsSearch } from '@manhwa-tracker/utils';
 import { getUnreadCount } from '@/lib/utils';
+import { useSession } from '@/lib/auth-client';
 
-type FilterValue = 'All' | 'Reading' | 'Unread' | 'Completed' | 'Hiatus' | 'Dropped';
-
-const FILTER_VALUES: readonly FilterValue[] = [
-  'All',
-  'Reading',
-  'Unread',
-  'Completed',
-  'Hiatus',
-  'Dropped',
-];
+type FilterValue = 'All' | 'My List' | 'Reading' | 'Unread' | 'Completed' | 'Hiatus' | 'Dropped';
 
 export function LibraryPage() {
   usePageTitle('Library');
+  const { data: session } = useSession();
+  const user = session?.user;
+
+  const FILTER_VALUES: FilterValue[] = useMemo(() => {
+    if (user) {
+      return ['All', 'My List', 'Reading', 'Unread', 'Completed', 'Hiatus', 'Dropped'];
+    }
+    return ['All', 'Reading', 'Unread', 'Completed', 'Hiatus', 'Dropped'];
+  }, [user]);
 
   const { data: manhwas, isLoading } = trpc.manhwa.getAll.useQuery();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -60,7 +61,9 @@ export function LibraryPage() {
   const filtered = searchResults.filter((m) => {
     let matchesFilter = true;
 
-    if (filter === 'Reading') {
+    if (filter === 'My List') {
+      matchesFilter = m.progress?.isTracking === true;
+    } else if (filter === 'Reading') {
       matchesFilter = m.status === 'ongoing';
     } else if (filter === 'Completed') {
       matchesFilter = m.status === 'completed';
@@ -70,8 +73,7 @@ export function LibraryPage() {
       matchesFilter = m.status === 'dropped';
     } else if (filter === 'Unread') {
       const unread = getUnreadCount(m.progress?.latestChapter, m.progress?.lastChapter);
-
-      matchesFilter = m.status !== 'completed' && unread > 0;
+      matchesFilter = m.status !== 'completed' && unread > 0 && (user ? m.progress?.isTracking === true : true);
     }
 
     return matchesFilter;

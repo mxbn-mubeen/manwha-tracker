@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpBatchLink, splitLink } from '@trpc/client';
 import superjson from 'superjson';
 import { trpc } from '@/lib/trpc';
-import { authClient } from '@/lib/auth-client';
+import { useSession } from '@/lib/auth-client';
 import { Toaster } from 'sonner';
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/$/, '');
@@ -11,12 +11,31 @@ const SYNC_URL = (import.meta.env.VITE_SYNC_URL || 'http://localhost:3002').repl
 const APP_SECRET = import.meta.env.VITE_APP_SECRET || '';
 
 function getAuthHeaders() {
-  const user = (authClient as any).$store?.get?.()?.session?.user;
+  const userId = typeof window !== 'undefined' ? localStorage.getItem('manhwa_user_id') : null;
   const headers: Record<string, string> = { 'x-app-secret': APP_SECRET };
-  if (user?.id) {
-    headers['x-user-id'] = user.id;
+  if (userId) {
+    headers['x-user-id'] = userId;
   }
   return headers;
+}
+
+function SessionSync() {
+  const { data: session } = useSession();
+  const utils = trpc.useUtils();
+
+  useEffect(() => {
+    const stored = localStorage.getItem('manhwa_user_id');
+    const current = session?.user?.id ?? null;
+    if (current && stored !== current) {
+      localStorage.setItem('manhwa_user_id', current);
+      utils.manhwa.getAll.invalidate();
+    } else if (session === null && stored !== null) {
+      localStorage.removeItem('manhwa_user_id');
+      utils.manhwa.getAll.invalidate();
+    }
+  }, [session, utils]);
+
+  return null;
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -57,6 +76,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
+        <SessionSync />
         {children}
         <Toaster theme="dark" position="bottom-right" />
       </QueryClientProvider>

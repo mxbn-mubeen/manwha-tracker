@@ -1,4 +1,5 @@
-import { ChevronDown, ChevronUp, CheckCircle2, BookmarkCheck } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { ChevronDown, ChevronUp, CheckCircle2, BookmarkCheck, BookmarkX } from 'lucide-react';
 import { getUnreadCount, formatUnreadCount } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -6,17 +7,52 @@ interface ProgressCardProps {
   localChapter: number;
   latestChapter: number;
   status: string;
+  userStatus?: string;
   onProgressChange: (newChapter: number) => void;
+  onStatusChange?: (status: 'reading' | 'completed' | 'on_hold' | 'dropped' | 'plan_to_read') => void;
+  onStopTracking?: () => void;
   isPending: boolean;
 }
+
+const STATUS_LABELS: Record<string, string> = {
+  reading: 'Reading',
+  plan_to_read: 'Plan to Read',
+  on_hold: 'On Hold',
+  completed: 'Completed',
+  dropped: 'Dropped',
+};
+
+const STATUS_CLASSES: Record<string, string> = {
+  reading: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+  plan_to_read: 'text-blue-400 bg-blue-500/10 border-blue-500/30',
+  on_hold: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+  completed: 'text-purple-400 bg-purple-500/10 border-purple-500/30',
+  dropped: 'text-red-400 bg-red-500/10 border-red-500/30',
+};
 
 export function ProgressCard({
   localChapter,
   latestChapter,
   status,
+  userStatus = 'reading',
   onProgressChange,
+  onStatusChange,
+  onStopTracking,
   isPending,
 }: ProgressCardProps) {
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const statusRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (statusRef.current && !statusRef.current.contains(e.target as Node)) {
+        setStatusMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const unread = getUnreadCount(latestChapter, localChapter);
 
   const progressPercent = Math.min(
@@ -38,9 +74,65 @@ export function ProgressCard({
             Reading Progress
           </h3>
         </div>
-        <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-white/5 border border-border/20 text-zinc-400">
-          {Math.round(progressPercent)}% read
-        </span>
+
+        <div className="flex items-center gap-2">
+          {/* Personal Reading Status Dropdown */}
+          {onStatusChange && (
+            <div className="relative" ref={statusRef}>
+              <button
+                type="button"
+                onClick={() => setStatusMenuOpen(!statusMenuOpen)}
+                className={`text-[11px] font-bold px-2.5 py-1 rounded-full border transition-all flex items-center gap-1.5 btn-press cursor-pointer ${
+                  STATUS_CLASSES[userStatus] ?? 'text-zinc-400 bg-white/5 border-border/20'
+                }`}
+                title="Change your personal reading status"
+              >
+                <span>{STATUS_LABELS[userStatus] ?? 'Reading'}</span>
+                <ChevronDown className="w-3 h-3" />
+              </button>
+
+              {statusMenuOpen && (
+                <div className="absolute right-0 mt-2 w-36 bg-[#161719] border border-border/40 rounded-xl shadow-2xl py-1 z-50 overflow-hidden backdrop-blur-xl animate-card-enter">
+                  {(['reading', 'plan_to_read', 'on_hold', 'completed', 'dropped'] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => {
+                        onStatusChange(s);
+                        setStatusMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-xs font-medium hover:bg-white/5 transition-colors flex items-center justify-between ${
+                        s === userStatus ? 'text-amber-400 font-bold' : 'text-zinc-300'
+                      }`}
+                    >
+                      <span>{STATUS_LABELS[s]}</span>
+                      {s === userStatus && <span className="text-amber-400 text-xs">✓</span>}
+                    </button>
+                  ))}
+                  {onStopTracking && (
+                    <div className="border-t border-border/20 mt-1 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onStopTracking();
+                          setStatusMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <BookmarkX className="w-3.5 h-3.5" />
+                        <span>Untrack</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-white/5 border border-border/20 text-zinc-400">
+            {Math.round(progressPercent)}% read
+          </span>
+        </div>
       </div>
 
       <div className="flex flex-col gap-5">

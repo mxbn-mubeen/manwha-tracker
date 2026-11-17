@@ -37,8 +37,12 @@ export class SourcesRepository {
       adapterKey: data.adapterKey,
     }).onConflictDoNothing();
 
+    const ADMIN_USER_ID = '13842bd8-5c2e-4c5c-94c0-e6c612bda9e1';
     await db.insert(progress).values({
+      userId: ADMIN_USER_ID as any,
       manhwaId: newManhwa.id,
+      lastReadChapterNum: 0,
+      status: 'reading',
     }).onConflictDoNothing();
 
     return newManhwa;

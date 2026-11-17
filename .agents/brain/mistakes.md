@@ -4,6 +4,22 @@ Append-only log. Never delete entries.
 
 ---
 
+- Problem: Logged-in admin user saw all manhwas at "Ch. 0" with inflated unread counts (39,852) on the dashboard after logging in.
+- Cause: `providers.tsx` evaluated `(authClient as any).$store?.get?.()?.session?.user` to attach `x-user-id` to tRPC requests, which returned `undefined`. The backend treated requests as anonymous guest requests and returned 0 read progress for all titles.
+- Fix: Added a reactive `SessionSync` component in `providers.tsx` that synchronizes `session.user.id` to `localStorage` and reliably forwards `x-user-id` on every tRPC batch request, invalidating queries on session switch.
+- Status: Resolved
+- Date: 2026-11-17
+
+---
+
+- Problem: Mobile viewport in Navbar and Dashboard hero caused `Library` navigation and `Explore Library` buttons to be pushed off-screen and stuck in the right corner.
+- Cause: `Navbar.tsx` had `overflow-x-auto` with rigid text widths, including full `MANHWA TRACKER` brand typography on mobile, and `Dashboard.tsx` had inflexible side-by-side `flex items-center gap-3` for long action buttons.
+- Fix: Collapsed brand text on mobile to squircle logo icon (`hidden sm:flex`), removed `overflow-x-auto` from the main navbar flex container, and made Dashboard hero buttons stack on mobile (`flex-col sm:flex-row items-stretch sm:items-center`).
+- Status: Resolved
+- Date: 2026-11-17
+
+---
+
 - Problem: Source cards on the manhwa detail page showed wrong `latestChapterNum` for "secondary" sources. If thunderscans finds Ch.69 first and inserts the chapter row with `sourceId = thunderscans.id`, then arenascan syncs later and finds Ch.69 already in the DB (so nothing is inserted), arenascan's `latestChapterNum` would show as `null` (or stuck at Ch.1 if that was the last chapter it was first to insert). This caused the "Behind by 68 chapters" false-positive in the Sources list.
 - Cause: `manhwa.read.repository.ts` computed `latestChapterNum` per source as `MAX(chapters.chapterNum) WHERE chapters.sourceId = source.id`. Because `sourceId` is only written on the chapter row by the *first* source to insert that chapter, any subsequent source that also sees that chapter gets no credit.
 - Fix: Changed `latestChapterNum` in the `sourceMetadata` query to a correlated subquery `SELECT MAX(chapter_num) FROM chapters WHERE manhwa_id = ?` (global max for the manhwa). All sources that successfully sync and can see the latest chapter are now shown as up-to-date. `lastDiscoveredAt` remains per-source-attributed (honest: null means this source has never been the first to find a new chapter).
@@ -586,3 +602,15 @@ ebuild to retry in the background without crashing the server.
   6. Verified all builds and typechecks across `@manhwa-tracker/database`, `api`, and `web`.
 - Status: Resolved
 - Date: 2026-11-16
+
+---
+
+- Problem: Direct URL navigation (e.g. entering /settings, /sources, or /add in the address bar) was not blocked for unauthenticated visitors, and the Telegram bot auto-mark-read function did not specify the admin's user_id in the newly multi-user progress table.
+- Cause: React Router had no route guards, and TelegramRepository.markAsReadIfNewer inserted without user_id on conflict.
+- Fix:
+  1. Created `ProtectedRoute.tsx` wrapper with role checking.
+  2. Guarded `/settings`, `/sources`, `/add` with `requireAdmin`, and guarded `/stats` to require any signed-in user. Unauthorized attempts automatically redirect to `/dashboard`.
+  3. Updated `TelegramRepository.markAsReadIfNewer` and `getLastReadChapterNum` to target Admin user ID `13842bd8-5c2e-4c5c-94c0-e6c612bda9e1` with `ON CONFLICT (user_id, manhwa_id)`.
+  4. Verified all packages (`@manhwa-tracker/database`, `api`, `web`) compile and build cleanly with 0 errors.
+- Status: Resolved
+- Date: 2026-11-17

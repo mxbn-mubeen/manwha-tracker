@@ -87,10 +87,10 @@ export function DashboardPage() {
             <p className="text-sm text-zinc-400">
               Browse {totalManhwa} tracked series across multiple sources. Sign in or create a free account to maintain your private reading progress, get release updates, and mark chapters as read.
             </p>
-            <div className="pt-2 flex items-center gap-3">
+            <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
               <Button
                 onClick={() => setAuthModalOpen(true)}
-                className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-bold text-xs sm:text-sm px-4 py-2 rounded-xl shadow-md shadow-amber-500/20 gap-2 cursor-pointer"
+                className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-md shadow-amber-500/20 gap-2 cursor-pointer w-full sm:w-auto justify-center"
               >
                 <LogIn className="w-4 h-4" />
                 <span>Sign In / Create Account</span>
@@ -98,7 +98,7 @@ export function DashboardPage() {
               <Button
                 variant="outline"
                 asChild
-                className="bg-[#111214] border-border/40 hover:border-amber-500/30 text-zinc-300 text-xs sm:text-sm rounded-xl"
+                className="bg-[#111214] border-border/40 hover:border-amber-500/30 text-zinc-300 text-xs sm:text-sm rounded-xl w-full sm:w-auto justify-center py-2.5"
               >
                 <Link to="/library">Explore Library ↗</Link>
               </Button>

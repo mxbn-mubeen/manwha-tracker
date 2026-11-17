@@ -34,6 +34,7 @@ export class ManhwaReadRepository {
         progressChapterId: progress.chapterId,
         progressLastReadAt: progress.lastReadAt,
         progressIsCompleted: progress.isCompleted,
+        progressStatus: progress.status,
         // latest chapter num for this manhwa
         latestChapterNum: sql<number>`(
           SELECT MAX(c.chapter_num)
@@ -73,11 +74,15 @@ export class ManhwaReadRepository {
             latestChapter: Number(r.latestChapterNum) || 0,
             isCompleted: r.progressIsCompleted,
             lastReadAt: r.progressLastReadAt,
+            status: r.progressStatus || 'reading',
+            isTracking: true,
           } : {
             lastChapter: 0,
             latestChapter: Number(r.latestChapterNum) || 0,
             isCompleted: false,
             lastReadAt: null,
+            status: null,
+            isTracking: false,
           },
           sources: []
         });
@@ -111,6 +116,7 @@ export class ManhwaReadRepository {
         progressChapterId: progress.chapterId,
         progressLastReadAt: progress.lastReadAt,
         progressIsCompleted: progress.isCompleted,
+        progressStatus: progress.status,
         latestChapterNum: sql<number>`(
           SELECT MAX(c.chapter_num)
           FROM chapters c
@@ -176,12 +182,16 @@ export class ManhwaReadRepository {
         latestChapter: Number(first.latestChapterNum) || 0,
         isCompleted: first.progressIsCompleted,
         lastReadAt: first.progressLastReadAt,
+        status: first.progressStatus || 'reading',
+        isTracking: true,
       } : {
         id: 0,
         lastChapter: 0,
         latestChapter: Number(first.latestChapterNum) || 0,
         isCompleted: false,
         lastReadAt: null,
+        status: null,
+        isTracking: false,
       },
       sources: rows.filter(r => r.sourceUrl).map(r => {
         const meta = sourceMetadata.find(s => s.url === r.sourceUrl);

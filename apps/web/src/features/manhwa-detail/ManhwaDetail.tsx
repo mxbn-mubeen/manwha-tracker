@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, BookmarkPlus } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -38,6 +38,33 @@ export function ManhwaDetailPage() {
       setLocalChapter(manhwa.progress?.lastChapter ?? 0);
     }
   }, [manhwa]);
+
+  const startTrackingMutation = trpc.manhwa.startTracking.useMutation({
+    onSuccess: () => {
+      toast.success(`Added to your reading list!`);
+      utils.manhwa.getById.invalidate(numericId);
+      utils.manhwa.getAll.invalidate();
+    },
+    onError: () => toast.error('Failed to start tracking'),
+  });
+
+  const stopTrackingMutation = trpc.manhwa.stopTracking.useMutation({
+    onSuccess: () => {
+      toast.success(`Removed from your reading list`);
+      utils.manhwa.getById.invalidate(numericId);
+      utils.manhwa.getAll.invalidate();
+    },
+    onError: () => toast.error('Failed to remove from reading list'),
+  });
+
+  const updateStatusMutation = trpc.manhwa.updateTrackingStatus.useMutation({
+    onSuccess: () => {
+      toast.success(`Reading status updated`);
+      utils.manhwa.getById.invalidate(numericId);
+      utils.manhwa.getAll.invalidate();
+    },
+    onError: () => toast.error('Failed to update status'),
+  });
 
   const updateProgressMutation = trpc.manhwa.updateProgress.useMutation({
     // Update the cached page data immediately so the UI never waits on the
@@ -155,13 +182,42 @@ export function ManhwaDetailPage() {
 
           {/* Reading Progress Card — only for signed-in users */}
           {user ? (
-            <ProgressCard
-              localChapter={localChapter}
-              latestChapter={latestChapter}
-              status={manhwa.status}
-              onProgressChange={handleProgressChange}
-              isPending={updateProgressMutation.isPending}
-            />
+            manhwa.progress?.isTracking ? (
+              <ProgressCard
+                localChapter={localChapter}
+                latestChapter={latestChapter}
+                status={manhwa.status}
+                userStatus={manhwa.progress?.status || 'reading'}
+                onProgressChange={handleProgressChange}
+                onStatusChange={(newStatus) =>
+                  updateStatusMutation.mutate({ manhwaId: numericId, status: newStatus })
+                }
+                onStopTracking={() => stopTrackingMutation.mutate({ manhwaId: numericId })}
+                isPending={updateProgressMutation.isPending}
+              />
+            ) : (
+              <div className="bg-[#111214] border border-border/20 p-5 sm:p-6 rounded-2xl shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold tracking-wider text-zinc-400 uppercase">
+                    Reading Progress
+                  </span>
+                  <span className="text-xs font-mono text-zinc-500 font-semibold">
+                    Not in Reading List
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm text-zinc-400">
+                  Add this manhwa to your personal list to record your chapters, track unread releases, and customize your reading status.
+                </p>
+                <Button
+                  onClick={() => startTrackingMutation.mutate({ manhwaId: numericId })}
+                  disabled={startTrackingMutation.isPending}
+                  className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs rounded-xl h-9 px-4 gap-2 cursor-pointer shadow-md shadow-amber-500/20"
+                >
+                  <BookmarkPlus className="w-4 h-4" />
+                  <span>Start Tracking</span>
+                </Button>
+              </div>
+            )
           ) : (
             <div className="bg-[#111214] border border-border/20 p-5 sm:p-6 rounded-2xl shadow-sm space-y-3">
               <div className="flex items-center justify-between">

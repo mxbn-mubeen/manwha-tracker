@@ -52,4 +52,42 @@ export class ProgressRepository {
       
     return chapterRow;
   }
+
+  async startTracking(manhwaId: number, userId: string) {
+    await db.insert(progress)
+      .values({
+        userId: userId as any,
+        manhwaId,
+        lastReadChapterNum: 0,
+        status: 'reading',
+        isCompleted: false,
+      })
+      .onConflictDoNothing();
+    return { success: true };
+  }
+
+  async stopTracking(manhwaId: number, userId: string) {
+    await db.delete(progress)
+      .where(and(eq(progress.manhwaId, manhwaId), eq(progress.userId, userId as any)));
+    return { success: true };
+  }
+
+  async updateTrackingStatus(manhwaId: number, userId: string, status: string) {
+    await db.insert(progress)
+      .values({
+        userId: userId as any,
+        manhwaId,
+        lastReadChapterNum: 0,
+        status,
+        isCompleted: status === 'completed',
+      })
+      .onConflictDoUpdate({
+        target: [progress.userId, progress.manhwaId],
+        set: {
+          status,
+          isCompleted: status === 'completed',
+        },
+      });
+    return { success: true };
+  }
 }

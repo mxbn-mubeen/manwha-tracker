@@ -81,6 +81,7 @@ export const progress = pgTable('progress', {
   chapterId: integer('chapter_id').references(() => chapters.id, { onDelete: 'set null' }),
   lastReadChapterNum: real('last_read_chapter_num'),
   lastReadAt: timestamp('last_read_at').notNull().defaultNow(),
+  status: varchar('status', { length: 20 }).default('reading'), // 'reading' | 'completed' | 'on_hold' | 'dropped' | 'plan_to_read'
   isCompleted: boolean('is_completed').notNull().default(false),
 }, (t) => ({
   userManhwaUnique: unique().on(t.userId, t.manhwaId),

@@ -30,7 +30,7 @@ export function Logo({ className }: { className?: string }) {
       </div>
 
       {/* ── Right Side: Brand Typography & Pulsing Radar Beacon (from Design 2) ── */}
-      <div className="flex flex-col justify-center leading-none">
+      <div className="hidden sm:flex flex-col justify-center leading-none">
         <div className="flex items-center gap-1.5">
           <span className="font-extrabold text-[15px] sm:text-[16px] tracking-tight text-white group-hover:text-amber-300 transition-colors">
             MANHWA

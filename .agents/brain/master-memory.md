@@ -1,20 +1,27 @@
 # Manhwa Tracker — Master Memory
 
 project_root: F:\manwha-tracker
-last_brain_review: 2026-11-12
+last_brain_review: 2026-11-17
 
 ## What This Project Does
 
-A personal, single-user Manhwa/Manga reading tracker. Monitors manhwa chapter releases from:
+A multi-user Manhwa/Manga reading tracker and public catalog with admin controls. Monitors manhwa chapter releases from:
 - Multiple manhwa websites (via scrapers/adapters)
 - Telegram channels (via `teleproto` MTProto personal account)
 
-Automatically tracks reading progress. When user downloads the latest chapter from Telegram, that chapter is auto-marked as "Last Read." No auth system — purely personal use.
+Supports multi-user authentication powered by Neon Auth / Better Auth (`neon_auth` schema):
+- **Public visitors**: Browse the entire public catalog of 255+ titles, view chapter releases and reading sources, without seeing private reading progress or administrative controls.
+- **Signed-in users**: Maintain isolated personal reading progress per title, track unread chapters, organize titles by personal reading status (`reading`, `plan_to_read`, `on_hold`, `completed`, `dropped`), and access personal reading stats.
+- **Admin** (`aoivalt77@gmail.com`): Full administrative control over source management (`/sources`), settings (`/settings`), manual chapter sync, adding manhwa (`/add`), soft/hard deletion, adapter key redetection, and Telegram watcher linkage.
 
 ## Key Features
 
-- Unified library of tracked manhwa titles
-- Reading progress tracking (last read chapter per title)
+- Unified public library of tracked manhwa titles
+- Personal reading progress tracking (user-scoped `(user_id, manhwa_id)` in `progress` table)
+- "Add to My Reading List" / Start Tracking opt-in per user
+- Personal reading status selector (`reading`, `plan_to_read`, `on_hold`, `completed`, `dropped`)
+- Protected routes and role-based feature gating (`ProtectedRoute.tsx`)
+- Fully responsive mobile navbar with auto-collapsing brand typography and mobile-friendly hero buttons
 - **Dedicated Stats page** (`/stats`): deep library insights (total series, total chapters, unread chapters, animated status chart, source distribution, top 5 longest series)
 - Dashboard: quick stats, Continue Reading, Recent Activity
 - Library: cover grid, search, status filters, add manhwa from URL

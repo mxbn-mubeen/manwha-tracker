@@ -95,6 +95,18 @@ export class ManhwaService {
     return await this.progressRepo.updateProgress(manhwaId, chapter, userId);
   }
 
+  async startTracking(manhwaId: number, userId: string) {
+    return await this.progressRepo.startTracking(manhwaId, userId);
+  }
+
+  async stopTracking(manhwaId: number, userId: string) {
+    return await this.progressRepo.stopTracking(manhwaId, userId);
+  }
+
+  async updateTrackingStatus(manhwaId: number, userId: string, status: string) {
+    return await this.progressRepo.updateTrackingStatus(manhwaId, userId, status);
+  }
+
   async delete(id: number) {
     return await this.repo.softDeleteManhwa(id);
   }

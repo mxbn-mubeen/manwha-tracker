@@ -70,6 +70,9 @@ export function AuthModal({ open, onClose, defaultMode = 'signin' }: AuthModalPr
         if (res.error) {
           toast.error(res.error.message || 'Invalid email or password');
         } else {
+          if ((res as any)?.data?.user?.id) {
+            localStorage.setItem('manhwa_user_id', (res as any).data.user.id);
+          }
           toast.success('Welcome back! Signed in successfully ✨');
           onClose();
         }

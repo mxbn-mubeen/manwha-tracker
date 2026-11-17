@@ -92,21 +92,27 @@ export class TelegramRepository extends TelegramSourceRepository {
   }
 
   /** Current last-read chapter number for a manhwa (0 if no progress row or no chapter linked yet). */
-  async getLastReadChapterNum(manhwaId: number): Promise<number> {
-    const [row] = await db
+  async getLastReadChapterNum(manhwaId: number, userId?: string): Promise<number> {
+    const query = db
       .select({ num: chapters.chapterNum })
       .from(progress)
-      .leftJoin(chapters, eq(chapters.id, progress.chapterId))
-      .where(eq(progress.manhwaId, manhwaId))
-      .limit(1);
+      .leftJoin(chapters, eq(chapters.id, progress.chapterId));
+
+    const [row] = userId
+      ? await query.where(and(eq(progress.manhwaId, manhwaId), eq(progress.userId, userId as any))).limit(1)
+      : await query.where(eq(progress.manhwaId, manhwaId)).limit(1);
+
     return row?.num ?? 0;
   }
 
-  async markAsReadIfNewer(manhwaId: number, chapterId: number, chapterNum: number): Promise<boolean> {
+  async markAsReadIfNewer(manhwaId: number, chapterId: number, chapterNum: number, userId?: string): Promise<boolean> {
+    // If no userId supplied, target the primary admin account
+    const targetUserId = userId || '13842bd8-5c2e-4c5c-94c0-e6c612bda9e1';
+
     const result = await db.execute(sql`
-      INSERT INTO progress (manhwa_id, chapter_id, last_read_chapter_num, last_read_at, is_completed)
-      VALUES (${manhwaId}, ${chapterId}, ${chapterNum}, NOW(), false)
-      ON CONFLICT (manhwa_id) DO UPDATE 
+      INSERT INTO progress (user_id, manhwa_id, chapter_id, last_read_chapter_num, last_read_at, is_completed)
+      VALUES (${targetUserId}::uuid, ${manhwaId}, ${chapterId}, ${chapterNum}, NOW(), false)
+      ON CONFLICT (user_id, manhwa_id) DO UPDATE 
       SET chapter_id = ${chapterId}, last_read_chapter_num = ${chapterNum}, last_read_at = NOW()
       WHERE ${chapterNum} > COALESCE(progress.last_read_chapter_num, 0)
       RETURNING id;

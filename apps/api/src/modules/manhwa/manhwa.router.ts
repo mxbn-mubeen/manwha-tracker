@@ -104,6 +104,52 @@ export const manhwaRouter = createTRPCRouter({
       }
     }),
 
+  startTracking: publicProcedure
+    .input(z.object({
+      manhwaId: z.coerce.number().int().positive(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      if (!ctx.userId) {
+        throw new Error('Authentication required to track manhwa');
+      }
+      try {
+        return await service.startTracking(input.manhwaId, ctx.userId);
+      } catch (err) {
+        throw toSafeError(err, 'manhwa.startTracking');
+      }
+    }),
+
+  stopTracking: publicProcedure
+    .input(z.object({
+      manhwaId: z.coerce.number().int().positive(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      if (!ctx.userId) {
+        throw new Error('Authentication required to stop tracking manhwa');
+      }
+      try {
+        return await service.stopTracking(input.manhwaId, ctx.userId);
+      } catch (err) {
+        throw toSafeError(err, 'manhwa.stopTracking');
+      }
+    }),
+
+  updateTrackingStatus: publicProcedure
+    .input(z.object({
+      manhwaId: z.coerce.number().int().positive(),
+      status: z.enum(['reading', 'completed', 'on_hold', 'dropped', 'plan_to_read']),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      if (!ctx.userId) {
+        throw new Error('Authentication required to update reading status');
+      }
+      try {
+        return await service.updateTrackingStatus(input.manhwaId, ctx.userId, input.status);
+      } catch (err) {
+        throw toSafeError(err, 'manhwa.updateTrackingStatus');
+      }
+    }),
+
   delete: publicProcedure
     .input(z.coerce.number().int().positive())
     .mutation(async ({ input }) => {
