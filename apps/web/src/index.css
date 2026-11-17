@@ -51,6 +51,12 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  /* Hide native browser password reveal & clear buttons (Edge / Chromium) to avoid duplicate eye icons */
+  input::-ms-reveal,
+  input::-ms-clear {
+    display: none;
+  }
 }
 
 @utility glow {
