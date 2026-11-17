@@ -10,6 +10,7 @@ import {
   jsonb,
   unique,
   customType,
+  uuid,
 } from 'drizzle-orm/pg-core';
 
 // bytea — Drizzle doesn't ship a first-class bytea type yet.
@@ -72,18 +73,18 @@ export const chapters = pgTable('chapters', {
 }));
 
 // ── progress ──────────────────────────────────────────────────────────────────
-// Single row per manhwa — single user, no user_id
+// User-scoped progress — supports multi-user tracking
 export const progress = pgTable('progress', {
   id: serial('id').primaryKey(),
-  manhwaId: integer('manhwa_id').notNull().references(() => manhwa.id, { onDelete: 'cascade' }).unique(),
+  userId: uuid('user_id'),
+  manhwaId: integer('manhwa_id').notNull().references(() => manhwa.id, { onDelete: 'cascade' }),
   chapterId: integer('chapter_id').references(() => chapters.id, { onDelete: 'set null' }),
-  // Expand step: direct chapter number — avoids the chapterId join on every list query.
-  // Phase 1b backfill script populates this from chapters.chapter_num.
-  // Phase 1c (later): drop chapterId once all code reads lastReadChapterNum.
   lastReadChapterNum: real('last_read_chapter_num'),
   lastReadAt: timestamp('last_read_at').notNull().defaultNow(),
   isCompleted: boolean('is_completed').notNull().default(false),
-});
+}, (t) => ({
+  userManhwaUnique: unique().on(t.userId, t.manhwaId),
+}));
 
 // ── settings ──────────────────────────────────────────────────────────────────
 export const settings = pgTable('settings', {

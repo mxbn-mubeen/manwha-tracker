@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { AuthModal } from '@/features/auth/AuthModal';
 
 export function UserMenu() {
-  const { data: session, isPending } = useSession();
+  const { data: session } = useSession();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -30,12 +30,6 @@ export function UserMenu() {
       toast.error('Failed to sign out');
     }
   };
-
-  if (isPending) {
-    return (
-      <div className="w-8 h-8 rounded-xl bg-white/5 animate-pulse border border-border/20 shrink-0" />
-    );
-  }
 
   const user = session?.user;
 

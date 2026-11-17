@@ -83,16 +83,16 @@ export class ManhwaService {
     return await this.repo.setLatestChapter(id, chapterNum);
   }
 
-  async getAll() {
-    return await this.repo.getAll();
+  async getAll(userId?: string) {
+    return await this.repo.getAll(userId);
   }
 
-  async getById(id: number) {
-    return await this.repo.getById(id);
+  async getById(id: number, userId?: string) {
+    return await this.repo.getById(id, userId);
   }
 
-  async updateProgress(manhwaId: number, chapter: number) {
-    return await this.progressRepo.updateProgress(manhwaId, chapter);
+  async updateProgress(manhwaId: number, chapter: number, userId: string) {
+    return await this.progressRepo.updateProgress(manhwaId, chapter, userId);
   }
 
   async delete(id: number) {

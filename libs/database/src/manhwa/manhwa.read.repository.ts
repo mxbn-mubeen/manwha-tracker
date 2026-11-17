@@ -11,7 +11,12 @@ import { evaluateCadence } from '@manhwa-tracker/utils';
  * Driver constraint: neon-http — no relational API, no transactions. Plain select only.
  */
 export class ManhwaReadRepository {
-  async getAll() {
+  async getAll(userId?: string) {
+    // If a userId is passed, join that user's progress. Otherwise, if no userId, do not attach personal progress.
+    const progressCondition = userId
+      ? and(eq(progress.manhwaId, manhwa.id), eq(progress.userId, userId as any))
+      : sql`1 = 0`; // No progress matches for logged-out / unauthenticated guests
+
     // Use plain joins — Neon HTTP driver does not support the relational query API
     const rows = await db
       .select({
@@ -42,7 +47,7 @@ export class ManhwaReadRepository {
         sourceType: sources.type,
       })
       .from(manhwa)
-      .leftJoin(progress, eq(progress.manhwaId, manhwa.id))
+      .leftJoin(progress, progressCondition)
       .leftJoin(sources, eq(sources.manhwaId, manhwa.id))
       .where(sql`${manhwa.deletedAt} IS NULL`)
       .orderBy(desc(manhwa.updatedAt));
@@ -65,12 +70,12 @@ export class ManhwaReadRepository {
           progress: r.progressId ? {
             id: r.progressId,
             lastChapter: r.lastReadChapterNum ?? 0,
-            latestChapter: r.latestChapterNum ?? 0,
+            latestChapter: Number(r.latestChapterNum) || 0,
             isCompleted: r.progressIsCompleted,
             lastReadAt: r.progressLastReadAt,
           } : {
             lastChapter: 0,
-            latestChapter: r.latestChapterNum ?? 0,
+            latestChapter: Number(r.latestChapterNum) || 0,
             isCompleted: false,
             lastReadAt: null,
           },
@@ -86,7 +91,11 @@ export class ManhwaReadRepository {
     return Array.from(grouped.values());
   }
 
-  async getById(id: number) {
+  async getById(id: number, userId?: string) {
+    const progressCondition = userId
+      ? and(eq(progress.manhwaId, manhwa.id), eq(progress.userId, userId as any))
+      : sql`1 = 0`;
+
     const rows = await db
       .select({
         id: manhwa.id,
@@ -114,7 +123,7 @@ export class ManhwaReadRepository {
       })
       .from(manhwa)
       .where(eq(manhwa.id, id))
-      .leftJoin(progress, eq(progress.manhwaId, manhwa.id))
+      .leftJoin(progress, progressCondition)
       .leftJoin(sources, eq(sources.manhwaId, manhwa.id));
 
     if (rows.length === 0) return null;
@@ -164,10 +173,16 @@ export class ManhwaReadRepository {
       progress: first.progressId ? {
         id: first.progressId,
         lastChapter: first.lastReadChapterNum ?? 0,
-        latestChapter: first.latestChapterNum ?? 0,
+        latestChapter: Number(first.latestChapterNum) || 0,
         isCompleted: first.progressIsCompleted,
         lastReadAt: first.progressLastReadAt,
-      } : null,
+      } : {
+        id: 0,
+        lastChapter: 0,
+        latestChapter: Number(first.latestChapterNum) || 0,
+        isCompleted: false,
+        lastReadAt: null,
+      },
       sources: rows.filter(r => r.sourceUrl).map(r => {
         const meta = sourceMetadata.find(s => s.url === r.sourceUrl);
         return {

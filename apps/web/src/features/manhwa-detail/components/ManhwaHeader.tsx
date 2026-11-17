@@ -23,6 +23,7 @@ interface ManhwaHeaderProps {
   description: string | null;
   latestChapter: number;
   cadenceInfo?: CadenceInfo | null;
+  isAdmin?: boolean;
 }
 
 const STATUS_DOT_COLOR: Record<string, string> = {
@@ -47,6 +48,7 @@ export function ManhwaHeader({
   description,
   latestChapter,
   cadenceInfo,
+  isAdmin = false,
 }: ManhwaHeaderProps) {
   const utils = trpc.useUtils();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -107,9 +109,11 @@ export function ManhwaHeader({
           />
         </button>
 
-        <span className="text-[11px] font-mono text-zinc-500 bg-[#161719] border border-border/20 px-2 py-0.5 rounded-full">
-          ID #{id}
-        </span>
+        {isAdmin && (
+          <span className="text-[11px] font-mono text-zinc-500 bg-[#161719] border border-border/20 px-2 py-0.5 rounded-full">
+            ID #{id}
+          </span>
+        )}
 
         {/* Dropdown Menu */}
         {dropdownOpen && (
@@ -184,10 +188,21 @@ export function ManhwaHeader({
         </div>
       )}
 
-      {/* ── Cadence & Latest Chapter — single compact row ── */}
+      {/* ── Cadence & Latest Chapter ── */}
       <div className="flex flex-col items-start gap-2 pt-1">
         <ManhwaCadenceInfo cadenceInfo={cadenceInfo} />
-        <ChapterQuickEdit id={id} latestChapter={latestChapter} />
+        {isAdmin ? (
+          <ChapterQuickEdit id={id} latestChapter={latestChapter} />
+        ) : (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-zinc-500 font-medium tracking-wide uppercase text-[10px]">
+              Latest chapter
+            </span>
+            <span className="font-mono font-bold text-white text-sm tabular-nums">
+              {latestChapter}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -5,7 +5,9 @@ import { ZodError } from 'zod';
 import type { Request } from 'express';
 
 export const createTRPCContext = async (opts: { req: Request }) => {
-  return { ...opts };
+  const userIdHeader = opts.req.headers['x-user-id'];
+  const userId = typeof userIdHeader === 'string' && userIdHeader.trim() ? userIdHeader.trim() : undefined;
+  return { ...opts, userId };
 };
 
 const t = initTRPC.context<typeof createTRPCContext>().create({

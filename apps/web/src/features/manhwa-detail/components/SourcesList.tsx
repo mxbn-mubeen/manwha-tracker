@@ -16,9 +16,10 @@ interface SourcesListProps {
   manhwaId: number;
   sources: Source[] | undefined;
   latestChapter: number;
+  canManage?: boolean;
 }
 
-export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListProps) {
+export function SourcesList({ manhwaId, sources, latestChapter, canManage = true }: SourcesListProps) {
   const utils = trpc.useUtils();
 
   const removeSourceMutation = trpc.manhwa.removeSource.useMutation({
@@ -193,19 +194,21 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
                         <ExternalLink className="w-4 h-4" />
                       </a>
 
-                      {/* Remove source */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (confirm('Are you sure you want to remove this source?')) {
-                            removeSourceMutation.mutate({ manhwaId, url: source.url as string });
-                          }
-                        }}
-                        className="h-8 w-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors btn-press"
-                        title="Remove source"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {/* Remove source — only for authorized managers */}
+                      {canManage && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm('Are you sure you want to remove this source?')) {
+                              removeSourceMutation.mutate({ manhwaId, url: source.url as string });
+                            }
+                          }}
+                          className="h-8 w-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors btn-press cursor-pointer"
+                          title="Remove source"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -219,8 +222,8 @@ export function SourcesList({ manhwaId, sources, latestChapter }: SourcesListPro
         </div>
       )}
 
-      {/* Add Source Input Form */}
-      <AddSourceForm manhwaId={manhwaId} />
+      {/* Add Source Input Form — only for admin */}
+      {canManage && <AddSourceForm manhwaId={manhwaId} />}
     </div>
   );
 }

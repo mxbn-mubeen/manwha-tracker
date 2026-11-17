@@ -11,6 +11,7 @@ interface ManhwaPosterProps {
   onContinueReading: () => void;
   onMarkCaughtUp?: () => void;
   onEdit: () => void;
+  canEdit?: boolean;
 }
 
 export function ManhwaPoster({
@@ -22,6 +23,7 @@ export function ManhwaPoster({
   onContinueReading,
   onMarkCaughtUp,
   onEdit,
+  canEdit = true,
 }: ManhwaPosterProps) {
   const isCaughtUp = latestChapter > 0 && localChapter >= latestChapter;
   const unreadCount = Math.max(0, latestChapter - localChapter);
@@ -96,15 +98,17 @@ export function ManhwaPoster({
         </button>
       )}
 
-      {/* ── Edit Manhwa Action Button ── */}
-      <button
-        type="button"
-        onClick={onEdit}
-        className="w-full flex items-center justify-center gap-2 bg-[#161719] hover:bg-[#202225] border border-border/25 hover:border-amber-500/30 text-zinc-300 hover:text-white rounded-xl h-10 font-semibold text-xs transition-all btn-press"
-      >
-        <Edit className="h-3.5 w-3.5 text-zinc-400" />
-        <span>Edit Manhwa</span>
-      </button>
+      {/* ── Edit Manhwa Action Button — only for authorized editors ── */}
+      {canEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="w-full flex items-center justify-center gap-2 bg-[#161719] hover:bg-[#202225] border border-border/25 hover:border-amber-500/30 text-zinc-300 hover:text-white rounded-xl h-10 font-semibold text-xs transition-all btn-press cursor-pointer"
+        >
+          <Edit className="h-3.5 w-3.5 text-zinc-400" />
+          <span>Edit Manhwa</span>
+        </button>
+      )}
     </div>
   );
 }

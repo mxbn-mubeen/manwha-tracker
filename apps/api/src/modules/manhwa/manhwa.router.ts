@@ -7,8 +7,8 @@ import { isSafeUrl } from '@manhwa-tracker/parser';
 const service = new ManhwaService();
 
 export const manhwaRouter = createTRPCRouter({
-  getAll: publicProcedure.query(async () => {
-    return await service.getAll();
+  getAll: publicProcedure.query(async ({ ctx }) => {
+    return await service.getAll(ctx.userId);
   }),
 
   addFromUrl: publicProcedure
@@ -84,8 +84,8 @@ export const manhwaRouter = createTRPCRouter({
 
   getById: publicProcedure
     .input(z.coerce.number().int().positive())
-    .query(async ({ input }) => {
-      return await service.getById(input);
+    .query(async ({ input, ctx }) => {
+      return await service.getById(input, ctx.userId);
     }),
 
   updateProgress: publicProcedure
@@ -93,9 +93,12 @@ export const manhwaRouter = createTRPCRouter({
       manhwaId: z.coerce.number().int().positive(),
       chapter: z.number()
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      if (!ctx.userId) {
+        throw new Error('Authentication required to update reading progress');
+      }
       try {
-        return await service.updateProgress(input.manhwaId, input.chapter);
+        return await service.updateProgress(input.manhwaId, input.chapter, ctx.userId);
       } catch (err) {
         throw toSafeError(err, 'manhwa.updateProgress');
       }

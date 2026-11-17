@@ -11,11 +11,18 @@ import { SourcesList } from '@/features/manhwa-detail/components/SourcesList';
 import { EditManhwaModal } from '@/features/manhwa-detail/components/EditManhwaModal';
 import { UnreadManhwaStrip } from '@/features/manhwa-detail/components/UnreadManhwaStrip';
 import { usePageTitle } from '@/lib/usePageTitle';
+import { useSession } from '@/lib/auth-client';
+import { AuthModal } from '@/features/auth/AuthModal';
 
 export function ManhwaDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const utils = trpc.useUtils();
+  const { data: session } = useSession();
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+
+  const user = session?.user;
+  const isAdmin = (user as any)?.role === 'admin';
 
   const numericId = Number(id!);
   const { data: manhwa, isLoading } = trpc.manhwa.getById.useQuery(numericId, {
@@ -67,6 +74,10 @@ export function ManhwaDetailPage() {
   });
 
   const handleProgressChange = (newChapter: number) => {
+    if (!user) {
+      setAuthModalOpen(true);
+      return;
+    }
     if (newChapter < 0) return;
     const cap = manhwa?.progress?.latestChapter ?? Infinity;
     const clamped = Math.min(newChapter, cap);
@@ -125,6 +136,7 @@ export function ManhwaDetailPage() {
           onContinueReading={() => handleProgressChange(localChapter + 1)}
           onMarkCaughtUp={() => handleProgressChange(latestChapter)}
           onEdit={() => setIsEditModalOpen(true)}
+          canEdit={isAdmin}
         />
 
         {/* Right Column - Info and Progress */}
@@ -138,22 +150,46 @@ export function ManhwaDetailPage() {
             description={manhwa.description || null}
             latestChapter={latestChapter}
             cadenceInfo={manhwa.cadenceInfo}
+            isAdmin={isAdmin}
           />
 
-          {/* Reading Progress Card */}
-          <ProgressCard
-            localChapter={localChapter}
-            latestChapter={latestChapter}
-            status={manhwa.status}
-            onProgressChange={handleProgressChange}
-            isPending={updateProgressMutation.isPending}
-          />
+          {/* Reading Progress Card — only for signed-in users */}
+          {user ? (
+            <ProgressCard
+              localChapter={localChapter}
+              latestChapter={latestChapter}
+              status={manhwa.status}
+              onProgressChange={handleProgressChange}
+              isPending={updateProgressMutation.isPending}
+            />
+          ) : (
+            <div className="bg-[#111214] border border-border/20 p-5 sm:p-6 rounded-2xl shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold tracking-wider text-zinc-400 uppercase">
+                  Reading Progress
+                </span>
+                <span className="text-xs font-mono text-amber-400 font-semibold">
+                  Sign In Required
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-zinc-400">
+                Sign in to track what chapter you are on, receive release updates, and sync your reading progress across your devices.
+              </p>
+              <Button
+                onClick={() => setAuthModalOpen(true)}
+                className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs rounded-xl h-9 px-4 cursor-pointer"
+              >
+                Sign In to Track
+              </Button>
+            </div>
+          )}
 
           {/* Sources Section */}
           <SourcesList
             manhwaId={numericId}
             sources={manhwa.sources}
             latestChapter={latestChapter}
+            canManage={isAdmin}
           />
         </div>
       </div>
@@ -169,8 +205,10 @@ export function ManhwaDetailPage() {
         />
       )}
 
-      {/* Up Next — other unread manhwa */}
-      <UnreadManhwaStrip currentManhwaId={numericId} />
+      {/* Up Next — other unread manhwa — only for logged-in user */}
+      {user && <UnreadManhwaStrip currentManhwaId={numericId} />}
+
+      <AuthModal open={authModalOpen} onClose={() => setAuthModalOpen(false)} />
     </div>
   );
 }

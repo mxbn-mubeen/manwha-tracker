@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { toNodeHandler } from "better-auth/node";
 import { appRouter } from "./root";
+import { createTRPCContext } from "./trpc";
 import { auth } from "./modules/auth/auth";
 import { CoverRepository } from "@manhwa-tracker/database";
 
@@ -68,7 +69,7 @@ app.use(
   "/trpc",
   createExpressMiddleware({
     router: appRouter,
-    createContext: ({ req }) => ({ req }),
+    createContext: createTRPCContext,
   }),
 );
 

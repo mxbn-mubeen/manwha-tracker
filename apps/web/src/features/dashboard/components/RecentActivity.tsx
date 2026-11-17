@@ -10,16 +10,23 @@ type Manhwa = RouterOutputs['manhwa']['getAll'][number];
 
 interface RecentActivityProps {
   manhwas: Manhwa[];
+  isLoggedIn?: boolean;
 }
 
-export function RecentActivity({ manhwas }: RecentActivityProps) {
+export function RecentActivity({ manhwas, isLoggedIn = false }: RecentActivityProps) {
   return (
     <div className="space-y-4">
       {/* Section Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-white">Recent Activity</h2>
-          <p className="text-sm text-muted-foreground">Latest updates and progress from your tracked titles</p>
+          <h2 className="text-xl font-bold tracking-tight text-white">
+            {isLoggedIn ? 'Recent Activity' : 'Featured Titles in Catalog'}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {isLoggedIn
+              ? 'Latest updates and progress from your tracked titles'
+              : 'Browse popular and newly updated series in the library'}
+          </p>
         </div>
         <Link
           to="/library"
@@ -63,32 +70,40 @@ export function RecentActivity({ manhwas }: RecentActivityProps) {
                   </h4>
 
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span className="text-xs text-zinc-400 font-mono">
-                      Ch. {lastCh} <span className="text-zinc-600">/</span> {latestCh || '?'}
-                    </span>
+                    {isLoggedIn ? (
+                      <>
+                        <span className="text-xs text-zinc-400 font-mono">
+                          Ch. {lastCh} <span className="text-zinc-600">/</span> {latestCh || '?'}
+                        </span>
 
-                    {/* Miniature Progress Bar */}
-                    <div className="w-20 sm:w-28 bg-zinc-800 rounded-full h-1.5 overflow-hidden border border-white/5">
-                      <div
-                        className={`h-full rounded-full transition-all duration-300 ${
-                          isCaughtUp ? 'bg-emerald-500' : 'bg-amber-500'
-                        }`}
-                        style={{ width: `${progressPercent}%` }}
-                      />
-                    </div>
+                        {/* Miniature Progress Bar */}
+                        <div className="w-20 sm:w-28 bg-zinc-800 rounded-full h-1.5 overflow-hidden border border-white/5">
+                          <div
+                            className={`h-full rounded-full transition-all duration-300 ${
+                              isCaughtUp ? 'bg-emerald-500' : 'bg-amber-500'
+                            }`}
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                        </div>
 
-                    {isCaughtUp ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400/90 font-medium">
-                        <CheckCircle2 className="w-2.5 h-2.5" /> Caught up
+                        {isCaughtUp ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400/90 font-medium">
+                            <CheckCircle2 className="w-2.5 h-2.5" /> Caught up
+                          </span>
+                        ) : unread > 0 ? (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] py-0 px-1.5 text-amber-400 border-amber-500/30 bg-amber-500/10 font-semibold"
+                          >
+                            +{formatUnreadCount(unread)} new
+                          </Badge>
+                        ) : null}
+                      </>
+                    ) : (
+                      <span className="text-xs text-zinc-400 font-mono">
+                        Latest: Ch. {latestCh || '?'}
                       </span>
-                    ) : unread > 0 ? (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] py-0 px-1.5 text-amber-400 border-amber-500/30 bg-amber-500/10 font-semibold"
-                      >
-                        +{formatUnreadCount(unread)} new
-                      </Badge>
-                    ) : null}
+                    )}
                   </div>
                 </div>
               </div>

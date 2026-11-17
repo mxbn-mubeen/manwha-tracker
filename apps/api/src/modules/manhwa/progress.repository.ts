@@ -2,7 +2,7 @@ import { db, progress, chapters } from '@manhwa-tracker/database';
 import { eq, and } from 'drizzle-orm';
 
 export class ProgressRepository {
-  async updateProgress(manhwaId: number, chapterNum: number) {
+  async updateProgress(manhwaId: number, chapterNum: number, userId: string) {
     let [chapterRow] = await db
       .select()
       .from(chapters)
@@ -32,16 +32,17 @@ export class ProgressRepository {
       }
     }
 
-    // Update or create progress — write both legacy chapterId and new lastReadChapterNum
+    // Update or create progress for this specific user
     await db.insert(progress)
       .values({
+        userId: userId as any,
         manhwaId,
         chapterId: chapterRow.id,
         lastReadChapterNum: chapterNum,
         lastReadAt: new Date(),
       })
       .onConflictDoUpdate({
-        target: progress.manhwaId,
+        target: [progress.userId, progress.manhwaId],
         set: {
           chapterId: chapterRow.id,
           lastReadChapterNum: chapterNum,

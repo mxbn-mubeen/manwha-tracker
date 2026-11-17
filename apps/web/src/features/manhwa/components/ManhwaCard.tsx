@@ -6,13 +6,16 @@ import { getProxiedImageUrl } from "@/utils/image";
 import { Badge } from '@/components/ui/badge';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
+import { useSession } from '@/lib/auth-client';
 import type { RouterOutputs } from '@/lib/trpc';
 
 type Manhwa = RouterOutputs['manhwa']['getAll'][number];
 
 export function ManhwaCard({ manhwa }: { manhwa: Manhwa }) {
+  const { data: session } = useSession();
   const [imgFailed, setImgFailed] = useState(false);
   const utils = trpc.useUtils();
+  const user = session?.user;
 
   useEffect(() => {
     setImgFailed(false);
@@ -100,8 +103,8 @@ export function ManhwaCard({ manhwa }: { manhwa: Manhwa }) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
       </Link>
 
-      {/* Unread Badge (Top Right) */}
-      {unread > 0 && (
+      {/* Unread Badge (Top Right) — only for logged in user */}
+      {user && unread > 0 && (
         <div className="absolute top-2 right-2 z-10 pointer-events-none">
           <Badge className="bg-amber-500 text-amber-950 font-bold border-none shadow-md">
             +{formatUnreadCount(unread)}
@@ -109,8 +112,8 @@ export function ManhwaCard({ manhwa }: { manhwa: Manhwa }) {
         </div>
       )}
 
-      {/* Quick Action Overlay (Center-hover on desktop, always accessible on touch) */}
-      {unread > 0 && (
+      {/* Quick Action Overlay (Center-hover on desktop, always accessible on touch) — only for logged in user */}
+      {user && unread > 0 && (
         <div className="absolute inset-x-2 bottom-15 z-20 flex items-center justify-center gap-1.5 opacity-90 sm:opacity-0 sm:group-hover/card:opacity-100 transition-all duration-200 pointer-events-auto">
           {readingSource?.url && (
             <a
@@ -159,16 +162,24 @@ export function ManhwaCard({ manhwa }: { manhwa: Manhwa }) {
       {/* Card Footer Info */}
       <div className="absolute bottom-0 left-0 right-0 p-3 z-10 pointer-events-none">
         <h3 className="font-semibold text-sm line-clamp-1 mb-1 text-white">{manhwa.title}</h3>
-        <div className="flex items-center justify-between text-xs text-zinc-400">
-          <span>Ch. {currentChapter}</span>
-          <span>/ {latestChapter}</span>
-        </div>
-        <div className="mt-2 h-1 w-full bg-zinc-800 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-amber-500 rounded-full transition-all duration-300"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
+        {user ? (
+          <>
+            <div className="flex items-center justify-between text-xs text-zinc-400">
+              <span>Ch. {currentChapter}</span>
+              <span>/ {latestChapter}</span>
+            </div>
+            <div className="mt-2 h-1 w-full bg-zinc-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-amber-500 rounded-full transition-all duration-300"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          </>
+        ) : (
+          <div className="text-xs text-zinc-400">
+            <span>Latest: Ch. {latestChapter}</span>
+          </div>
+        )}
       </div>
     </div>
   );

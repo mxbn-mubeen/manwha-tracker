@@ -147,14 +147,14 @@ export class ManhwaRepository {
   // ── Convenience pass-throughs for getAll / getById ───────────────────────
   // Delegates to ManhwaReadRepository so ManhwaService doesn't need two repo instances.
 
-  async getAll() {
+  async getAll(userId?: string) {
     const { ManhwaReadRepository } = await import('./manhwa.read.repository');
-    return new ManhwaReadRepository().getAll();
+    return new ManhwaReadRepository().getAll(userId);
   }
 
-  async getById(id: number) {
+  async getById(id: number, userId?: string) {
     const { ManhwaReadRepository } = await import('./manhwa.read.repository');
-    return new ManhwaReadRepository().getById(id);
+    return new ManhwaReadRepository().getById(id, userId);
   }
 
   /** List every chapter row for a manhwa, newest first — powers the "manage chapters" UI. */

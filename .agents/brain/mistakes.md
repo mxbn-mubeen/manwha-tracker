@@ -572,3 +572,17 @@ ebuild to retry in the background without crashing the server.
 - Fix: (1) Changed backdrop to `onMouseDown` with explicit `e.target === backdropRef.current` guard — only fires when user clicks the bare backdrop, not when clicking inside the modal. (2) Inner modal div now has `onMouseDown={stopPropagation}` AND `onKeyDown={stopPropagation}` to block ALL event bubbling from modal content. (3) Added a capture-phase Escape listener inside AuthModal itself so it handles Escape first before GlobalSearch's bubble-phase listener. (4) Raised AuthModal z-index to `z-[200]`, GlobalSearch raised to `z-[150]` — AuthModal always wins. (5) Added show/hide password toggle, improved placeholder, autocomplete attributes, and form UX.
 - Status: Resolved
 - Date: 2026-11-16
+
+---
+
+- Problem: Database and client were still single-tenant. Logged-out visitors saw private reading progress and admin controls, and Better Auth was pointing to a dead endpoint.
+- Cause: Neon branch switched to `ep-gentle-meadow-addau9al` with Neon Auth enabled in `neon_auth` schema. Progress table lacked user scoping and was joined globally.
+- Fix:
+  1. Updated `.env` with new Neon database URL and `neonauth` endpoints.
+  2. Created Admin user `mubeen@manhwa.local` directly in `neon_auth.user` and assigned role `admin`.
+  3. Migrated `progress` table: added `user_id uuid REFERENCES neon_auth.user(id)`, migrated all 255 existing reading progress records to Admin's user ID, and applied composite unique constraint `(user_id, manhwa_id)`.
+  4. Scoped `manhwa.getAll` and `manhwa.getById` queries to only attach personal progress when authenticated with `userId`.
+  5. Scoped web UI: Logged-out visitors see a clean public catalog showcase banner; "Continue Reading", unread badges, +1 actions, Sync split button, and Settings are hidden until signed in.
+  6. Verified all builds and typechecks across `@manhwa-tracker/database`, `api`, and `web`.
+- Status: Resolved
+- Date: 2026-11-16
