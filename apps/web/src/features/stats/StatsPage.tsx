@@ -72,19 +72,21 @@ export function StatsPage() {
       {/* Top 4 Metric Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Link
-          to="/library"
+          to="/library?filter=My List"
           className="bg-[#111214] border border-border/20 rounded-xl p-5 flex flex-col justify-between gap-3 shadow-sm card-hover-lift hover:border-purple-500/40 transition-all group animate-fade-up"
           style={{ '--i': 0 } as React.CSSProperties}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Total Series</span>
+            <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Tracked Series</span>
             <div className="h-8 w-8 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center group-hover:scale-105 transition-transform">
               <Library className="h-4 w-4" />
             </div>
           </div>
           <div>
             <p className="text-3xl font-bold text-white tracking-tight">{totalManhwa.toLocaleString()}</p>
-            <p className="text-xs text-zinc-500 mt-0.5">Tracked titles in collection</p>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              {(stats as any).totalCatalog ? `${(stats as any).totalCatalog} in catalog` : 'In your reading list'}
+            </p>
           </div>
         </Link>
 
@@ -100,7 +102,7 @@ export function StatsPage() {
           </div>
           <div>
             <p className="text-3xl font-bold text-white tracking-tight">{totalTrackedChapters.toLocaleString()}</p>
-            <p className="text-xs text-zinc-500 mt-0.5">Scanned across all sources</p>
+            <p className="text-xs text-zinc-500 mt-0.5">Across your tracked series</p>
           </div>
         </div>
 

@@ -4,9 +4,11 @@ import { db, sources } from '@manhwa-tracker/database';
 import { sql } from 'drizzle-orm';
 
 export const statsRouter = createTRPCRouter({
-  getOverview: publicProcedure.query(async () => {
+  getOverview: publicProcedure.query(async ({ ctx }) => {
     const manhwaService = new ManhwaService();
-    const allManhwa = await manhwaService.getAll();
+    // Pass the requesting user's ID so progress (lastChapter, unread) is scoped to them.
+    // For guests (no userId), no personal progress is attached — unread = 0 for everyone.
+    const allManhwa = await manhwaService.getAll(ctx.userId);
 
     let totalTrackedChapters = 0;
     let totalUnreadChapters = 0;
@@ -17,7 +19,9 @@ export const statsRouter = createTRPCRouter({
       dropped: 0
     };
 
-    const sortedByLength = [...allManhwa].sort((a, b) => {
+    const sortedByLength = [...allManhwa]
+      .filter(m => m.progress?.isTracking)
+      .sort((a, b) => {
       const aChapters = a.progress?.latestChapter ?? 0;
       const bChapters = b.progress?.latestChapter ?? 0;
       return bChapters - aChapters;
@@ -36,7 +40,11 @@ export const statsRouter = createTRPCRouter({
         statusCounts[manhwa.status as keyof typeof statusCounts]++;
       }
 
-      // Chapter counts
+      // Chapter counts — only include manhwa the user is actively tracking.
+      // For a new user with no tracked manhwa, isTracking is false → skipped.
+      // For guests (no userId), progress.isTracking is always false → all skipped.
+      if (!manhwa.progress?.isTracking) continue;
+
       const latest = manhwa.progress?.latestChapter ?? 0;
       const read = manhwa.progress?.lastChapter ?? 0;
       
@@ -66,8 +74,12 @@ export const statsRouter = createTRPCRouter({
       if (row.type === 'telegram') sourceDistribution.telegram = row.count;
     }
 
+    const userTracked = allManhwa.filter(m => m.progress?.isTracking);
+
     return {
-      totalManhwa: allManhwa.length,
+      totalManhwa: ctx.userId ? userTracked.length : allManhwa.length,
+      totalCatalog: allManhwa.length,
+      totalTracked: userTracked.length,
       totalTrackedChapters,
       totalUnreadChapters,
       statusCounts,

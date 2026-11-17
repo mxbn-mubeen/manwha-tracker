@@ -42,17 +42,19 @@ export function DashboardPage() {
 
   const manhwasList = Array.isArray(manhwas) ? manhwas : [];
   const totalManhwa = manhwasList.length;
+  // How many the signed-in user is personally tracking (0 for new users / guests)
+  const trackedManhwa = manhwasList.filter((m) => m.progress?.isTracking);
 
-  // Calculate unread
-  const unreadCountArray = manhwasList.map((m) =>
-    getUnreadCount(m.progress?.latestChapter, m.progress?.lastChapter)
-  );
+  // Calculate unread — only for manhwa the user is actively tracking.
+  // New user with no tracked manhwa → 0 unread. Guest → 0 unread.
+  const unreadCountArray = trackedManhwa
+    .map((m) => getUnreadCount(m.progress?.latestChapter, m.progress?.lastChapter));
   const unreadCount = unreadCountArray.reduce((acc, curr) => acc + curr, 0);
   const ongoingCount = manhwasList.filter((m) => m.status === 'ongoing').length;
   const telegramSources = telegramSourcesCount ?? 0;
 
-  // Manhwas with unread chapters
-  const continueReading = manhwasList
+  // Manhwas with unread chapters — only for tracked manhwa
+  const continueReading = trackedManhwa
     .filter((m) => {
       if (m.status === 'completed') return false;
       const unread = getUnreadCount(m.progress?.latestChapter, m.progress?.lastChapter);
@@ -65,8 +67,11 @@ export function DashboardPage() {
     })
     .slice(0, 6);
 
-  // Recent activity
-  const recentActivity = manhwasList.slice(0, 5);
+  // Recent activity — only tracked manhwa for logged-in users, ordered by most recently updated.
+  // Guests see the top 5 from the full catalog (discover mode).
+  const recentActivity = user
+    ? trackedManhwa.slice(0, 5)
+    : manhwasList.slice(0, 5);
 
   if (isLoading) {
     return (
@@ -160,9 +165,9 @@ export function DashboardPage() {
         <div className="animate-fade-up" style={{ '--i': 0 } as React.CSSProperties}>
           <StatCard
             icon={<BookOpen size={18} />}
-            label="In Library"
-            value={totalManhwa}
-            to="/library"
+            label={user ? "Tracked Series" : "In Library"}
+            value={user ? trackedManhwa.length : totalManhwa}
+            to={user ? "/library?filter=My List" : "/library"}
             accent="violet"
           />
         </div>
@@ -181,9 +186,9 @@ export function DashboardPage() {
         <div className="animate-fade-up" style={{ '--i': 2 } as React.CSSProperties}>
           <StatCard
             icon={<TrendingUp size={18} />}
-            label="Ongoing"
-            value={ongoingCount}
-            to="/library?filter=Reading"
+            label={user ? "In Catalog" : "Ongoing"}
+            value={user ? totalManhwa : ongoingCount}
+            to={user ? "/library" : "/library?filter=Ongoing"}
             accent="emerald"
           />
         </div>
@@ -202,7 +207,7 @@ export function DashboardPage() {
 
       {/* Continue Reading — only visible when signed in */}
       {user && (
-        <ContinueReading manhwas={continueReading} hasLibrary={totalManhwa > 0} />
+        <ContinueReading manhwas={continueReading} hasLibrary={trackedManhwa.length > 0} />
       )}
 
       {/* Recent Activity / Catalog Explorer */}

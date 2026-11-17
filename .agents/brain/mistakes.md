@@ -4,6 +4,86 @@ Append-only log. Never delete entries.
 
 ---
 
+- Problem: Clicking "Start Tracking" or "+ Track" showed a success toast ("Added to your reading list!"), but the UI did not update (still showed "Not in Reading List"), and "My List" remained empty. Also, Better Auth user IDs (text nanoids) conflicted with `userId: uuid` in Drizzle schema, and PostgreSQL table still had single-user constraint `UNIQUE(manhwa_id)`.
+- Cause: (1) The database `progress` table had legacy constraint `UNIQUE(manhwa_id)`, silently discarding inserts from new users when that manhwa already had a row from the admin. (2) `startTracking` called `onConflictDoNothing()` without specifying the `[userId, manhwaId]` conflict target. (3) Drizzle schema had `userId: uuid('user_id')`, which is incompatible with Better Auth's text IDs. (4) UI lacked optimistic updates on tracking mutations, leaving the view dependent on asynchronous refetches that returned false.
+- Fix: (1) Changed `userId` to `text('user_id')` in `schema/index.ts`. (2) Updated `startTracking` in `progress.repository.ts` to use `onConflictDoUpdate({ target: [progress.userId, progress.manhwaId] })`. (3) Added optimistic UI updates to `startTrackingMutation` and `stopTrackingMutation` in both `ManhwaDetail.tsx` and `ManhwaCard.tsx`. (4) Provided migration SQL to drop `progress_manhwa_id_unique` and add `UNIQUE(user_id, manhwa_id)`.
+- Status: Resolved
+- Date: 2026-11-17
+
+---
+
+- Problem: Non-users (guests) saw "Analytics & Stats" in Global Search quick navigation, even though the main Navbar correctly hid Stats from unauthenticated visitors.
+- Cause: `NAV_PAGES` in `SearchQuickNav.tsx` marked `Stats` as public (`adminOnly: false`), and `GlobalSearch.tsx` only filtered out admin pages rather than checking `userOnly`.
+- Fix: Added `userOnly: true` to `Analytics & Stats` in `NAV_PAGES` and filtered `availablePages` by checking `if (p.userOnly && !user) return false`. Guests now only see `Dashboard` and `Library`.
+- Status: Resolved
+- Date: 2026-11-17
+
+---
+
+- Problem: Global Search dialog (`Ctrl+K`) showed admin-only pages (`Sources`, `Settings`, `Add Manhwa`) and "Continue Reading Suggestions" with inflated `+X new chapters` unread counts to unauthenticated guests and non-admin users.
+- Cause: `SearchQuickNav.tsx` had a static list of 6 navigation pages with no permission checks, and `GlobalSearch.tsx` calculated suggestions by checking `unreadCount > 0` which evaluated to true for all manhwa for guests whose `lastChapter` is 0.
+- Fix: Added `adminOnly` flag to `NAV_PAGES` and filtered by `isAdmin` so guests and regular users only see public pages (`Dashboard`, `Library`, `Analytics & Stats`). Made suggestions header dynamic ("Continue Reading" for users with tracked items, "Featured in Catalog" for guests) and showed "Latest: Ch. X" instead of "+X unread" for untracked/guest items.
+- Status: Resolved
+- Date: 2026-11-17
+
+---
+
+- Problem: Non-users (guests) saw an "Unread" filter tab in the Library, and clicking it showed the entire catalog (same as Ongoing/Reading) because `isTracking` defaulted to true for guests and lastChapter was 0.
+- Cause: `FILTER_VALUES` included `'Unread'` for guests (`!user`), and the filter logic evaluated `!user || m.progress?.isTracking === true`, treating all manhwa as unread for unauthenticated visitors. Also, the tab was named "Reading" while catalog badges said "Ongoing".
+- Fix: Removed `'Unread'` from guest filter tabs (only available to logged-in users with reading lists). Renamed the status tab from "Reading" to "Ongoing" to match the catalog badges and status enums, with backward compatibility for any `?filter=Reading` links.
+- Status: Resolved
+- Date: 2026-11-17
+
+---
+
+- Problem: Clicking "Start Tracking" or "+ Track" showed a success toast ("Added to your reading list!"), but the UI did not update (still showed "Not in Reading List"), and "My List" remained empty. Also, Better Auth user IDs (text nanoids) conflicted with `userId: uuid` in Drizzle schema, and PostgreSQL table still had single-user constraint `UNIQUE(manhwa_id)`.
+- Cause: (1) The database `progress` table had legacy constraint `UNIQUE(manhwa_id)`, silently discarding inserts from new users when that manhwa already had a row from the admin. (2) `startTracking` called `onConflictDoNothing()` without specifying the `[userId, manhwaId]` conflict target. (3) Drizzle schema had `userId: uuid('user_id')`, which is incompatible with Better Auth's text IDs. (4) UI lacked optimistic updates on tracking mutations, leaving the view dependent on asynchronous refetches that returned false.
+- Fix: (1) Changed `userId` to `text('user_id')` in `schema/index.ts`. (2) Updated `startTracking` in `progress.repository.ts` to use `onConflictDoUpdate({ target: [progress.userId, progress.manhwaId] })`. (3) Added optimistic UI updates to `startTrackingMutation` and `stopTrackingMutation` in both `ManhwaDetail.tsx` and `ManhwaCard.tsx`. (4) Provided migration SQL to drop `progress_manhwa_id_unique` and add `UNIQUE(user_id, manhwa_id)`.
+- Status: Resolved
+- Date: 2026-11-17
+
+---
+
+- Problem: Non-users (guests) saw "Analytics & Stats" in Global Search quick navigation, even though the main Navbar correctly hid Stats from unauthenticated visitors.
+- Cause: `NAV_PAGES` in `SearchQuickNav.tsx` marked `Stats` as public (`adminOnly: false`), and `GlobalSearch.tsx` only filtered out admin pages rather than checking `userOnly`.
+- Fix: Added `userOnly: true` to `Analytics & Stats` in `NAV_PAGES` and filtered `availablePages` by checking `if (p.userOnly && !user) return false`. Guests now only see `Dashboard` and `Library`.
+- Status: Resolved
+- Date: 2026-11-17
+
+---
+
+- Problem: Global Search dialog (`Ctrl+K`) showed admin-only pages (`Sources`, `Settings`, `Add Manhwa`) and "Continue Reading Suggestions" with inflated `+X new chapters` unread counts to unauthenticated guests and non-admin users.
+- Cause: `SearchQuickNav.tsx` had a static list of 6 navigation pages with no permission checks, and `GlobalSearch.tsx` calculated suggestions by checking `unreadCount > 0` which evaluated to true for all manhwa for guests whose `lastChapter` is 0.
+- Fix: Added `adminOnly` flag to `NAV_PAGES` and filtered by `isAdmin` so guests and regular users only see public pages (`Dashboard`, `Library`, `Analytics & Stats`). Made suggestions header dynamic ("Continue Reading" for users with tracked items, "Featured in Catalog" for guests) and showed "Latest: Ch. X" instead of "+X unread" for untracked/guest items.
+- Status: Resolved
+- Date: 2026-11-17
+
+---
+
+- Problem: Non-users (guests) saw an "Unread" filter tab in the Library, and clicking it showed the entire catalog (same as Ongoing/Reading) because `isTracking` defaulted to true for guests and lastChapter was 0.
+- Cause: `FILTER_VALUES` included `'Unread'` for guests (`!user`), and the filter logic evaluated `!user || m.progress?.isTracking === true`, treating all manhwa as unread for unauthenticated visitors. Also, the tab was named "Reading" while catalog badges said "Ongoing".
+- Fix: Removed `'Unread'` from guest filter tabs (only available to logged-in users with reading lists). Renamed the status tab from "Reading" to "Ongoing" to match the catalog badges and status enums, with backward compatibility for any `?filter=Reading` links.
+- Status: Resolved
+- Date: 2026-11-17
+
+---
+
+- Problem: In `Library.tsx`, the header subtitle displayed "256 tracked · 256 in catalog" for new users who had 0 tracked manhwa, and clicking "My List" showed empty with no clear guidance. Also, clicking status filters (Hiatus, Dropped, Completed) showed 0 results because they were gated by personal tracking rather than catalog status.
+- Cause: (1) `countSource` was defined as `manhwas ?? []` rather than filtering by `m.progress?.isTracking`, so `countSource.length` equaled total catalog length (256). (2) Status tabs (`Reading`, `Completed`, `Hiatus`, `Dropped`) checked `isPersonallyTracked` instead of filtering catalog status directly, causing them to return empty for any status the user had not yet added to tracking.
+- Fix: (1) Separated `trackedCount = manhwas.filter(m => m.progress?.isTracking).length` for the user's reading list from catalog badge counts. (2) Removed `isPersonallyTracked` requirement from catalog status tabs so clicking `Hiatus`, `Completed`, or `Dropped` properly shows all catalog manhwa with that status. (3) Added an empty state with a "Browse Catalog" CTA when "My List" has 0 titles.
+- Status: Resolved
+- Date: 2026-11-17
+
+---
+
+- Problem: New users saw unread chapter counts on Dashboard, Stats page, and "Continue Reading" that belonged to the admin's progress, not their own.
+- Cause: (1) `stats.router.ts` called `manhwaService.getAll()` with no `userId`, attaching admin's global progress to the stats calculation. (2) `Dashboard.tsx` computed `unreadCount` and `continueReading` from all manhwa including untracked ones — a new user with `isTracking: false` on all series still got latestChapter counted as "unread". (3) The stats router didn't filter by `isTracking` before summing chapters.
+- Fix: (1) Pass `ctx.userId` to `manhwaService.getAll()` in stats router so progress is scoped per user. (2) Filter by `m.progress?.isTracking` before summing unread in both `stats.router.ts` and `Dashboard.tsx`. (3) Gate `continueReading` list in Dashboard by `isTracking` as well.
+- Status: Resolved
+- Date: 2026-11-17
+
+---
+
 - Problem: Vercel serverless API crashed on startup with `ERR_REQUIRE_ESM` and browser requests were blocked by CORS preflight failures.
 - Cause: `apps/api/src/server.ts` attempted to mount Better Auth handlers via ESM `better-auth/node` inside CommonJS, and `apps/api/src/vercel.ts` CORS headers lacked `x-user-id` and `authorization`.
 - Fix: Removed `better-auth/node` from `server.ts` (as Neon Auth hosts Better Auth directly) and included `x-user-id, authorization` in `Access-Control-Allow-Headers` in `vercel.ts` and `server.ts`.

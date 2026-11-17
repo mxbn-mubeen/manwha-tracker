@@ -10,7 +10,7 @@ import { search as utilsSearch } from '@manhwa-tracker/utils';
 import { getUnreadCount } from '@/lib/utils';
 import { useSession } from '@/lib/auth-client';
 
-type FilterValue = 'All' | 'My List' | 'Reading' | 'Unread' | 'Completed' | 'Hiatus' | 'Dropped';
+type FilterValue = 'All' | 'My List' | 'Unread' | 'Ongoing' | 'Completed' | 'Hiatus' | 'Dropped';
 
 export function LibraryPage() {
   usePageTitle('Library');
@@ -19,9 +19,9 @@ export function LibraryPage() {
 
   const FILTER_VALUES: FilterValue[] = useMemo(() => {
     if (user) {
-      return ['All', 'My List', 'Reading', 'Unread', 'Completed', 'Hiatus', 'Dropped'];
+      return ['All', 'My List', 'Unread', 'Ongoing', 'Completed', 'Hiatus', 'Dropped'];
     }
-    return ['All', 'Reading', 'Unread', 'Completed', 'Hiatus', 'Dropped'];
+    return ['All', 'Ongoing', 'Completed', 'Hiatus', 'Dropped'];
   }, [user]);
 
   const { data: manhwas, isLoading: isManhwasLoading } = trpc.manhwa.getAll.useQuery(undefined, {
@@ -39,11 +39,16 @@ export function LibraryPage() {
     }
   }, [searchParams]);
 
-  const filterParam = searchParams.get('filter');
+  const rawFilter = searchParams.get('filter');
+  const normalizedParam: FilterValue | null =
+    rawFilter === 'Reading'
+      ? 'Ongoing'
+      : (rawFilter as FilterValue);
 
-  const filter: FilterValue = FILTER_VALUES.includes(filterParam as FilterValue)
-    ? (filterParam as FilterValue)
-    : 'All';
+  const filter: FilterValue =
+    normalizedParam && FILTER_VALUES.includes(normalizedParam)
+      ? normalizedParam
+      : 'All';
 
   const applyFilter = (f: FilterValue) => {
     setSearchParams(f === 'All' ? {} : { filter: f });
@@ -62,27 +67,32 @@ export function LibraryPage() {
   }, [manhwas, search]);
 
   const filtered = searchResults.filter((m) => {
-    let matchesFilter = true;
-
     if (filter === 'My List') {
-      matchesFilter = m.progress?.isTracking === true;
-    } else if (filter === 'Reading') {
-      matchesFilter = m.status === 'ongoing';
-    } else if (filter === 'Completed') {
-      matchesFilter = m.status === 'completed';
-    } else if (filter === 'Hiatus') {
-      matchesFilter = m.status === 'hiatus';
-    } else if (filter === 'Dropped') {
-      matchesFilter = m.status === 'dropped';
+      // My List: only manhwa the user is personally tracking
+      return m.progress?.isTracking === true;
     } else if (filter === 'Unread') {
+      // Unread: only tracked manhwa with new unread chapters
+      if (!user) return false;
+      const isTracked = m.progress?.isTracking === true;
       const unread = getUnreadCount(m.progress?.latestChapter, m.progress?.lastChapter);
-      matchesFilter = m.status !== 'completed' && unread > 0 && (user ? m.progress?.isTracking === true : true);
+      return isTracked && m.status !== 'completed' && unread > 0;
+    } else if (filter === 'Ongoing') {
+      return m.status === 'ongoing';
+    } else if (filter === 'Completed') {
+      return m.status === 'completed';
+    } else if (filter === 'Hiatus') {
+      return m.status === 'hiatus';
+    } else if (filter === 'Dropped') {
+      return m.status === 'dropped';
     }
 
-    return matchesFilter;
+    return true; // 'All' — show everything
   });
 
+  // Header badge counts reflect the global catalog
   const total = manhwas?.length ?? 0;
+  const trackedCount = manhwas?.filter((m) => m.progress?.isTracking).length ?? 0;
+
   const ongoing = manhwas?.filter((m) => m.status === 'ongoing').length ?? 0;
   const completed = manhwas?.filter((m) => m.status === 'completed').length ?? 0;
   const hiatus = manhwas?.filter((m) => m.status === 'hiatus').length ?? 0;
@@ -96,11 +106,15 @@ export function LibraryPage() {
         </h1>
 
         <p className="text-muted-foreground flex items-center flex-wrap gap-2">
-          <span>{total} titles in your collection</span>
+          <span>
+            {user
+              ? `${trackedCount} tracked · ${total} in catalog`
+              : `${total} titles in the catalog`}
+          </span>
           {total > 0 && (
             <span className="flex items-center gap-1.5 flex-wrap">
               <button
-                onClick={() => applyFilter('Reading')}
+                onClick={() => applyFilter('Ongoing')}
                 className="text-xs font-medium px-2.5 py-0.5 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/25 hover:bg-emerald-500/20 transition-colors"
               >
                 {ongoing} Ongoing
@@ -180,16 +194,33 @@ export function LibraryPage() {
           </div>
 
           <h3 className="text-lg font-medium mb-1">
-            No manhwa found
+            {filter === 'My List'
+              ? 'Your reading list is empty'
+              : filter === 'Unread'
+              ? 'No unread chapters'
+              : 'No manhwa found'}
           </h3>
 
           <p className="text-muted-foreground max-w-sm mb-6">
             {search
               ? `We couldn't find anything matching "${search}".`
+              : filter === 'My List'
+              ? 'You haven\'t tracked any manhwa yet. Browse the catalog and click "+ Track" on any title to add it here.'
+              : filter === 'Unread'
+              ? 'You are all caught up on all your tracked manhwa!'
               : filter !== 'All'
               ? `No manhwa match the "${filter}" filter.`
               : 'Your library is empty. Start by adding a manhwa.'}
           </p>
+
+          {!search && (filter === 'My List' || filter === 'Unread') && (
+            <Button
+              onClick={() => applyFilter('All')}
+              className="bg-amber-500 text-amber-950 hover:bg-amber-500/90 font-semibold"
+            >
+              Browse Catalog
+            </Button>
+          )}
 
           {!search && filter === 'All' && (
             <Button

@@ -1,7 +1,7 @@
 # Architecture — Manhwa Tracker
 
 project_root: F:\manwha-tracker
-last_updated: 2026-11-11
+last_updated: 2026-11-17
 
 ## Monorepo Structure (Actual as of 2026-09-07)
 
@@ -543,6 +543,43 @@ source to scrape a cover from.
 - Portal Pattern (`createPortal(…, document.body)`) used by `EditManhwaModal`, `ManageSourcesModal`, `GlobalSearch` — prevents CSS `transform` containing-block from trapping `position: fixed` children (fixed 2026-11-11)
 - Animation Fill-mode Fix: keyframes in `index.css` end with `transform: none` (not `translateY(0)`) so `animation-fill-mode: both` does not create a stacking/containing context (fixed 2026-11-11)
 - Genre Color Mapping (`utils/genreColors.ts`): `getGenreBadgeClass(genre)` maps genre strings to Tailwind color classes; used by `ManhwaHeader` genre pills that link to `/library?search={genre}` (added 2026-11-11)
+
+## Multi-User Authentication & Personal Tracking Architecture (Added 2026-11-17)
+
+### 1. Authentication Layer
+- Managed via **Neon Auth** (powered by Better Auth) hosted directly on the Neon PostgreSQL production branch.
+- Tables in `neon_auth` / `libs/database/src/schema/auth.ts`: `user`, `session`, `account`, `verification`.
+- Roles:
+  - `admin`: Full access to Telegram watcher, sources manager, system settings, and manhwa metadata editing.
+  - `user`: Authenticated reader with a personal reading list (`My List`), individual unread counts, and custom reading status.
+  - `guest`: Anonymous visitor with read-only access to the public catalog, search, and release status filters.
+
+### 2. User-Scoped Progress Database Model
+- Table `progress`:
+  - `user_id`: UUID foreign key referencing `neon_auth.user(id)` ON DELETE CASCADE.
+  - `manhwa_id`: integer referencing `manhwa(id)` ON DELETE CASCADE.
+  - `last_read_chapter_num`: real (denormalized progress).
+  - `status`: `'reading' | 'completed' | 'on_hold' | 'dropped' | 'plan_to_read'`.
+  - Multi-user unique constraint: `UNIQUE (user_id, manhwa_id)` replacing the legacy single-user `UNIQUE (manhwa_id)`.
+- Existing unowned single-user records backfilled to the admin user.
+
+### 3. Client Session & Request Context
+- `SessionSync` in `providers.tsx`: Syncs `session.user.id` to `localStorage` (`manhwa_user_id`) and forwards it as `x-user-id` header in all tRPC batch requests.
+- `createTRPCContext` in `apps/api/src/trpc.ts`: Reads `x-user-id` and passes `ctx.userId` to services and repositories.
+- `manhwa.getAll(userId)` & `manhwa.getById(id, userId)`: Left-join `progress` on `progress.manhwaId = manhwa.id AND progress.userId = userId`. Anonymous requests (`userId = undefined`) join on `1 = 0`, ensuring zero personal progress leaks to guests.
+
+### 4. Navigation & Search Permission Scoping
+- Header Navbar (`Navbar.tsx`):
+  - Guests: `Dashboard`, `Library`
+  - Signed-in readers: `Dashboard`, `Library`, `Stats`
+  - Admin: `Dashboard`, `Library`, `Sources`, `Stats`
+- Global Search (`GlobalSearch.tsx` / `SearchQuickNav.tsx`):
+  - Admin routes (`Sources`, `Settings`, `Add Manhwa`) gated by `isAdmin`.
+  - `Analytics & Stats` gated by `userOnly`.
+  - Suggestions section: Dynamically displays "Continue Reading" with unread counts for tracking users, or "Featured in Catalog" with latest release chapter for guests.
+
+### 5. Optimistic UI Mutations
+- `startTracking`, `stopTracking`, and `updateProgress` in `ManhwaDetail.tsx` and `ManhwaCard.tsx` utilize TanStack Query `onMutate` optimistic updates to provide instant feedback without network latency.
 
 ## Dependencies Worth Knowing
 

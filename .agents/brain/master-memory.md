@@ -38,11 +38,16 @@ Supports multi-user authentication powered by Neon Auth / Better Auth (`neon_aut
 - Soft delete (delete/recover/getDeleted) for manhwa
 - Sync history (`sync_runs` table) with per-row status (new/no_new/issue/failed) shown in a Settings drawer
 
-## Current State (as of 2026-09-10)
+## Current State (as of 2026-11-17)
 
-- **Architecture fully migrated from Next.js to Vite + Express** (Option 2 — decoupled)
-- **`apps/api` split further into `apps/api` (fast queries, Vercel Serverless) + `apps/worker`
-  (long-running: Telegram watcher, Telegram bot, website sync)**
+- **Multi-user authentication and personal reading progress live via Neon Auth**
+- **Database constraints updated**: `progress` table uses `UNIQUE (user_id, manhwa_id)` allowing multi-user tracking
+- **Optimistic UI enabled** on `ManhwaDetail` and `ManhwaCard` for instantaneous progress updates and tracking toggles
+- **Library & Search role-scoped**:
+  - Catalog filters: `Ongoing`, `Completed`, `Hiatus`, `Dropped`
+  - Personal filters: `My List`, `Unread` (gated to authenticated users)
+  - Global Search (`Ctrl+K`): Admin pages (`Sources`, `Settings`, `Add Manhwa`) hidden from non-admin readers; `Analytics & Stats` hidden from guests
+- **Architecture**: Vite React frontend on Vercel + Express tRPC API on Vercel Serverless + Background Worker on Render + Neon PostgreSQL
 - Vite React frontend (apps/web) running on port 3000 OK
 - Neon PostgreSQL connected via @manhwa-tracker/database lib OK
 - UI rebuilt with Tailwind v4 + shadcn/ui dark manhwa theme OK

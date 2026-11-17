@@ -13,23 +13,35 @@ import type { RouterOutputs } from '@/lib/trpc';
 
 type Manhwa = RouterOutputs['manhwa']['getAll'][number];
 
-export const NAV_PAGES = [
+export interface NavPage {
+  title: string;
+  path: string;
+  icon: typeof LayoutDashboard;
+  desc: string;
+  userOnly?: boolean;
+  adminOnly?: boolean;
+}
+
+export const NAV_PAGES: NavPage[] = [
   { title: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, desc: 'Overview & continue reading' },
   { title: 'Library', path: '/library', icon: BookOpen, desc: 'All tracked manhwa series' },
-  { title: 'Sources', path: '/sources', icon: Globe, desc: 'Providers, channels & URLs' },
-  { title: 'Analytics & Stats', path: '/stats', icon: BarChart3, desc: 'Collection stats & breakdown' },
-  { title: 'Settings', path: '/settings', icon: Settings, desc: 'Telegram bot & system config' },
-  { title: 'Add Manhwa', path: '/add', icon: Plus, desc: 'Track a new title' },
+  { title: 'Analytics & Stats', path: '/stats', icon: BarChart3, desc: 'Collection stats & breakdown', userOnly: true },
+  { title: 'Sources', path: '/sources', icon: Globe, desc: 'Providers, channels & URLs', adminOnly: true },
+  { title: 'Settings', path: '/settings', icon: Settings, desc: 'Telegram bot & system config', adminOnly: true },
+  { title: 'Add Manhwa', path: '/add', icon: Plus, desc: 'Track a new title', adminOnly: true },
 ];
 
 interface SearchQuickNavProps {
   selectedIndex: number;
   suggestions: Manhwa[];
+  pages: NavPage[];
+  isLoggedIn: boolean;
   onSelect: () => void;
 }
 
-export function SearchQuickNav({ selectedIndex, suggestions, onSelect }: SearchQuickNavProps) {
+export function SearchQuickNav({ selectedIndex, suggestions, pages, isLoggedIn, onSelect }: SearchQuickNavProps) {
   const navigate = useNavigate();
+  const hasTrackedSuggestions = suggestions.some(m => m.progress?.isTracking);
 
   return (
     <div className="space-y-4 p-1">
@@ -38,7 +50,7 @@ export function SearchQuickNav({ selectedIndex, suggestions, onSelect }: SearchQ
           Quick Navigation
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {NAV_PAGES.map((p, idx) => {
+          {pages.map((p, idx) => {
             const isSelected = selectedIndex === idx;
             const Icon = p.icon;
             return (
@@ -60,13 +72,14 @@ export function SearchQuickNav({ selectedIndex, suggestions, onSelect }: SearchQ
       {suggestions.length > 0 && (
         <div>
           <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-1 mb-2">
-            Continue Reading Suggestions
+            {isLoggedIn && hasTrackedSuggestions ? 'Continue Reading' : 'Featured in Catalog'}
           </p>
           <div className="space-y-1">
             {suggestions.map((m, idx) => {
-              const itemIdx = 3 + idx;
+              const itemIdx = pages.length + idx;
               const isSelected = selectedIndex === itemIdx;
-              const behind = getUnreadCount(m.progress?.latestChapter, m.progress?.lastChapter);
+              const isTracked = isLoggedIn && m.progress?.isTracking;
+              const behind = isTracked ? getUnreadCount(m.progress?.latestChapter, m.progress?.lastChapter) : 0;
               return (
                 <button
                   key={m.id}
@@ -80,7 +93,11 @@ export function SearchQuickNav({ selectedIndex, suggestions, onSelect }: SearchQ
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-white truncate">{m.title}</p>
-                    <p className="text-[11px] text-amber-400 font-medium">+{formatUnreadCount(behind)} new chapters</p>
+                    {isTracked && behind > 0 ? (
+                      <p className="text-[11px] text-amber-400 font-medium">+{formatUnreadCount(behind)} new chapters</p>
+                    ) : (
+                      <p className="text-[11px] text-zinc-400 font-medium">Latest: Ch. {m.progress?.latestChapter ?? '?'}</p>
+                    )}
                   </div>
                 </button>
               );

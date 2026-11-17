@@ -125,7 +125,9 @@ export function RecentActivity({ manhwas, isLoggedIn = false }: RecentActivityPr
 
         {manhwas.length === 0 && (
           <div className="p-10 text-center text-muted-foreground text-sm">
-            No recent activity recorded yet.
+            {isLoggedIn
+              ? 'No tracked manhwa yet. Browse the library and hit + Track to start.'
+              : 'No recent activity recorded yet.'}
           </div>
         )}
       </div>

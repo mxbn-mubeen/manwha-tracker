@@ -62,7 +62,13 @@ export class ProgressRepository {
         status: 'reading',
         isCompleted: false,
       })
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: [progress.userId, progress.manhwaId],
+        set: {
+          status: 'reading',
+          isCompleted: false,
+        },
+      });
     return { success: true };
   }
 

@@ -41,30 +41,96 @@ export function ManhwaDetailPage() {
   }, [manhwa]);
 
   const startTrackingMutation = trpc.manhwa.startTracking.useMutation({
+    onMutate: async () => {
+      await utils.manhwa.getById.cancel(numericId);
+      const previous = utils.manhwa.getById.getData(numericId);
+      utils.manhwa.getById.setData(numericId, (old: typeof manhwa) =>
+        old
+          ? {
+              ...old,
+              progress: {
+                ...old.progress,
+                id: old.progress?.id || 1,
+                isTracking: true,
+                status: 'reading',
+                lastChapter: old.progress?.lastChapter ?? 0,
+                latestChapter: old.progress?.latestChapter ?? 0,
+                isCompleted: false,
+                lastReadAt: new Date(),
+              },
+            }
+          : old
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      toast.error('Failed to start tracking');
+      if (ctx?.previous) utils.manhwa.getById.setData(numericId, ctx.previous);
+    },
     onSuccess: () => {
       toast.success(`Added to your reading list!`);
-      utils.manhwa.getById.invalidate(numericId);
-      utils.manhwa.getAll.invalidate();
+      utils.manhwa.getById.invalidate(numericId, { refetchType: 'none' });
+      utils.manhwa.getAll.invalidate(undefined, { refetchType: 'none' });
     },
-    onError: () => toast.error('Failed to start tracking'),
   });
 
   const stopTrackingMutation = trpc.manhwa.stopTracking.useMutation({
+    onMutate: async () => {
+      await utils.manhwa.getById.cancel(numericId);
+      const previous = utils.manhwa.getById.getData(numericId);
+      utils.manhwa.getById.setData(numericId, (old: typeof manhwa) =>
+        old
+          ? {
+              ...old,
+              progress: {
+                ...old.progress,
+                isTracking: false,
+                status: null,
+              },
+            }
+          : old
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      toast.error('Failed to remove from reading list');
+      if (ctx?.previous) utils.manhwa.getById.setData(numericId, ctx.previous);
+    },
     onSuccess: () => {
       toast.success(`Removed from your reading list`);
-      utils.manhwa.getById.invalidate(numericId);
-      utils.manhwa.getAll.invalidate();
+      utils.manhwa.getById.invalidate(numericId, { refetchType: 'none' });
+      utils.manhwa.getAll.invalidate(undefined, { refetchType: 'none' });
     },
-    onError: () => toast.error('Failed to remove from reading list'),
   });
 
   const updateStatusMutation = trpc.manhwa.updateTrackingStatus.useMutation({
+    onMutate: async ({ status }) => {
+      await utils.manhwa.getById.cancel(numericId);
+      const previous = utils.manhwa.getById.getData(numericId);
+      utils.manhwa.getById.setData(numericId, (old: typeof manhwa) =>
+        old
+          ? {
+              ...old,
+              progress: {
+                ...old.progress,
+                status,
+                isTracking: true,
+                isCompleted: status === 'completed',
+              },
+            }
+          : old
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      toast.error('Failed to update status');
+      if (ctx?.previous) utils.manhwa.getById.setData(numericId, ctx.previous);
+    },
     onSuccess: () => {
       toast.success(`Reading status updated`);
-      utils.manhwa.getById.invalidate(numericId);
-      utils.manhwa.getAll.invalidate();
+      utils.manhwa.getById.invalidate(numericId, { refetchType: 'none' });
+      utils.manhwa.getAll.invalidate(undefined, { refetchType: 'none' });
     },
-    onError: () => toast.error('Failed to update status'),
   });
 
   const updateProgressMutation = trpc.manhwa.updateProgress.useMutation({

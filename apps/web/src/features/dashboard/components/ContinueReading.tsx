@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, BookOpen, CheckCheck, Loader2 } from 'lucide-react';
+import { CheckCircle2, BookOpen, CheckCheck, Loader2, BookmarkPlus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
@@ -72,9 +72,33 @@ export function ContinueReading({ manhwas, hasLibrary }: ContinueReadingProps) {
     }
   };
 
-  // Nothing to show either way if the library itself is empty — that's the
-  // Library page's job to prompt for, not this section's.
-  if (!hasLibrary) return null;
+  // Nothing to show if the user has not tracked anything yet — show a CTA to start
+  if (!hasLibrary) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight">Continue Reading</h2>
+          <p className="text-sm text-muted-foreground">Pick up where you left off</p>
+        </div>
+        <div className="rounded-xl border border-border/40 bg-card/60 p-8 flex flex-col items-center text-center gap-2">
+          <div className="h-10 w-10 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center mb-1">
+            <BookmarkPlus size={22} />
+          </div>
+          <p className="font-semibold text-white">No tracked manhwa yet</p>
+          <p className="text-sm text-muted-foreground max-w-sm">
+            Browse the library and hit <span className="text-amber-400 font-semibold">+ Track</span> on any manhwa to add it to your personal reading list.
+          </p>
+          <Link
+            to="/library"
+            className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/30 px-3 py-1.5 rounded-lg transition-all"
+          >
+            <BookOpen size={14} />
+            Browse Library
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (manhwas.length === 0) {
     return (

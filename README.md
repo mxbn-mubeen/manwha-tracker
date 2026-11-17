@@ -1,13 +1,15 @@
 # Manhwa Tracker
 
-A personal, single-user Manhwa/Manga reading tracker. Automatically monitors chapter releases from Telegram channels and websites and tracks reading progress hands-free.
+A modern full-stack Manhwa/Manga reading tracker with multi-user authentication, real-time release monitoring, and personal reading progress sync. Automatically monitors chapter releases from Telegram channels and websites and tracks reading progress hands-free.
 
 ## Features
 
 | | Feature |
 |--|---------|
-| 📚 | **Unified library** — 200+ manhwa titles in one place |
-| 📖 | **Auto reading progress** — open a chapter in Telegram → last-read chapter updates automatically |
+| 👥 | **Multi-user authentication** — powered by Neon Auth (Better Auth); personal reading lists & progress per user |
+| 📚 | **Unified catalog** — 250+ manhwa titles in one place with public browsing for guests |
+| 📖 | **Personal tracking & My List** — track series, customize reading status (Reading, Plan to Read, On Hold, Completed, Dropped) |
+| ⚡ | **Optimistic 1-click updates** — advance +1 chapter or mark caught up instantly from library cards or detail view |
 | 🔔 | **Real-time chapter detection** — Telegram watcher detects new chapter posts as they're posted |
 | 🌐 | **Website sync** — scrapes AsuraScans, Reaper Scans, Webtoon, manhuaus, Arena Scans, Comix.to, Mgeko, Thunder Scans, and more |
 | 🛡️ | **Cloudflare bypass** — FlareSolverr → Playwright fallback chain; protected sites are retried automatically |
@@ -23,6 +25,7 @@ A personal, single-user Manhwa/Manga reading tracker. Automatically monitors cha
 | Frontend | React 19 + Vite 5 (port 3000) |
 | Styling | Tailwind CSS v4 + shadcn/ui |
 | Language | TypeScript 5 |
+| Authentication | Neon Auth (Better Auth) with session management |
 | Data Fetching | TanStack Query v5 + tRPC v11 React hooks |
 | API Backend | Express 4 + tRPC v11 (port 3001 locally, Vercel Serverless in prod) |
 | ORM | Drizzle ORM — neon-http driver |
@@ -157,9 +160,13 @@ This project uses a hybrid free hosting strategy:
 | Table | Purpose |
 |-------|---------|
 | `manhwa` | Core records (title, slug, cover, status, genres) |
-| `sources` | Telegram/website sources per manhwa |
+| `sources` | Telegram/website sources per manhwa with cadence & sync metadata |
 | `chapters` | Discovered chapters (from Telegram or website sync) |
-| `progress` | Last-read chapter + timestamp per manhwa |
+| `progress` | User-scoped progress (`user_id`, `last_read_chapter_num`, status) — `UNIQUE(user_id, manhwa_id)` |
+| `user` | Better Auth / Neon Auth user accounts (`id`, `name`, `email`, `role`) |
+| `session` | User sessions and device auth tokens |
+| `account` | Auth provider links and credentials |
+| `verification` | One-time verification & password reset tokens |
 | `settings` | Key-value store — app toggles + DB-backed sync lock |
 | `sync_runs` | Sync run history with status (`running`/`completed`/`failed`) |
 

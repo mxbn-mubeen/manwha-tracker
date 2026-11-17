@@ -39,11 +39,39 @@ export function ManhwaCard({ manhwa }: { manhwa: Manhwa }) {
     null;
 
   const startTrackingMutation = trpc.manhwa.startTracking.useMutation({
+    onMutate: async () => {
+      await utils.manhwa.getAll.cancel();
+      const previous = utils.manhwa.getAll.getData();
+
+      utils.manhwa.getAll.setData(undefined, (old) => {
+        if (!old) return old;
+        return old.map((m) => {
+          if (m.id !== manhwa.id) return m;
+          return {
+            ...m,
+            progress: {
+              ...m.progress,
+              isTracking: true,
+              status: 'reading',
+              lastChapter: m.progress?.lastChapter ?? 0,
+              latestChapter: m.progress?.latestChapter ?? 0,
+            },
+          };
+        });
+      });
+
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      toast.error('Failed to add to reading list');
+      if (ctx?.previous) {
+        utils.manhwa.getAll.setData(undefined, ctx.previous);
+      }
+    },
     onSuccess: () => {
       toast.success(`Added ${manhwa.title} to your reading list!`);
-      utils.manhwa.getAll.invalidate();
+      utils.manhwa.getAll.invalidate(undefined, { refetchType: 'none' });
     },
-    onError: () => toast.error('Failed to add to reading list'),
   });
 
   const updateProgressMutation = trpc.manhwa.updateProgress.useMutation({

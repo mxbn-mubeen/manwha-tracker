@@ -7,6 +7,7 @@ import { search } from '@manhwa-tracker/utils';
 import { getUnreadCount, formatUnreadCount } from '@/lib/utils';
 import { ManhwaCoverImage } from '@/features/sources/components/ManhwaCoverImage';
 import { SearchQuickNav, NAV_PAGES } from './components/SearchQuickNav';
+import { useSession } from '@/lib/auth-client';
 
 interface GlobalSearchProps {
   open: boolean;
@@ -19,14 +20,27 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const { data: session } = useSession();
+  const user = session?.user;
+  const isAdmin = (user as any)?.role === 'admin';
+
   const { data: all = [] } = trpc.manhwa.getAll.useQuery();
+
+  // Pages accessible to the current user (stats require login, admin pages require admin)
+  const availablePages = useMemo(() => {
+    return NAV_PAGES.filter(p => {
+      if (p.adminOnly && !isAdmin) return false;
+      if (p.userOnly && !user) return false;
+      return true;
+    });
+  }, [user, isAdmin]);
 
   // Search results
   const matchingPages = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    return NAV_PAGES.filter(p => p.title.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q));
-  }, [query]);
+    return availablePages.filter(p => p.title.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q));
+  }, [query, availablePages]);
 
   const matchingManhwa = useMemo(() => {
     const q = query.trim();
@@ -41,15 +55,22 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
     });
   }, [all, query]);
 
-  // When query is empty, show continue reading suggestions
+  // When query is empty:
+  // For logged-in users with tracked unread chapters: their continue reading items
+  // For guests / users with 0 tracked items: featured catalog items
   const suggestions = useMemo(() => {
-    return all
-      .filter(m => {
+    if (user) {
+      const userTracked = all.filter(m => {
+        if (!m.progress?.isTracking) return false;
         if (m.status === 'completed') return false;
         return getUnreadCount(m.progress?.latestChapter, m.progress?.lastChapter) > 0;
-      })
-      .slice(0, 4);
-  }, [all]);
+      });
+      if (userTracked.length > 0) {
+        return userTracked.slice(0, 4);
+      }
+    }
+    return all.slice(0, 4);
+  }, [all, user]);
 
   // Combined selectable list for arrow key navigation
   const selectableItems = useMemo(() => {
@@ -60,10 +81,10 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
       ];
     }
     return [
-      ...NAV_PAGES.slice(0, 3).map(p => ({ type: 'page' as const, path: p.path })),
+      ...availablePages.map(p => ({ type: 'page' as const, path: p.path })),
       ...suggestions.map(m => ({ type: 'manhwa' as const, id: m.id })),
     ];
-  }, [query, matchingPages, matchingManhwa, suggestions]);
+  }, [query, matchingPages, matchingManhwa, availablePages, suggestions]);
 
   useEffect(() => {
     setSelectedIndex(0);
@@ -195,7 +216,8 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
                     {matchingManhwa.map((m, idx) => {
                       const itemIdx = matchingPages.length + idx;
                       const isSelected = selectedIndex === itemIdx;
-                      const behind = getUnreadCount(m.progress?.latestChapter, m.progress?.lastChapter);
+                      const isTracked = !!user && m.progress?.isTracking === true;
+                      const behind = isTracked ? getUnreadCount(m.progress?.latestChapter, m.progress?.lastChapter) : 0;
 
                       return (
                         <li key={m.id}>
@@ -213,12 +235,18 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
                               <p className={`text-sm font-semibold truncate ${isSelected ? 'text-amber-300' : 'text-white'}`}>
                                 {m.title}
                               </p>
-                              <p className="text-xs text-zinc-400 mt-0.5">
-                                Ch. {m.progress?.lastChapter ?? 0} / {m.progress?.latestChapter ?? '?'}
-                                {behind > 0 && (
-                                  <span className="ml-2 text-amber-400 font-medium">+{formatUnreadCount(behind)} unread</span>
-                                )}
-                              </p>
+                              {isTracked ? (
+                                <p className="text-xs text-zinc-400 mt-0.5">
+                                  Ch. {m.progress?.lastChapter ?? 0} / {m.progress?.latestChapter ?? '?'}
+                                  {behind > 0 && (
+                                    <span className="ml-2 text-amber-400 font-medium">+{formatUnreadCount(behind)} unread</span>
+                                  )}
+                                </p>
+                              ) : (
+                                <p className="text-xs text-zinc-400 mt-0.5">
+                                  Latest: Ch. {m.progress?.latestChapter ?? '?'}
+                                </p>
+                              )}
                             </div>
 
                             <div className="flex items-center gap-1.5 shrink-0">
@@ -244,6 +272,8 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
             <SearchQuickNav
               selectedIndex={selectedIndex}
               suggestions={suggestions}
+              pages={availablePages}
+              isLoggedIn={!!user}
               onSelect={onClose}
             />
           )}
