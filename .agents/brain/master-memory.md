@@ -1,7 +1,7 @@
 # Manhwa Tracker — Master Memory
 
 project_root: F:\manwha-tracker
-last_brain_review: 2026-11-17
+last_brain_review: 2026-11-18
 
 ## What This Project Does
 
@@ -38,8 +38,22 @@ Supports multi-user authentication powered by Neon Auth / Better Auth (`neon_aut
 - Soft delete (delete/recover/getDeleted) for manhwa
 - Sync history (`sync_runs` table) with per-row status (new/no_new/issue/failed) shown in a Settings drawer
 
-## Current State (as of 2026-11-17)
+## Current State (as of 2026-11-18)
 
+- **Password Reset & Account Management**:
+  - Direct integration with Neon Managed Better Auth via `/request-password-reset` and `/reset-password`
+  - Dedicated `/reset-password` route reading URL tokens and updating passwords
+  - Account tab in Settings showing user initials, name, email, and authenticated password change form
+  - Non-wrapping, horizontally scrollable tabs for Settings on mobile screens
+- **Sync Architecture**:
+  - Replaced duplicate sync menu items with a single unified `SyncChoiceModal` offering "Smart Sync" (incremental updates) and "Full Refresh" (force-scrapes all sources)
+  - Worker deploy reliability on Render fixed: explicit `0.0.0.0` binding and conditional Telegram watcher initialization to prevent port scan timeouts
+- **Catalog & Reading Experience**:
+  - "Read" button dynamically selects the leading source sorted by `lastSyncedChapter DESC` (website sources preferred)
+  - ManhwaCard redesigned with compact `Read` and `✓ All` controls, removed `+1` button, expanded title spacing
+  - Automatic reading list opt-in (`startTracking`) upon adding/creating a new manhwa
+- **Codebase Cleanliness**:
+  - `AuthModal`, `StatsPage`, `GlobalSearch` decomposed into sub-components keeping individual files below ~230 lines
 - **Multi-user authentication and personal reading progress live via Neon Auth**
 - **Database constraints updated**: `progress` table uses `UNIQUE (user_id, manhwa_id)` allowing multi-user tracking
 - **Optimistic UI enabled** on `ManhwaDetail` and `ManhwaCard` for instantaneous progress updates and tracking toggles

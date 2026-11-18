@@ -5,10 +5,6 @@ import {
   ChevronRight,
   Sparkles,
   AlertTriangle,
-  Search,
-  LayoutGrid,
-  Layers,
-  List,
 } from 'lucide-react';
 import type { SyncRun, SyncSourceRow } from '@manhwa-tracker/shared';
 import { trpc } from '@/lib/trpc';
@@ -17,6 +13,7 @@ import { formatRelative, formatDuration } from './run-card.utils';
 import { RunRowItem } from './components/RunRowItem';
 import { RunGroupItem, type ManhwaSyncGroup } from './components/RunGroupItem';
 import { SyncManhwaCard } from './components/SyncManhwaCard';
+import { RunControlsBar } from './components/RunControlsBar';
 
 const PAGE_SIZE = 50;
 
@@ -59,7 +56,6 @@ export function RunCard({ run, onClose }: { run: SyncRun; onClose: () => void })
 
   const filteredRows = useMemo(() => {
     return searchResults.filter((r: SyncSourceRow) => {
-      if (filter === 'all') return true;
       if (filter === 'new') return r.status === 'new';
       if (filter === 'unchanged') return r.status === 'no_new';
       if (filter === 'issues') return r.status === 'issue' || r.status === 'failed' || Boolean(r.reason);
@@ -68,51 +64,55 @@ export function RunCard({ run, onClose }: { run: SyncRun; onClose: () => void })
     });
   }, [searchResults, filter]);
 
-  // Group filtered rows by manhwa
-  const manhwaGroups = useMemo(() => {
-    const map = new Map<string, ManhwaSyncGroup>();
-    for (const r of filteredRows) {
-      const key = `${r.manhwaId || '0'}-${r.manhwaTitle}`;
-      if (!map.has(key)) {
-        map.set(key, {
-          manhwaId: r.manhwaId,
-          manhwaTitle: r.manhwaTitle,
+  // Group filtered rows by manhwaId for Grouped & Cards views
+  const groupedManhwas = useMemo(() => {
+    const map = new Map<number, ManhwaSyncGroup>();
+    for (const row of filteredRows) {
+      if (!map.has(row.manhwaId)) {
+        map.set(row.manhwaId, {
+          manhwaId: row.manhwaId,
+          manhwaTitle: row.manhwaTitle,
+          coverUrl: coverMap.get(row.manhwaId) ?? null,
           rows: [],
           hasNew: false,
           hasIssue: false,
         });
       }
-      const g = map.get(key)!;
-      g.rows.push(r);
-      if (r.status === 'new') g.hasNew = true;
-      if (r.status === 'issue' || r.status === 'failed' || Boolean(r.reason)) g.hasIssue = true;
+      const group = map.get(row.manhwaId)!;
+      group.rows.push(row);
+      if (row.status === 'new') group.hasNew = true;
+      if (row.status === 'issue' || row.status === 'failed' || Boolean(row.reason)) group.hasIssue = true;
     }
     return Array.from(map.values());
-  }, [filteredRows]);
+  }, [filteredRows, coverMap]);
 
-  const visibleRows = filteredRows.slice(0, displayCount);
-  const visibleGroups = manhwaGroups.slice(0, displayCount);
+  const displayedRows = filteredRows.slice(0, displayCount);
+  const displayedGroups = groupedManhwas.slice(0, displayCount);
 
   return (
-    <div className="border border-border/20 rounded-xl overflow-hidden bg-[#111214] transition-all shadow-sm">
-      {/* Header Bar */}
+    <div className="bg-[#111214] border border-border/20 rounded-2xl overflow-hidden transition-all shadow-sm">
+      {/* Header Row — Clickable to expand */}
       <button
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-white/[0.03] transition-colors text-left"
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-white/[0.02] transition-colors gap-3 cursor-pointer"
       >
-        <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
-          <span className="flex items-center gap-1.5 font-semibold text-white">
-            <Clock className="h-3.5 w-3.5 text-zinc-400" />
-            {formatRelative(run.runAt)}
-          </span>
+        <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap min-w-0">
+          <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+            <Clock className="h-3.5 w-3.5 text-zinc-500" />
+            <span className="font-mono">{formatRelative(run.startedAt)}</span>
+          </div>
 
           <span className="text-zinc-600">·</span>
-          <span className="text-zinc-400">{run.scannedSources} sources</span>
 
-          {newCount > 0 && (
+          {run.newChapters > 0 ? (
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
               <Sparkles className="w-3 h-3 text-emerald-400" />
-              {newCount} new
+              {run.newChapters} new
+            </span>
+          ) : (
+            <span className="text-[11px] text-zinc-500 bg-white/5 border border-border/10 px-2 py-0.5 rounded-full">
+              No new chapters
             </span>
           )}
 
@@ -143,197 +143,75 @@ export function RunCard({ run, onClose }: { run: SyncRun; onClose: () => void })
       {/* Expanded Content Area */}
       {open && (
         <div className="border-t border-border/20 bg-[#161719]/40 animate-panel-expand">
-          {/* Controls Bar: Tabs, View Toggle & Search */}
-          <div className="flex items-center justify-between gap-2.5 px-3 sm:px-4 py-2 border-b border-border/10 bg-[#161719] flex-wrap">
-            <div className="flex items-center gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden py-0.5">
-              <button
-                onClick={() => { setFilter('all'); setDisplayCount(PAGE_SIZE); }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                  filter === 'all'
-                    ? 'bg-amber-500 text-amber-950 font-semibold'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                All ({run.rows.length})
-              </button>
+          <RunControlsBar
+            run={run}
+            filter={filter}
+            setFilter={setFilter}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            search={search}
+            setSearch={setSearch}
+            onResetDisplayCount={() => setDisplayCount(PAGE_SIZE)}
+            newCount={newCount}
+            unchangedCount={unchangedCount}
+            issueCount={issueCount}
+            skippedCount={skippedCount}
+            runErrorsCount={runErrors.length}
+          />
 
-              <button
-                onClick={() => { setFilter('new'); setDisplayCount(PAGE_SIZE); }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                  filter === 'new'
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold'
-                    : 'text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10'
-                }`}
-              >
-                New ({newCount})
-              </button>
-
-              <button
-                onClick={() => { setFilter('unchanged'); setDisplayCount(PAGE_SIZE); }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                  filter === 'unchanged'
-                    ? 'bg-white/10 text-white font-semibold'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                Unchanged ({unchangedCount})
-              </button>
-
-              <button
-                onClick={() => { setFilter('issues'); setDisplayCount(PAGE_SIZE); }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                  filter === 'issues'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold'
-                    : 'text-zinc-400 hover:text-amber-400 hover:bg-amber-500/10'
-                }`}
-              >
-                Issues ({issueCount})
-              </button>
-
-              {skippedCount > 0 && (
-                <button
-                  onClick={() => { setFilter('skipped'); setDisplayCount(PAGE_SIZE); }}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                    filter === 'skipped'
-                      ? 'bg-white/10 text-white font-semibold'
-                      : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  Skipped ({skippedCount})
-                </button>
-              )}
-
-              {runErrors.length > 0 && (
-                <button
-                  onClick={() => { setFilter('errors'); setDisplayCount(PAGE_SIZE); }}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                    filter === 'errors'
-                      ? 'bg-red-500/20 text-red-300 border border-red-500/40 font-semibold'
-                      : 'text-zinc-400 hover:text-red-400 hover:bg-red-500/10'
-                  }`}
-                >
-                  Errors ({runErrors.length})
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-              {/* 3-Way View Switcher: Cards vs Grouped vs Compact */}
-              <div className="flex items-center bg-[#111214] border border-border/20 p-0.5 rounded-lg text-xs">
-                <button
-                  onClick={() => setViewMode('cards')}
-                  className={`px-2 py-0.5 rounded flex items-center gap-1 transition-all ${
-                    viewMode === 'cards' ? 'bg-amber-500 text-amber-950 font-semibold' : 'text-zinc-400 hover:text-white'
-                  }`}
-                  title="Card Grid"
-                >
-                  <LayoutGrid className="w-3 h-3" />
-                  <span className="hidden sm:inline">Cards</span>
-                </button>
-
-                <button
-                  onClick={() => setViewMode('grouped')}
-                  className={`px-2 py-0.5 rounded flex items-center gap-1 transition-all ${
-                    viewMode === 'grouped' ? 'bg-amber-500 text-amber-950 font-semibold' : 'text-zinc-400 hover:text-white'
-                  }`}
-                  title="Grouped by Manhwa"
-                >
-                  <Layers className="w-3 h-3" />
-                  <span className="hidden sm:inline">Grouped</span>
-                </button>
-
-                <button
-                  onClick={() => setViewMode('compact')}
-                  className={`px-2 py-0.5 rounded flex items-center gap-1 transition-all ${
-                    viewMode === 'compact' ? 'bg-amber-500 text-amber-950 font-semibold' : 'text-zinc-400 hover:text-white'
-                  }`}
-                  title="Compact List"
-                >
-                  <List className="w-3 h-3" />
-                  <span className="hidden sm:inline">Compact</span>
-                </button>
-              </div>
-
-              {/* Quick Search Bar */}
-              <div className="relative shrink-0 w-36 sm:w-44">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => { setSearch(e.target.value); setDisplayCount(PAGE_SIZE); }}
-                  placeholder="Search..."
-                  className="w-full pl-8 pr-3 py-1 rounded-lg text-xs bg-[#111214] border border-border/30 text-white placeholder:text-zinc-500 focus:outline-none focus:border-amber-500/50"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Errors View */}
-          {filter === 'errors' ? (
-            <div className="p-4 space-y-2">
-              {runErrors.map((err: string, i: number) => (
-                <div key={i} className="text-xs text-red-400 bg-red-500/5 border border-red-500/20 rounded-lg p-3 break-words font-mono">
-                  {err}
-                </div>
-              ))}
-            </div>
-          ) : viewMode === 'cards' ? (
-            /* Cards View (Default) */
-            <div className="p-3.5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
-                {visibleGroups.map((group) => (
-                  <SyncManhwaCard
-                    key={`${group.manhwaId}-${group.manhwaTitle}`}
-                    group={group}
-                    coverUrl={coverMap.get(group.manhwaId) ?? null}
-                    onClose={onClose}
-                  />
+          {/* Errors Section if viewing errors */}
+          {filter === 'errors' && runErrors.length > 0 && (
+            <div className="p-3 bg-red-950/20 border-b border-red-900/30 space-y-2">
+              <p className="text-xs font-semibold text-red-400">Run Errors ({runErrors.length})</p>
+              <div className="space-y-1">
+                {runErrors.map((err: string, i: number) => (
+                  <p key={i} className="text-xs font-mono text-red-300 bg-red-950/40 p-2 rounded border border-red-900/30">
+                    {err}
+                  </p>
                 ))}
               </div>
-              {manhwaGroups.length === 0 && (
-                <div className="px-4 py-10 text-center text-xs text-zinc-500">
-                  No manhwa match your current filter.
-                </div>
-              )}
-            </div>
-          ) : viewMode === 'grouped' ? (
-            /* Grouped List View */
-            <div className="p-3 space-y-2">
-              {visibleGroups.map((group) => (
-                <RunGroupItem key={`${group.manhwaId}-${group.manhwaTitle}`} group={group} onClose={onClose} />
-              ))}
-              {manhwaGroups.length === 0 && (
-                <div className="px-4 py-10 text-center text-xs text-zinc-500">
-                  No manhwa match your current filter.
-                </div>
-              )}
-            </div>
-          ) : (
-            /* Compact List View */
-            <div className="divide-y divide-border/10">
-              {visibleRows.map((row: SyncSourceRow, i: number) => (
-                <RunRowItem key={i} row={row} index={i} onClose={onClose} />
-              ))}
-              {filteredRows.length === 0 && (
-                <div className="px-4 py-10 text-center text-xs text-zinc-500">
-                  No sources match your current filter.
-                </div>
-              )}
             </div>
           )}
 
-          {/* Load More Button */}
-          {((viewMode === 'compact' && filteredRows.length > displayCount) ||
-            (viewMode !== 'compact' && manhwaGroups.length > displayCount)) && (
-            <div className="p-3 text-center border-t border-border/10 bg-[#161719]/40">
-              <button
-                onClick={() => setDisplayCount((c) => c + PAGE_SIZE)}
-                className="text-xs text-amber-400 hover:text-amber-300 font-semibold px-4 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 hover:bg-amber-500/20 transition-all btn-press"
-              >
-                Load next {PAGE_SIZE} items
-              </button>
-            </div>
-          )}
+          {/* List Content */}
+          <div className="p-3 sm:p-4">
+            {filteredRows.length === 0 ? (
+              <p className="text-center text-xs text-zinc-500 py-6">
+                {search ? 'No results matching search' : 'No entries for this filter'}
+              </p>
+            ) : viewMode === 'cards' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {displayedGroups.map((group) => (
+                  <SyncManhwaCard key={group.manhwaId} group={group} onClose={onClose} />
+                ))}
+              </div>
+            ) : viewMode === 'grouped' ? (
+              <div className="space-y-2">
+                {displayedGroups.map((group) => (
+                  <RunGroupItem key={group.manhwaId} group={group} onClose={onClose} />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {displayedRows.map((row: SyncSourceRow, idx: number) => (
+                  <RunRowItem key={`${row.manhwaId}-${row.source}-${idx}`} row={row} onClose={onClose} />
+                ))}
+              </div>
+            )}
+
+            {/* Load More Button */}
+            {((viewMode === 'compact' && filteredRows.length > displayCount) ||
+              (viewMode !== 'compact' && groupedManhwas.length > displayCount)) && (
+              <div className="text-center pt-3">
+                <button
+                  onClick={() => setDisplayCount((prev) => prev + PAGE_SIZE)}
+                  className="px-4 py-1.5 rounded-lg text-xs font-medium bg-[#161719] hover:bg-white/5 border border-border/20 text-zinc-400 hover:text-white transition-all"
+                >
+                  Load More ({viewMode === 'compact' ? filteredRows.length - displayCount : groupedManhwas.length - displayCount} remaining)
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

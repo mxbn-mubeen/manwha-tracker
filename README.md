@@ -7,15 +7,17 @@ A modern full-stack Manhwa/Manga reading tracker with multi-user authentication,
 | | Feature |
 |--|---------|
 | 👥 | **Multi-user authentication** — powered by Neon Auth (Better Auth); personal reading lists & progress per user |
-| 📚 | **Unified catalog** — 250+ manhwa titles in one place with public browsing for guests |
+| 🔑 | **Self-service password management** — forgot password via automated transactional email + change password in Account settings |
+| 📚 | **Unified catalog** — 250+ manhwa titles in one place with public browsing for guests & auto-tracking when adding new titles |
 | 📖 | **Personal tracking & My List** — track series, customize reading status (Reading, Plan to Read, On Hold, Completed, Dropped) |
-| ⚡ | **Optimistic 1-click updates** — advance +1 chapter or mark caught up instantly from library cards or detail view |
+| ⚡ | **Optimistic 1-click updates** — advance or mark caught up instantly; direct reading links dynamically select the leading source |
+| 🔄 | **Smart Sync & Full Refresh** — trigger incremental background sync or force full rescans from a unified modal |
 | 🔔 | **Real-time chapter detection** — Telegram watcher detects new chapter posts as they're posted |
 | 🌐 | **Website sync** — scrapes AsuraScans, Reaper Scans, Webtoon, manhuaus, Arena Scans, Comix.to, Mgeko, Thunder Scans, and more |
 | 🛡️ | **Cloudflare bypass** — FlareSolverr → Playwright fallback chain; protected sites are retried automatically |
 | 🔍 | **Global search** — fuzzy search with tokenization and ranked scoring across all UI components |
 | 🔗 | **Sources page** — manage every website and Telegram source with inline URL editing, domain filter chips, and adapter badges |
-| 🎨 | **Dark UI** — sleek dark theme built with Tailwind v4 + shadcn/ui |
+| 🎨 | **Dark UI** — sleek dark theme built with Tailwind v4 + shadcn/ui with mobile-friendly horizontal scrollable controls |
 | 📊 | **Stats & Dashboard** — library insights, unread counts, status charts, cadence info, and Recent Activity |
 
 ## Tech Stack

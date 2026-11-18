@@ -2,11 +2,11 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { trpc } from '@/lib/trpc';
-import { Search, X, ArrowRight, CornerDownLeft } from 'lucide-react';
+import { Search, X, CornerDownLeft } from 'lucide-react';
 import { search } from '@manhwa-tracker/utils';
-import { getUnreadCount, formatUnreadCount } from '@/lib/utils';
-import { ManhwaCoverImage } from '@/features/sources/components/ManhwaCoverImage';
+import { getUnreadCount } from '@/lib/utils';
 import { SearchQuickNav, NAV_PAGES } from './components/SearchQuickNav';
+import { SearchResultsList } from './components/SearchResultsList';
 import { useSession } from '@/lib/auth-client';
 
 interface GlobalSearchProps {
@@ -55,219 +55,131 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
     });
   }, [all, query]);
 
-  // When query is empty:
-  // For logged-in users with tracked unread chapters: their continue reading items
-  // For guests / users with 0 tracked items: featured catalog items
   const suggestions = useMemo(() => {
     if (user) {
-      const userTracked = all.filter(m => {
+      const readingWithUnread = all.filter(m => {
         if (!m.progress?.isTracking) return false;
-        if (m.status === 'completed') return false;
-        return getUnreadCount(m.progress?.latestChapter, m.progress?.lastChapter) > 0;
+        const behind = getUnreadCount(m.progress?.latestChapter, m.progress?.lastChapter);
+        return behind > 0;
       });
-      if (userTracked.length > 0) {
-        return userTracked.slice(0, 4);
+      if (readingWithUnread.length > 0) {
+        return readingWithUnread.slice(0, 4);
       }
     }
     return all.slice(0, 4);
   }, [all, user]);
 
-  // Combined selectable list for arrow key navigation
-  const selectableItems = useMemo(() => {
-    if (query.trim()) {
-      return [
-        ...matchingPages.map(p => ({ type: 'page' as const, path: p.path })),
-        ...matchingManhwa.map(m => ({ type: 'manhwa' as const, id: m.id })),
-      ];
-    }
-    return [
-      ...availablePages.map(p => ({ type: 'page' as const, path: p.path })),
-      ...suggestions.map(m => ({ type: 'manhwa' as const, id: m.id })),
-    ];
-  }, [query, matchingPages, matchingManhwa, availablePages, suggestions]);
+  const totalResults = query.trim()
+    ? matchingPages.length + matchingManhwa.length
+    : suggestions.length + availablePages.length;
 
   useEffect(() => {
     setSelectedIndex(0);
   }, [query]);
 
-  // Focus input and lock body scroll when opened
   useEffect(() => {
     if (open) {
-      setQuery('');
-      setSelectedIndex(0);
       setTimeout(() => inputRef.current?.focus(), 50);
-      const originalOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = originalOverflow;
-      };
+    } else {
+      setQuery('');
     }
   }, [open]);
 
-  // Keyboard navigation
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => {
+
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose();
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelectedIndex(prev => Math.min(prev + 1, Math.max(0, selectableItems.length - 1)));
+        setSelectedIndex(prev => (prev + 1) % Math.max(1, totalResults));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setSelectedIndex(prev => Math.max(prev - 1, 0));
+        setSelectedIndex(prev => (prev - 1 + totalResults) % Math.max(1, totalResults));
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        const selected = selectableItems[selectedIndex];
-        if (selected) {
-          if (selected.type === 'page') navigate(selected.path);
-          else navigate(`/manhwa/${selected.id}`);
-          onClose();
+        if (query.trim()) {
+          const page = matchingPages[selectedIndex];
+          if (page) {
+            navigate(page.path);
+            onClose();
+          } else {
+            const m = matchingManhwa[selectedIndex - matchingPages.length];
+            if (m) {
+              navigate(`/manhwa/${m.id}`);
+              onClose();
+            }
+          }
+        } else {
+          const sugg = suggestions[selectedIndex];
+          if (sugg) {
+            navigate(`/manhwa/${sugg.id}`);
+            onClose();
+          } else {
+            const page = availablePages[selectedIndex - suggestions.length];
+            if (page) {
+              navigate(page.path);
+              onClose();
+            }
+          }
         }
       }
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [open, onClose, navigate, selectableItems, selectedIndex]);
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, totalResults, selectedIndex, query, matchingPages, matchingManhwa, suggestions, availablePages, navigate, onClose]);
 
   if (!open) return null;
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[150] flex items-start justify-center pt-[10vh] sm:pt-[14vh] px-4 animate-modal-backdrop"
-      onPointerDown={onClose}
+      className="fixed inset-0 z-[100] flex items-start justify-center pt-[10vh] px-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+      onClick={onClose}
     >
-      <div className="absolute inset-0 bg-black/75 backdrop-blur-md" />
-
-      {/* Modal Dialog */}
       <div
-        className="relative w-full max-w-2xl bg-[#111214] border border-border/30 rounded-2xl shadow-2xl overflow-hidden animate-modal-content flex flex-col max-h-[75vh]"
-        onPointerDown={e => e.stopPropagation()}
+        className="relative w-full max-w-xl rounded-2xl bg-[#0f1012] border border-border/40 shadow-2xl overflow-hidden animate-scale-up"
+        onClick={e => e.stopPropagation()}
       >
-        {/* Search Input Bar */}
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border/20 bg-[#161719]/50">
-          <Search className="h-4 w-4 text-amber-400 shrink-0" />
+        <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-amber-500/60 to-transparent" />
+
+        {/* Input Header */}
+        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border/20 bg-[#161719]/60">
+          <Search className="w-5 h-5 text-amber-400 shrink-0" />
           <input
             ref={inputRef}
+            type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search titles, genres, or jump to page..."
-            className="flex-1 bg-transparent text-white placeholder:text-zinc-500 text-sm outline-none"
+            placeholder="Search manhwa by title, genre, ID, or jump to page…"
+            className="flex-1 bg-transparent text-sm text-white placeholder:text-zinc-500 focus:outline-none"
           />
-          {query && (
+          {query ? (
             <button
               onClick={() => setQuery('')}
-              className="text-zinc-500 hover:text-white p-1 rounded transition-colors"
+              className="text-zinc-500 hover:text-white p-1 rounded-md hover:bg-white/5 transition-colors cursor-pointer"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="w-4 h-4" />
             </button>
+          ) : (
+            <kbd className="hidden sm:inline-block text-[10px] uppercase font-mono font-bold text-zinc-500 bg-white/5 border border-border/30 px-1.5 py-0.5 rounded">
+              ESC
+            </kbd>
           )}
-          <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] text-zinc-500 bg-white/5 border border-border/30 font-mono">
-            ESC
-          </kbd>
         </div>
 
-        {/* Results List */}
-        <div className="overflow-y-auto p-2 space-y-3 custom-scrollbar">
+        {/* Body Content */}
+        <div className="max-h-[60vh] overflow-y-auto p-3 space-y-4">
           {query.trim() ? (
-            <>
-              {/* Matching Navigation Pages */}
-              {matchingPages.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-2 py-1">
-                    Navigation
-                  </p>
-                  <div className="space-y-1">
-                    {matchingPages.map((p, idx) => {
-                      const isSelected = selectedIndex === idx;
-                      const Icon = p.icon;
-                      return (
-                        <button
-                          key={p.path}
-                          onClick={() => { navigate(p.path); onClose(); }}
-                          className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-all ${
-                            isSelected ? 'bg-amber-500/15 text-white border border-amber-500/30' : 'hover:bg-white/5 text-zinc-300'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-lg bg-white/5 flex items-center justify-center text-amber-400">
-                              <Icon className="h-4 w-4" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold text-white">{p.title}</p>
-                              <p className="text-xs text-zinc-500">{p.desc}</p>
-                            </div>
-                          </div>
-                          <ArrowRight className="h-3.5 w-3.5 text-zinc-500" />
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Matching Manhwas */}
-              {matchingManhwa.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-2 py-1">
-                    Manhwa Series ({matchingManhwa.length})
-                  </p>
-                  <ul className="space-y-1">
-                    {matchingManhwa.map((m, idx) => {
-                      const itemIdx = matchingPages.length + idx;
-                      const isSelected = selectedIndex === itemIdx;
-                      const isTracked = !!user && m.progress?.isTracking === true;
-                      const behind = isTracked ? getUnreadCount(m.progress?.latestChapter, m.progress?.lastChapter) : 0;
-
-                      return (
-                        <li key={m.id}>
-                          <button
-                            onClick={() => { navigate(`/manhwa/${m.id}`); onClose(); }}
-                            className={`w-full flex items-center gap-3 p-2.5 rounded-xl transition-all text-left ${
-                              isSelected ? 'bg-amber-500/15 border border-amber-500/30' : 'hover:bg-white/5 border border-transparent'
-                            }`}
-                          >
-                            <div className="h-11 w-8 rounded overflow-hidden bg-zinc-900 border border-border/30 shrink-0">
-                              <ManhwaCoverImage src={m.coverUrl} alt={m.title} />
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-sm font-semibold truncate ${isSelected ? 'text-amber-300' : 'text-white'}`}>
-                                {m.title}
-                              </p>
-                              {isTracked ? (
-                                <p className="text-xs text-zinc-400 mt-0.5">
-                                  Ch. {m.progress?.lastChapter ?? 0} / {m.progress?.latestChapter ?? '?'}
-                                  {behind > 0 && (
-                                    <span className="ml-2 text-amber-400 font-medium">+{formatUnreadCount(behind)} unread</span>
-                                  )}
-                                </p>
-                              ) : (
-                                <p className="text-xs text-zinc-400 mt-0.5">
-                                  Latest: Ch. {m.progress?.latestChapter ?? '?'}
-                                </p>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <span className="text-[10px] px-2 py-0.5 rounded-full border border-border/30 text-zinc-400 bg-white/5 font-mono">
-                                #{m.id}
-                              </span>
-                            </div>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              )}
-
-              {matchingPages.length === 0 && matchingManhwa.length === 0 && (
-                <div className="py-12 text-center text-zinc-500 text-sm">
-                  No manhwa or pages matching <span className="text-white">"{query}"</span>
-                </div>
-              )}
-            </>
+            <SearchResultsList
+              query={query}
+              matchingPages={matchingPages}
+              matchingManhwa={matchingManhwa}
+              selectedIndex={selectedIndex}
+              user={user}
+              onClose={onClose}
+            />
           ) : (
             <SearchQuickNav
               selectedIndex={selectedIndex}

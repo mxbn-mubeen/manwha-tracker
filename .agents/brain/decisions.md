@@ -300,3 +300,28 @@ Append-only log. Never delete entries.
   - libs/database/src/schema/auth.ts (Better Auth Drizzle schema)
   - .env & .env.example (added VITE_NEON_AUTH_URL and NEON_AUTH_URL)
 - Date: 2026-11-16
+
+---
+
+- Decision: Use `/request-password-reset` and dedicated `/reset-password` route for Neon Managed Better Auth.
+- Reason: Neon Auth provides automated transactional password reset emails when "Sign-in with Email" is enabled. Better Auth's actual endpoint is `/request-password-reset` and callbacks return a token that must be submitted to `/reset-password`.
+- Alternatives considered: External Resend API integration (requires additional paid/setup service, whereas Neon Auth manages email delivery natively).
+- Affected modules:
+  - apps/web/src/lib/auth-client.ts (wrapped requestPasswordReset and resetPassword client functions)
+  - apps/web/src/features/auth/AuthModal.tsx and components/ForgotPasswordForm.tsx (Forgot Password email request view)
+  - apps/web/src/features/auth/ResetPasswordPage.tsx (dedicated new password submission page)
+  - apps/web/src/App.tsx (registered `/reset-password` route)
+- Date: 2026-11-18
+
+---
+
+- Decision: Add Account tab in Settings and decompose large components under ~230 lines.
+- Reason: Authenticated users need self-service profile and password updating; large monolithic files violated the ~230 line guideline and caused maintenance drag.
+- Alternatives considered: Separate dedicated account page (unnecessary extra navigation route; Settings tab groups admin and account settings neatly with horizontal mobile scroll).
+- Affected modules:
+  - apps/web/src/features/settings/Settings.tsx (added Account tab and horizontal scrollable mobile navigation)
+  - apps/web/src/features/settings/components/AccountSection.tsx (profile display and change-password form)
+  - apps/web/src/features/auth/AuthModal.tsx (decomposed into SignInForm and ForgotPasswordForm)
+  - apps/web/src/features/stats/StatsPage.tsx (extracted StatusBreakdownCard)
+  - apps/web/src/features/search/GlobalSearch.tsx (extracted SearchResultsList)
+- Date: 2026-11-18
