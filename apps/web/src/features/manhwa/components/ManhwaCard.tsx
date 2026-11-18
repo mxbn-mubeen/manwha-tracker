@@ -33,8 +33,11 @@ export function ManhwaCard({ manhwa }: { manhwa: Manhwa }) {
     )
   );
 
+  // Always pick the leading website source (highest synced chapter count)
   const readingSource =
-    manhwa.sources?.find((s: { type?: string | null; url?: string | null }) => s.type === 'website' && s.url) ??
+    manhwa.sources
+      ?.filter((s: { type?: string | null; url?: string | null }) => s.type === 'website' && s.url)
+      ?.sort((a: any, b: any) => (b.lastSyncedChapter ?? 0) - (a.lastSyncedChapter ?? 0))[0] ??
     manhwa.sources?.find((s: { url?: string | null }) => s.url) ??
     null;
 
@@ -150,19 +153,19 @@ export function ManhwaCard({ manhwa }: { manhwa: Manhwa }) {
         </div>
       )}
 
-      {/* Quick Action Overlay for tracking users */}
+      {/* Quick Action Overlay for tracking users (Option 2: Compact Read + All with comfortable spacing above title) */}
       {user && isTracking && unread > 0 && (
-        <div className="absolute inset-x-2 bottom-15 z-20 flex items-center justify-center gap-1.5 opacity-90 sm:opacity-0 sm:group-hover/card:opacity-100 transition-all duration-200 pointer-events-auto">
+        <div className="absolute inset-x-2 bottom-18 sm:bottom-18 z-20 flex items-center justify-center gap-2 opacity-90 sm:opacity-0 sm:group-hover/card:opacity-100 transition-all duration-200 pointer-events-auto">
           {readingSource?.url && (
             <a
               href={readingSource.url}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="h-7 px-2 rounded-lg bg-black/80 hover:bg-black text-[11px] font-semibold text-zinc-200 hover:text-white border border-white/20 backdrop-blur-md flex items-center gap-1 transition-transform hover:scale-105 active:scale-95 shadow-md"
+              className="h-6 px-2.5 rounded-lg bg-black/85 hover:bg-black text-[10px] font-bold text-zinc-100 hover:text-white border border-white/20 backdrop-blur-md flex items-center gap-1.5 transition-transform hover:scale-105 active:scale-95 shadow-md"
               title="Open source to read"
             >
-              <ExternalLink className="w-3 h-3 text-amber-400" />
+              <ExternalLink className="w-2.5 h-2.5 text-amber-400" />
               <span>Read</span>
             </a>
           )}
@@ -172,26 +175,12 @@ export function ManhwaCard({ manhwa }: { manhwa: Manhwa }) {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              handleAdvance(currentChapter + 1);
-            }}
-            className="h-7 px-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 text-[11px] font-bold border border-amber-400/50 backdrop-blur-md flex items-center gap-1 transition-transform hover:scale-105 active:scale-95 shadow-md cursor-pointer"
-            title={`Mark Ch. ${currentChapter + 1} read (+1)`}
-          >
-            <Plus className="w-3 h-3 stroke-[3]" />
-            <span>1</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
               handleAdvance(latestChapter);
             }}
-            className="h-7 px-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-[11px] font-bold border border-emerald-400/50 backdrop-blur-md flex items-center gap-1 transition-transform hover:scale-105 active:scale-95 shadow-md cursor-pointer"
+            className="h-6 px-2.5 rounded-lg bg-emerald-500/90 hover:bg-emerald-400 text-zinc-950 text-[10px] font-extrabold border border-emerald-400/40 backdrop-blur-md flex items-center gap-1 transition-transform hover:scale-105 active:scale-95 shadow-md cursor-pointer"
             title={`Mark all unread caught up (Ch. ${latestChapter})`}
           >
-            <Check className="w-3 h-3 stroke-[3]" />
+            <Check className="w-2.5 h-2.5 stroke-[3]" />
             <span>All</span>
           </button>
         </div>

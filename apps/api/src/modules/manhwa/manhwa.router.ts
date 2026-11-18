@@ -31,9 +31,9 @@ export const manhwaRouter = createTRPCRouter({
       lastChapter: z.number().optional(),
       latestChapter: z.number().optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
-        return await service.create(input);
+        return await service.create({ ...input, userId: ctx.userId });
       } catch (err) {
         throw toSafeError(err, 'manhwa.create');
       }

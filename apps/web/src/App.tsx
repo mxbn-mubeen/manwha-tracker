@@ -9,6 +9,7 @@ import { ManhwaDetailPage } from './features/manhwa-detail/ManhwaDetail';
 import { StatsPage } from './features/stats/StatsPage';
 import { SettingsPage } from './features/settings/Settings';
 import { SourcesPage } from './features/sources/SourcesPage';
+import { ResetPasswordPage } from './features/auth/ResetPasswordPage';
 
 export function App() {
   return (
@@ -52,6 +53,7 @@ export function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </AppShell>

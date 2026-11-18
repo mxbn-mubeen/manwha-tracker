@@ -4,31 +4,18 @@ import { LogIn, LogOut, ShieldCheck, BarChart3, Globe, Settings, Plus, RefreshCw
 import { useSession, signOut } from '@/lib/auth-client';
 import { toast } from 'sonner';
 import { AuthModal } from '@/features/auth/AuthModal';
+import { SyncChoiceModal } from '@/features/sync/components/SyncChoiceModal';
 import { trpc } from '@/lib/trpc';
 
 export function UserMenu({ onOpenHistory }: { onOpenHistory?: () => void }) {
   const { data: session } = useSession();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const utils = trpc.useUtils();
 
   const { data: isSyncing = false } = trpc.sync.isSyncing.useQuery(undefined, {
     refetchInterval: (query) => (query.state.data ? 2000 : 30000),
-  });
-
-  const syncMutation = trpc.sync.run.useMutation({
-    onSuccess: async (result) => {
-      await utils.manhwa.getAll.invalidate();
-      if (!result || (result as any).startedAsync) {
-        toast.info('🔄 Sync started in background.');
-      } else {
-        toast.success(`Sync finished: ${result.scannedSources} sources, ${result.newChapters} new chapters`);
-      }
-    },
-    onError: (err) => {
-      toast.error(`Sync failed: ${err.message}`);
-    },
   });
 
   // Close dropdown on outside click
@@ -151,18 +138,18 @@ export function UserMenu({ onOpenHistory }: { onOpenHistory?: () => void }) {
                   <span>Add Manhwa</span>
                 </Link>
 
+                {/* Single clean Sync action that opens the Choice Modal */}
                 <button
                   type="button"
                   onClick={() => {
                     setDropdownOpen(false);
-                    syncMutation.mutate({ scope: 'all', forceFullRefresh: false });
+                    setSyncModalOpen(true);
                   }}
-                  disabled={syncMutation.isPending || isSyncing}
                   className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
-                    <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${syncMutation.isPending || isSyncing ? 'animate-spin' : ''}`} />
-                    <span>Sync All Sources</span>
+                    <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${isSyncing ? 'animate-spin' : ''}`} />
+                    <span>Sync Sources...</span>
                   </div>
                   {isSyncing && (
                     <span className="text-[10px] text-amber-400 font-mono">Syncing...</span>
@@ -196,6 +183,13 @@ export function UserMenu({ onOpenHistory }: { onOpenHistory?: () => void }) {
           </button>
         </div>
       )}
+
+      {/* Sync Choice Modal */}
+      <SyncChoiceModal
+        open={syncModalOpen}
+        onClose={() => setSyncModalOpen(false)}
+        onOpenHistory={onOpenHistory}
+      />
     </div>
   );
 }

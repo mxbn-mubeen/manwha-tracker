@@ -46,6 +46,7 @@ export class ManhwaReadRepository {
         // first source url for display in library cards
         sourceUrl: sources.url,
         sourceType: sources.type,
+        sourceLastSyncedChapter: sources.lastSyncedChapter,
       })
       .from(manhwa)
       .leftJoin(progress, progressCondition)
@@ -89,7 +90,19 @@ export class ManhwaReadRepository {
       }
       const entry = grouped.get(r.id);
       if (r.sourceUrl && !entry.sources.some((s: any) => s.url === r.sourceUrl)) {
-        entry.sources.push({ url: r.sourceUrl, type: r.sourceType });
+        entry.sources.push({
+          url: r.sourceUrl,
+          type: r.sourceType,
+          lastSyncedChapter: Number(r.sourceLastSyncedChapter) || 0,
+        });
+
+        // Always prioritize website sources, then sort by highest chapter (leading source first)
+        entry.sources.sort((a: any, b: any) => {
+          const aWeb = a.type === 'website' ? 1 : 0;
+          const bWeb = b.type === 'website' ? 1 : 0;
+          if (aWeb !== bWeb) return bWeb - aWeb;
+          return (b.lastSyncedChapter ?? 0) - (a.lastSyncedChapter ?? 0);
+        });
       }
     }
 

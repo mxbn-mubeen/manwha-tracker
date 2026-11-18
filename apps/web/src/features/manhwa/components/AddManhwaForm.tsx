@@ -29,6 +29,8 @@ export function AddManhwaForm() {
     },
   });
 
+  const startTrackingMutation = trpc.manhwa.startTracking.useMutation();
+
   const addMutation = trpc.manhwa.create.useMutation({
     onSuccess: async (result) => {
       // Attach source if one was provided
@@ -39,7 +41,10 @@ export function AddManhwaForm() {
           type: sourceType,
         });
       }
-      toast.success('Manhwa added successfully');
+      // Ensure directly added to user's reading list
+      await startTrackingMutation.mutateAsync({ manhwaId: result.id }).catch(() => null);
+
+      toast.success(`${title} added directly to your reading list!`);
       utils.manhwa.getAll.invalidate();
       navigate('/library');
     },

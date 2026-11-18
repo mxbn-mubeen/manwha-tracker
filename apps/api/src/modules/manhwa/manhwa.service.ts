@@ -44,6 +44,7 @@ export class ManhwaService {
     status?: string;
     lastChapter?: number;
     latestChapter?: number;
+    userId?: string;
   }) {
     let coverUrl = data.coverUrl;
     if (!coverUrl) {

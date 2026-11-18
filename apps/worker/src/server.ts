@@ -22,7 +22,7 @@ process.on('uncaughtException', (err) => {
 });
 
 const app = express();
-const PORT = process.env.PORT || 3002;
+const PORT = Number(process.env.PORT) || 3002;
 const syncService = new SyncService();
 
 app.use(cors({
@@ -141,42 +141,46 @@ function parseEnvFlag(name: string, defaultValue: boolean) {
   return !['0', 'false', 'no'].includes(raw.trim().toLowerCase());
 }
 
-const server = app.listen(PORT, async () => {
-  console.log(`🚀 Worker running on http://localhost:${PORT}`);
+const server = app.listen(PORT, '0.0.0.0', async () => {
+  console.log(`🚀 Worker running on http://0.0.0.0:${PORT}`);
 
-  const { SettingsRepository } = await import('@manhwa-tracker/database');
-  const repo = new SettingsRepository();
-  
-  const watcherSetting = await repo.get('START_TELEGRAM_WATCHER');
-  const botSetting = await repo.get('START_TELEGRAM_BOT');
+  try {
+    const { SettingsRepository } = await import('@manhwa-tracker/database');
+    const repo = new SettingsRepository();
+    
+    const watcherSetting = await repo.get('START_TELEGRAM_WATCHER').catch(() => null);
+    const botSetting = await repo.get('START_TELEGRAM_BOT').catch(() => null);
 
-  const enableTelegramWatcher = Boolean(process.env.TELEGRAM_API_ID) && (watcherSetting !== 'false');
-  const enableTelegramBot = Boolean(process.env.TELEGRAM_BOT_TOKEN) && (botSetting !== 'false');
+    const enableTelegramWatcher = Boolean(process.env.TELEGRAM_API_ID) && (watcherSetting !== 'false');
+    const enableTelegramBot = Boolean(process.env.TELEGRAM_BOT_TOKEN) && (botSetting !== 'false');
 
-  if (enableTelegramWatcher) {
-    console.log('🔄 Starting Telegram watcher...');
-    startWatcher().catch((err) => {
-      console.error('❌ Failed to start Telegram watcher:', err);
-    });
-  } else {
-    if (!process.env.TELEGRAM_API_ID) {
-      console.log('⚠️ Skipping Telegram watcher (TELEGRAM_API_ID not set)');
+    if (enableTelegramWatcher) {
+      console.log('🔄 Starting Telegram watcher...');
+      startWatcher().catch((err) => {
+        console.error('❌ Failed to start Telegram watcher:', err);
+      });
     } else {
-      console.log('⚠️ Skipping Telegram watcher (Disabled in settings)');
+      if (!process.env.TELEGRAM_API_ID) {
+        console.log('⚠️ Skipping Telegram watcher (TELEGRAM_API_ID not set)');
+      } else {
+        console.log('⚠️ Skipping Telegram watcher (Disabled in settings)');
+      }
     }
-  }
 
-  if (enableTelegramBot) {
-    console.log('🤖 Starting Telegram bot...');
-    startBot().catch((err) => {
-      console.error('❌ Failed to start Telegram bot:', err);
-    });
-  } else {
-    if (!process.env.TELEGRAM_BOT_TOKEN) {
-      console.log('⚠️ Skipping Telegram bot (TELEGRAM_BOT_TOKEN not set)');
+    if (enableTelegramBot) {
+      console.log('🤖 Starting Telegram bot...');
+      startBot().catch((err) => {
+        console.error('❌ Failed to start Telegram bot:', err);
+      });
     } else {
-      console.log('⚠️ Skipping Telegram bot (Disabled in settings)');
+      if (!process.env.TELEGRAM_BOT_TOKEN) {
+        console.log('⚠️ Skipping Telegram bot (TELEGRAM_BOT_TOKEN not set)');
+      } else {
+        console.log('⚠️ Skipping Telegram bot (Disabled in settings)');
+      }
     }
+  } catch (err) {
+    console.error('⚠️ Worker background service init warning:', err);
   }
 
   // ── 30-day soft-delete purge ────────────────────────────────────────────────

@@ -4,6 +4,14 @@ Append-only log. Never delete entries.
 
 ---
 
+- Problem: Calling `forgetPassword` or `changePassword` resulted in 404/400 errors or requests to `/forget-password/bind` and `/change-password/bind`.
+- Cause: (1) In Better Auth, the client object is a recursive RPC Proxy; accessing `.bind(authClient)` creates a sub-route dispatched to `/bind`. (2) The endpoint for password reset requests in Better Auth is `/request-password-reset` (`authClient.requestPasswordReset`), NOT `/forget-password`.
+- Fix: Wrapped `requestPasswordReset`, `resetPassword`, and `changePassword` in standard async functions delegating directly to `authClient.requestPasswordReset`, `authClient.resetPassword`, and `authClient.changePassword` without accessing `.bind()`.
+- Status: Resolved
+- Date: 2026-11-18
+
+---
+
 - Problem: Clicking "Start Tracking" or "+ Track" showed a success toast ("Added to your reading list!"), but the UI did not update (still showed "Not in Reading List"), and "My List" remained empty. Also, Better Auth user IDs (text nanoids) conflicted with `userId: uuid` in Drizzle schema, and PostgreSQL table still had single-user constraint `UNIQUE(manhwa_id)`.
 - Cause: (1) The database `progress` table had legacy constraint `UNIQUE(manhwa_id)`, silently discarding inserts from new users when that manhwa already had a row from the admin. (2) `startTracking` called `onConflictDoNothing()` without specifying the `[userId, manhwaId]` conflict target. (3) Drizzle schema had `userId: uuid('user_id')`, which is incompatible with Better Auth's text IDs. (4) UI lacked optimistic updates on tracking mutations, leaving the view dependent on asynchronous refetches that returned false.
 - Fix: (1) Changed `userId` to `text('user_id')` in `schema/index.ts`. (2) Updated `startTracking` in `progress.repository.ts` to use `onConflictDoUpdate({ target: [progress.userId, progress.manhwaId] })`. (3) Added optimistic UI updates to `startTrackingMutation` and `stopTrackingMutation` in both `ManhwaDetail.tsx` and `ManhwaCard.tsx`. (4) Provided migration SQL to drop `progress_manhwa_id_unique` and add `UNIQUE(user_id, manhwa_id)`.

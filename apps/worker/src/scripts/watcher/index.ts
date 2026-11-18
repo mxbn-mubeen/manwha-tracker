@@ -26,16 +26,6 @@ import { reconcileAll } from "./reconcile";
 import { setupWatcherIntervals } from "./intervals";
 import { setupEventHandlers } from "./event-setup";
 
-const API_ID = Number(process.env.TELEGRAM_API_ID);
-const API_HASH = process.env.TELEGRAM_API_HASH ?? "";
-
-if (!API_ID || !API_HASH) {
-  console.error(
-    "[watcher] Missing TELEGRAM_API_ID / TELEGRAM_API_HASH in env. Aborting.",
-  );
-  process.exit(1);
-}
-
 const settingsRepo = new SettingsRepository();
 
 // Constants for restart backoffs
@@ -54,6 +44,13 @@ const NO_SESSION_POLL_INTERVAL_MS = 60 * 1000;
 let currentGeneration = 0;
 
 async function runWatcherGeneration(attempt = 0): Promise<void> {
+  const API_ID = Number(process.env.TELEGRAM_API_ID);
+  const API_HASH = process.env.TELEGRAM_API_HASH ?? "";
+  if (!API_ID || !API_HASH) {
+    console.log("[watcher] Missing TELEGRAM_API_ID / TELEGRAM_API_HASH in env. Watcher disabled.");
+    return;
+  }
+
   const generation = ++currentGeneration;
   const isCurrent = () => generation === currentGeneration;
 

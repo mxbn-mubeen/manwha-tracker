@@ -11,6 +11,7 @@ export class ManhwaCreationRepository {
     status?: string;
     lastChapter?: number;
     latestChapter?: number;
+    userId?: string;
   }) {
     let baseSlug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     let slug = baseSlug;
@@ -37,13 +38,24 @@ export class ManhwaCreationRepository {
 
     if (!newManhwa) throw new Error('Failed to create manhwa');
 
-    // Always insert a progress row
+    // Insert progress row scoped to the creator so it's directly in their reading list
+    const progressValues: any = {
+      manhwaId: newManhwa.id,
+      status: 'reading',
+      lastReadChapterNum: data.lastChapter ?? 0,
+    };
+    if (data.userId) {
+      progressValues.userId = data.userId;
+    }
     await db.insert(progress)
-      .values({ manhwaId: newManhwa.id })
+      .values(progressValues)
       .onConflictDoNothing();
 
     // Fetch it to ensure we have a row to update later
-    const [progressRow] = await db.select().from(progress).where(eq(progress.manhwaId, newManhwa.id)).limit(1);
+    const progressCondition = data.userId
+      ? and(eq(progress.manhwaId, newManhwa.id), eq(progress.userId, data.userId as any))
+      : eq(progress.manhwaId, newManhwa.id);
+    const [progressRow] = await db.select().from(progress).where(progressCondition).limit(1);
 
     // Create chapter record for latestChapter if provided
     if (data.latestChapter && data.latestChapter > 0) {
