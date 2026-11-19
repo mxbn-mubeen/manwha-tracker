@@ -144,6 +144,11 @@ export class SyncRepository {
     }).where(eq(sources.id, sourceId));
   }
 
+  /** Heal a stale URL (e.g. AsuraScans hash rotation) by writing the new canonical URL. */
+  async updateSourceUrl(sourceId: number, newUrl: string) {
+    await db.update(sources).set({ url: newUrl }).where(eq(sources.id, sourceId));
+  }
+
   async insertSyncRun(data: Omit<InsertSyncRunRow, 'id' | 'runAt'>) {
     await db.insert(syncRuns).values(data);
   }

@@ -726,3 +726,11 @@ ebuild to retry in the background without crashing the server.
   4. Verified all packages (`@manhwa-tracker/database`, `api`, `web`) compile and build cleanly with 0 errors.
 - Status: Resolved
 - Date: 2026-11-17
+
+---
+
+- Problem: AsuraScans adapter falsely detected locked (Early Access) chapters as free, and DB stored stale URL hashes that were never auto-healed.
+- Cause: (1) AsuraScans rotates 8-hex-char hash suffixes in series URLs (e.g. `-f886a8af`). When the DB holds a stale hash, FlareSolverr fetches the URL and follows Asura's redirect to the catalog homepage (`/comics`). The homepage shows bare chapter cards with no "Early Access" badges, so `isChapterLocked` could never fire — locked chapters appeared free. (2) `fetchRenderedHtml` discarded FlareSolverr's `solution.url` (the final redirected URL), so the canonical current URL was never captured. (3) `MAX_ROW_CLIMB = 3` limited DOM climbing, risking missing lock badges nested deeper than 3 levels.
+- Fix: (1) Added `normalizeAsuraUrl()` in `asurascans.ts` that strips the hash suffix (and rewrites legacy `asuracomic.net/series/` → `asurascans.com/comics/`) before fetching — Asura then redirects to the canonical page. (2) Added `fetchRenderedHtmlWithUrl()` in `browser.ts` returning `{ html, finalUrl }` from FlareSolverr `solution.url` / Playwright `page.url()`. (3) `chapterList` now calls `fetchRenderedHtmlWithUrl` and throws if `finalUrl` matches the catalog homepage pattern — refusing to parse catalog cards. (4) Canonical URL is attached to the returned chapters array via `ASURA_CANONICAL_URL` symbol; `sync.source-processor.ts` reads it and calls `repo.updateSourceUrl()` to heal the stale DB row. (5) `MAX_ROW_CLIMB` raised from 3 to 6. (6) Extended `FlareSolverrResult` type in `http.ts` to carry `finalUrl`.
+- Status: Resolved
+- Date: 2026-11-19

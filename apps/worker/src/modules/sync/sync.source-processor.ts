@@ -1,6 +1,6 @@
 import { SyncRepository } from "@manhwa-tracker/database";
 import type { SyncResult, SyncSourceRow } from "@manhwa-tracker/shared";
-import { getAdapter } from "@manhwa-tracker/parser";
+import { getAdapter, ASURA_CANONICAL_URL } from "@manhwa-tracker/parser";
 import { type SourceOutcome, humanizeSourceName, describeSourceError, formatDuration } from "./sync.utils";
 
 export async function processSingleSource(
@@ -99,6 +99,18 @@ export async function processSingleSource(
         }
 
         await repo.updateSourceSyncStatus(source.sourceId, maxChapter);
+
+        // Heal stale AsuraScans URL hashes: if the adapter resolved a different
+        // canonical URL (via FlareSolverr solution.url / page.url()), write the
+        // new URL back to the sources table so future syncs use it directly.
+        const canonicalUrl = (chapters as any)[ASURA_CANONICAL_URL] as string | undefined;
+        if (canonicalUrl && canonicalUrl !== source.url && canonicalUrl.startsWith("https://asurascans.com/comics/")) {
+          await repo.updateSourceUrl(source.sourceId, canonicalUrl);
+          console.log(
+            `[sync] 🔄 Healed stale Asura URL for source ${source.sourceId}\n` +
+            `Old URL\n${source.url}\nNew URL\n${canonicalUrl}\n✅ DB updated`
+          );
+        }
 
         outcome = {
           manhwaId: source.manhwaId,

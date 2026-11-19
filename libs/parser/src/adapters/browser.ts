@@ -146,6 +146,67 @@ export async function fetchRenderedHtml(
   }
 }
 
+/**
+ * Like fetchRenderedHtml but also returns the final URL after any redirects.
+ * FlareSolverr exposes `solution.url` (the page Chromium landed on after following
+ * all redirects); Playwright uses `page.url()`. Used by AsuraScans to detect when
+ * a stale hash in the DB caused a redirect to the catalog homepage, and to capture
+ * the new canonical URL so it can be written back to the sources table.
+ */
+export async function fetchRenderedHtmlWithUrl(
+  url: string,
+  opts: { waitForSelector?: string; timeoutMs?: number; skipFlareSolverr?: boolean; clickSelector?: string } = {},
+): Promise<{ html: string; finalUrl: string }> {
+  if (!opts.skipFlareSolverr) {
+    const fsResult = await solveViaFlareSolverr(url);
+    if (fsResult.html) {
+      return { html: fsResult.html, finalUrl: fsResult.finalUrl ?? url };
+    }
+    if ((fsResult as any).reason === 'transient') {
+      throw new Error(`FlareSolverr temporarily unavailable (server overloaded) for ${url}`);
+    }
+  }
+
+  // Playwright fallback: expose the final URL via page.url() after navigation.
+  const browser = await getBrowser();
+  const page = await browser.newPage({
+    userAgent:
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  });
+
+  try {
+    await page.goto(url, {
+      waitUntil: "networkidle",
+      timeout: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    }).catch((err) => {
+      console.warn(`[browser] Playwright navigation error for ${url}: ${err.message}`);
+    });
+
+    const htmlAfterNav = await page.content();
+    if (looksLikeCloudflareChallenge(htmlAfterNav)) {
+      throw new CloudflareBlockedError(url, "unsolved");
+    }
+
+    if (opts.waitForSelector) {
+      await page
+        .waitForSelector(opts.waitForSelector, { timeout: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS })
+        .catch(() => {});
+    }
+
+    if (opts.clickSelector) {
+      await page
+        .locator(opts.clickSelector)
+        .click({ timeout: 5000 })
+        .catch(() => {});
+      await page.waitForTimeout(800);
+    }
+
+    return { html: await page.content(), finalUrl: page.url() };
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
 /** Call on graceful shutdown so the sync/cron process doesn't hang on an open browser handle. */
 export async function closeBrowser(): Promise<void> {
   // If a launch is in progress, wait for it to finish (or fail) so we can

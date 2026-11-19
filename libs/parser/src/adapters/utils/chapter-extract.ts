@@ -79,7 +79,7 @@ export interface ExtractChaptersOptions {
   disableSlugScope?: boolean;
 }
 
-const MAX_ROW_CLIMB = 3;
+const MAX_ROW_CLIMB = 6;
 
 /**
  * Climb from a chapter link to the smallest wrapper that represents that chapter's

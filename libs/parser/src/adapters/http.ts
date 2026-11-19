@@ -52,7 +52,9 @@ export class CloudflareBlockedError extends Error {
   }
 }
 
-type FlareSolverrResult = { html: string; reason?: undefined } | { html: null; reason: "not-configured" | "unsolved" | "transient" };
+type FlareSolverrResult =
+  | { html: string; finalUrl: string; reason?: undefined }
+  | { html: null; reason: "not-configured" | "unsolved" | "transient"; finalUrl?: undefined };
 
 /**
  * Ask a running FlareSolverr instance (https://github.com/FlareSolverr/FlareSolverr)
@@ -112,7 +114,7 @@ export async function solveViaFlareSolverr(url: string): Promise<FlareSolverrRes
       return { html: null, reason: "unsolved" };
     }
 
-    return { html: data.solution.response as string };
+    return { html: data.solution.response as string, finalUrl: data.solution.url as string };
   } catch (err) {
     console.warn(`[http] FlareSolverr request failed for ${url}:`, err instanceof Error ? err.message : err);
     return { html: null, reason: "unsolved" };
