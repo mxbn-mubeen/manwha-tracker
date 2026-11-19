@@ -4,6 +4,14 @@ Append-only log. Never delete entries.
 
 ---
 
+- Problem: Sync history could not be scrolled down on both desktop (inside expanded RunCard) and mobile (inside SyncHistoryDrawer). The cards stopped and were truncated through row 3.
+- Cause: (1) In `index.css`, `@utility animate-panel-expand` defined `@keyframes panel-expand { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 1200px; } }` with `animation-fill-mode: both` and `overflow: hidden`, hard-capping any expanded run at 1200px and hiding all subsequent cards/sources. (2) In `SyncHistoryDrawer.tsx`, the scroll container was missing `min-h-0` in flex column, lacked `overscroll-contain touch-pan-y`, and had `[&::-webkit-scrollbar]:hidden` with `scrollbarWidth: none`.
+- Fix: (1) Replaced `max-height: 1200px` and `overflow: hidden` in `animate-panel-expand` with a clean transform/opacity animation (`translateY(-4px)` to `translateY(0)`). (2) Added `min-h-0`, `overscroll-contain`, `touch-pan-y`, and `custom-scrollbar` to `SyncHistoryDrawer.tsx`, and added `h-[100dvh] max-h-[100dvh] overflow-hidden` to `SheetContent`.
+- Status: Resolved
+- Date: 2026-11-19
+
+---
+
 - Problem: Calling `forgetPassword` or `changePassword` resulted in 404/400 errors or requests to `/forget-password/bind` and `/change-password/bind`.
 - Cause: (1) In Better Auth, the client object is a recursive RPC Proxy; accessing `.bind(authClient)` creates a sub-route dispatched to `/bind`. (2) The endpoint for password reset requests in Better Auth is `/request-password-reset` (`authClient.requestPasswordReset`), NOT `/forget-password`.
 - Fix: Wrapped `requestPasswordReset`, `resetPassword`, and `changePassword` in standard async functions delegating directly to `authClient.requestPasswordReset`, `authClient.resetPassword`, and `authClient.changePassword` without accessing `.bind()`.
