@@ -56,6 +56,10 @@ export function UnreadManhwaStrip({ currentManhwaId }: UnreadManhwaStripProps) {
   const unread = all
     .filter((m) => {
       if (m.id === currentManhwaId) return false;
+      // Only include manhwas the signed-in user is personally tracking
+      if (!m.progress?.isTracking) return false;
+      // Exclude titles the user has finished or dropped
+      if (m.progress?.status === 'completed' || m.progress?.status === 'dropped') return false;
       return getUnreadCount(m.progress?.latestChapter, m.progress?.lastChapter) > 0;
     })
     .sort((a, b) => {
@@ -121,7 +125,7 @@ export function UnreadManhwaStrip({ currentManhwaId }: UnreadManhwaStripProps) {
           </div>
 
           <Link
-            to="/library?filter=Reading"
+            to="/library?filter=Unread"
             className="hidden sm:flex items-center gap-1 text-xs font-semibold text-zinc-400 hover:text-amber-400 transition-colors px-2.5 py-1.5 rounded-lg bg-[#161719] border border-border/20 hover:border-amber-500/30"
           >
             <span>View All</span>

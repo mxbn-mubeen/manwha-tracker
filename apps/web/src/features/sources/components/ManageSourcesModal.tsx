@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ManhwaCoverImage } from './ManhwaCoverImage';
 import { SourceDetailRow } from './SourceDetailRow';
-import { AddSourceForm } from '@/features/manhwa-detail/components/AddSourceForm';
+import { AddSourceForm } from '@/features/manhwa-detail/components';
 import type { ManhwaGroup } from './ManhwaSourcesView';
 
 interface ManageSourcesModalProps {

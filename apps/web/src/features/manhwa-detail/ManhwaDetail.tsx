@@ -4,12 +4,14 @@ import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
-import { ManhwaPoster } from '@/features/manhwa-detail/components/ManhwaPoster';
-import { ManhwaHeader } from '@/features/manhwa-detail/components/ManhwaHeader';
-import { ProgressCard } from '@/features/manhwa-detail/components/ProgressCard';
-import { SourcesList } from '@/features/manhwa-detail/components/SourcesList';
-import { EditManhwaModal } from '@/features/manhwa-detail/components/EditManhwaModal';
-import { UnreadManhwaStrip } from '@/features/manhwa-detail/components/UnreadManhwaStrip';
+import {
+  ManhwaPoster,
+  ManhwaHeader,
+  ProgressCard,
+  SourcesList,
+  EditManhwaModal,
+  UnreadManhwaStrip,
+} from './components';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { useSession } from '@/lib/auth-client';
 import { AuthModal } from '@/features/auth/AuthModal';
@@ -256,7 +258,7 @@ export function ManhwaDetailPage() {
                 status={manhwa.status}
                 userStatus={manhwa.progress?.status || 'reading'}
                 onProgressChange={handleProgressChange}
-                onStatusChange={(newStatus) =>
+                onStatusChange={(newStatus: 'reading' | 'completed' | 'on_hold' | 'dropped' | 'plan_to_read') =>
                   updateStatusMutation.mutate({ manhwaId: numericId, status: newStatus })
                 }
                 onStopTracking={() => stopTrackingMutation.mutate({ manhwaId: numericId })}

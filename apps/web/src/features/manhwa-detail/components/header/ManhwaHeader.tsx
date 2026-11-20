@@ -87,7 +87,7 @@ export function ManhwaHeader({
           className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border transition-all ${
             isAdmin ? 'btn-press cursor-pointer' : 'cursor-default'
           } ${STATUS_BADGE_CLASS[currentStatus] ?? 'border-border/30 text-zinc-300 bg-[#161719]'}`}
-          title={isAdmin ? 'Click to change status' : currentStatus}
+          title={isAdmin ? 'Click to change series publication status' : `Series publication status: ${currentStatus}`}
         >
           <span className="relative flex h-2 w-2">
             <span
@@ -101,6 +101,7 @@ export function ManhwaHeader({
               }`}
             />
           </span>
+          <span className="text-zinc-500 font-normal normal-case tracking-normal mr-0.5">Series:</span>
           <span>{currentStatus}</span>
           {isAdmin && (
             <ChevronDown

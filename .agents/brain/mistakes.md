@@ -734,3 +734,19 @@ ebuild to retry in the background without crashing the server.
 - Fix: (1) Added `normalizeAsuraUrl()` in `asurascans.ts` that strips the hash suffix (and rewrites legacy `asuracomic.net/series/` → `asurascans.com/comics/`) before fetching — Asura then redirects to the canonical page. (2) Added `fetchRenderedHtmlWithUrl()` in `browser.ts` returning `{ html, finalUrl }` from FlareSolverr `solution.url` / Playwright `page.url()`. (3) `chapterList` now calls `fetchRenderedHtmlWithUrl` and throws if `finalUrl` matches the catalog homepage pattern — refusing to parse catalog cards. (4) Canonical URL is attached to the returned chapters array via `ASURA_CANONICAL_URL` symbol; `sync.source-processor.ts` reads it and calls `repo.updateSourceUrl()` to heal the stale DB row. (5) `MAX_ROW_CLIMB` raised from 3 to 6. (6) Extended `FlareSolverrResult` type in `http.ts` to carry `finalUrl`.
 - Status: Resolved
 - Date: 2026-11-19
+
+---
+
+- Problem: Reading Progress card displayed active emerald/green styling ("Caught up", green progress bar, green "All caught up" message) even when personal reading status was set to Completed, On Hold, or Dropped, creating visual dissonance and confusion.
+- Cause: ProgressCard hardcoded emerald styles for `isCaughtUp` regardless of `userStatus`, and had no contextual theming inside the card for other personal reading states.
+- Fix: Extracted `progress-card.utils.tsx` with dedicated status themes (`getProgressTheme` and `ProgressStatusFooter`). Completed status now styles the entire interior in purple (gradient background, glowing purple bar, "Completed" badge, trophy message). On Hold and Dropped now display amber and red contextual badges and messages respectively.
+- Status: Resolved
+- Date: 2026-11-20
+
+---
+
+- Problem: Untracked catalog manhwas (with `isTracking: false`) showed up in "Up Next in Your Library" carousel at the bottom of the Manhwa Detail page with large unread counts (e.g. Ch. 0 / 366).
+- Cause: `UnreadManhwaStrip.tsx` filtered only by `getUnreadCount > 0` across all catalog manhwas, omitting the `m.progress?.isTracking === true` check and not excluding completed/dropped titles.
+- Fix: Added `if (!m.progress?.isTracking) return false;` and excluded personal statuses `completed` and `dropped` from `UnreadManhwaStrip.tsx`.
+- Status: Resolved
+- Date: 2026-11-20
