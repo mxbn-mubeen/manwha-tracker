@@ -4,6 +4,14 @@ Append-only log. Never delete entries.
 
 ---
 
+- Problem: Render build and worker startup emitted 3 warnings: (1) Vite build warned that JavaScript bundle chunks exceeded 500 kB (`index.js` was 761 kB), (2) Node.js runtime emitted `[MODULE_TYPELESS_PACKAGE_JSON]` warning on `@manhwa-tracker/utils` reparsing ES module syntax with a performance overhead, and (3) Node 24 emitted `ExperimentalWarning: localStorage is not available`.
+- Cause: (1) `vite.config.ts` had no vendor chunk splitting, packing React, Lucide, and TanStack/tRPC into a single monobundle. (2) `libs/utils/package.json` was missing `"type": "module"`, causing Node 22/24 to complain when loading ESM files. (3) Node 24 warns when runtime code checks `typeof localStorage` without a storage file provided.
+- Fix: (1) Configured `manualChunks` in `apps/web/vite.config.ts` (splitting vendor, trpc, and icons into separate cacheable chunks) and bumped `chunkSizeWarningLimit` to 800 kB. (2) Added `"type": "module"` to `libs/utils/package.json`. (3) Added `--disable-warning=ExperimentalWarning` to the worker start script in `apps/worker/package.json`.
+- Status: Resolved
+- Date: 2026-11-21
+
+---
+
 - Problem: GitHub Actions sync workflow was killed after 25 minutes, creating sync history entries with "0 sources · 0ms", leaving `status: 'running'`, and causing subsequent sync runs to immediately fail with "Fatal error: Error: Sync is already running in the background".
 - Cause: (1) GitHub Actions `sync-cron.yml` had `timeout-minutes: 25`, but the sequential scraper across 380+ sources occasionally exceeded 25m. When GitHub Actions hit the hard timeout, it sent SIGKILL to the runner process, completely bypassing `finishSyncRun` and the `finally { releaseSyncLock() }` block. (2) Workflows in GitHub Actions UI lacked visible run numbers and event indicators.
 - Fix: (1) Implemented a soft-timeout cutoff in `sync.website.ts` at 28 minutes to save all scanned sources and release the sync lock before any runner kill. (2) Increased `timeout-minutes: 35` in `sync-cron.yml`. (3) Added `run-name: 'WorkflowName #${{ github.run_number }} (${{ github.event_name }})'` to all GitHub workflows (`ci.yml`, `sync-cron.yml`, `sync-full-cron.yml`, `keep-alive.yml`). (4) Added run ID badges (`#run.id`) and timeout/interrupted guidance banners to `RunCard.tsx`, refactoring it into `RunCardHeader.tsx` and `RunCardControls.tsx` to keep files well under 230 lines.

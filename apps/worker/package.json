@@ -7,7 +7,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "start": "node --max-old-space-size=256 dist/server.js",
+    "start": "node --disable-warning=ExperimentalWarning --max-old-space-size=256 dist/server.js",
     "watch:telegram": "tsx src/scripts/watcher/index.ts",
     "bot:telegram": "tsx src/scripts/bot/index.ts",
     "cron:sync": "tsx src/scripts/cron/cron-sync.ts"
