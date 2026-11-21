@@ -4,6 +4,14 @@ Append-only log. Never delete entries.
 
 ---
 
+- Problem: Client requests to `https://manwha-tracker-api.vercel.app` failed with browser CORS block: `Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource`.
+- Cause: (1) In `apps/api/src/vercel.ts`, top-level static imports loaded `db.ts` at module boot time before `handler` was invoked; any runtime exception during cold-start (missing env, DB connection error) caused Vercel to crash with `500 FUNCTION_INVOCATION_FAILED`. Because Vercel generated the 500 error page, it omitted all CORS headers, causing preflight to fail. (2) Preflight `OPTIONS` requests were gated behind top-level module resolution instead of returning an immediate 204. (3) `vercel.json` lacked edge-level CORS headers.
+- Fix: (1) Added fast-path preflight handling at the very top of `handler` in `apps/api/src/vercel.ts` returning 204 with full CORS headers immediately. (2) Converted module loading inside `handler` to dynamic `await import(...)` with a `try ... catch` block that catches any runtime error and sends a 500 JSON response with CORS headers and actionable diagnostic info instead of hard-crashing the container. (3) Added global edge CORS headers directly in `apps/api/vercel.json` for `/(.*)`.
+- Status: Resolved
+- Date: 2026-11-21
+
+---
+
 - Problem: Render build and worker startup emitted 3 warnings: (1) Vite build warned that JavaScript bundle chunks exceeded 500 kB (`index.js` was 761 kB), (2) Node.js runtime emitted `[MODULE_TYPELESS_PACKAGE_JSON]` warning on `@manhwa-tracker/utils` reparsing ES module syntax with a performance overhead, and (3) Node 24 emitted `ExperimentalWarning: localStorage is not available`.
 - Cause: (1) `vite.config.ts` had no vendor chunk splitting, packing React, Lucide, and TanStack/tRPC into a single monobundle. (2) `libs/utils/package.json` was missing `"type": "module"`, causing Node 22/24 to complain when loading ESM files. (3) Node 24 warns when runtime code checks `typeof localStorage` without a storage file provided.
 - Fix: (1) Configured `manualChunks` in `apps/web/vite.config.ts` (splitting vendor, trpc, and icons into separate cacheable chunks) and bumped `chunkSizeWarningLimit` to 800 kB. (2) Added `"type": "module"` to `libs/utils/package.json`. (3) Added `--disable-warning=ExperimentalWarning` to the worker start script in `apps/worker/package.json`.
