@@ -4,7 +4,7 @@ import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { SourceInputSection } from '@/features/sources/components/SourceInputSection';
+import { SourceInputSection } from '@/features/sources/components';
 
 export function AddManhwaForm() {
   const navigate = useNavigate();

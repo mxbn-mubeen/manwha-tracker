@@ -33,4 +33,8 @@ export interface SyncResult {
   rows: SyncSourceRow[];   // per-source breakdown for history UI
 }
 
-export type SyncRun = SyncResult & { runAt: Date };
+export type SyncRun = SyncResult & {
+  id?: number;
+  runAt: Date;
+  status?: 'completed' | 'failed' | 'running';
+};

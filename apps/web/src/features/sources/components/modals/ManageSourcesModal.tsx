@@ -3,10 +3,10 @@ import { createPortal } from 'react-dom';
 import { X, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ManhwaCoverImage } from './ManhwaCoverImage';
-import { SourceDetailRow } from './SourceDetailRow';
+import { ManhwaCoverImage } from '../common/ManhwaCoverImage';
+import { SourceDetailRow } from '../rows/SourceDetailRow';
 import { AddSourceForm } from '@/features/manhwa-detail/components';
-import type { ManhwaGroup } from './ManhwaSourcesView';
+import type { ManhwaGroup } from '../views/ManhwaSourcesView';
 
 interface ManageSourcesModalProps {
   group: ManhwaGroup;

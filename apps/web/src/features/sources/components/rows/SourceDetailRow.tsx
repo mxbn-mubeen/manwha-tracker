@@ -15,8 +15,8 @@ import {
   Loader2,
   ExternalLink,
 } from 'lucide-react';
-import { getAdapterBadgeClass } from '../utils/adapterColors';
-import type { SourceItem } from './ManhwaSourcesView';
+import { getAdapterBadgeClass } from '@/features/sources/utils/adapterColors';
+import type { SourceItem } from '../views/ManhwaSourcesView';
 
 export function SourceDetailRow({ source }: { source: SourceItem }) {
   const [isEditing, setIsEditing] = useState(false);

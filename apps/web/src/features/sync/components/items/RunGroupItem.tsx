@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { SyncSourceRow } from '@manhwa-tracker/shared';
 import { Sparkles, AlertTriangle, ChevronDown, CheckCircle2 } from 'lucide-react';
-import { getSourceBadgeClass, STATUS_CONFIG, formatDuration } from '../run-card.utils';
+import { getSourceBadgeClass, STATUS_CONFIG, formatDuration } from '../../run-card.utils';
 
 export interface ManhwaSyncGroup {
   manhwaId: number;

@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom';
 import { Globe, Send, ChevronDown, Plus, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { getAdapterBadgeClass } from '../utils/adapterColors';
-import { ManhwaCoverImage } from './ManhwaCoverImage';
+import { getAdapterBadgeClass } from '@/features/sources/utils/adapterColors';
+import { ManhwaCoverImage } from '../common/ManhwaCoverImage';
 import { SourceDetailRow } from './SourceDetailRow';
-import type { ManhwaGroup } from './ManhwaSourcesView';
+import type { ManhwaGroup } from '../views/ManhwaSourcesView';
 
 interface ManhwaSourceListRowProps {
   group: ManhwaGroup;

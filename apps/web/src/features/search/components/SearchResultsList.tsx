@@ -1,7 +1,7 @@
 import { ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getUnreadCount, formatUnreadCount } from '@/lib/utils';
-import { ManhwaCoverImage } from '@/features/sources/components/ManhwaCoverImage';
+import { ManhwaCoverImage } from '@/features/sources/components';
 
 interface SearchResultsListProps {
   query: string;

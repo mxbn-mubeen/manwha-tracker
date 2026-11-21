@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
 import { LayoutGrid, List as ListIcon, AlertCircle, ArrowUpDown } from 'lucide-react';
 import { ManhwaSourcesCardGrid } from './ManhwaSourcesCardGrid';
-import { ManhwaSourceListRow } from './ManhwaSourceListRow';
-import { ManageSourcesModal } from './ManageSourcesModal';
+import { ManhwaSourceListRow } from '../rows/ManhwaSourceListRow';
+import { ManageSourcesModal } from '../modals/ManageSourcesModal';
 
 export interface SourceItem {
   id: number;

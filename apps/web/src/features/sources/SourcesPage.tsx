@@ -8,12 +8,14 @@ import {
   CheckCircle2,
   SlidersHorizontal,
 } from "lucide-react";
-import { WebsiteFilterPanel } from "./components/WebsiteFilterPanel";
-import { FixAdapterKeysButton } from "./components/FixAdapterKeysButton";
-import { ManhwaSourcesView } from "./components/ManhwaSourcesView";
-import { ProviderSourcesView } from "./components/ProviderSourcesView";
-import { FlatTableSourcesView } from "./components/FlatTableSourcesView";
-import { SourcesControlBar } from "./components/SourcesControlBar";
+import {
+  WebsiteFilterPanel,
+  FixAdapterKeysButton,
+  ManhwaSourcesView,
+  ProviderSourcesView,
+  FlatTableSourcesView,
+  SourcesControlBar,
+} from "./components";
 import { getHost } from "./utils/sourceHelpers";
 import { search } from "@manhwa-tracker/utils";
 

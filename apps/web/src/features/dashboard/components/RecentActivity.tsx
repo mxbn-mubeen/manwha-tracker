@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Clock, ArrowRight, CheckCircle2, ChevronRight } from 'lucide-react';
 import { getUnreadCount, formatUnreadCount } from '@/lib/utils';
 import { formatTimeAgo } from '@manhwa-tracker/utils';
-import { ManhwaCoverImage } from '@/features/sources/components/ManhwaCoverImage';
+import { ManhwaCoverImage } from '@/features/sources/components';
 import type { RouterOutputs } from '@/lib/trpc';
 
 type Manhwa = RouterOutputs['manhwa']['getAll'][number];

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { SyncSourceRow } from '@manhwa-tracker/shared';
-import { STATUS_CONFIG, getSourceBadgeClass, formatDuration } from '../run-card.utils';
+import { STATUS_CONFIG, getSourceBadgeClass, formatDuration } from '../../run-card.utils';
 
 interface RunRowItemProps {
   row: SyncSourceRow;

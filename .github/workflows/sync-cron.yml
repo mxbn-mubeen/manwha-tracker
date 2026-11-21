@@ -1,4 +1,5 @@
 name: Sync manhwa websites
+run-name: 'Sync #${{ github.run_number }} (${{ github.event_name }})'
 
 # Runs the website-adapter sync every 30 minutes. Talks directly to Neon via
 # DATABASE_URL — no deployed/public API required. Telegram sources are NOT
@@ -21,7 +22,7 @@ jobs:
     # leaving the site's Sync button stuck showing "Syncing..." until something
     # else completed a run. See apps/worker/src/modules/sync/sync.service.ts's
     # stale-lock self-heal, added alongside this, for the other half of the fix.
-    timeout-minutes: 25
+    timeout-minutes: 35
 
     # Spin up a local FlareSolverr container just for this workflow run.
     # This avoids needing to host a public FlareSolverr instance just for GitHub Actions.
@@ -54,4 +55,5 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           FLARESOLVERR_URL: http://localhost:8191/v1
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
         run: pnpm run cron:sync

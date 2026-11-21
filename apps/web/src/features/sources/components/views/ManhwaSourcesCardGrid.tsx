@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Send, Globe, Layers, Plus } from 'lucide-react';
-import { ManhwaCoverImage } from './ManhwaCoverImage';
-import { ManageSourcesModal } from './ManageSourcesModal';
-import { getAdapterBadgeClass } from '../utils/adapterColors';
+import { ManhwaCoverImage } from '../common/ManhwaCoverImage';
+import { ManageSourcesModal } from '../modals/ManageSourcesModal';
+import { getAdapterBadgeClass } from '@/features/sources/utils/adapterColors';
 import type { ManhwaGroup } from './ManhwaSourcesView';
 
 export function ManhwaSourcesCardGrid({ groups }: { groups: ManhwaGroup[] }) {

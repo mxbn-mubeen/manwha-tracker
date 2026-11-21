@@ -1,8 +1,10 @@
-import { TelegramSection } from '@/features/settings/components/TelegramSection';
-import { SyncHistorySection } from '@/features/settings/components/SyncHistorySection';
-import { RecentlyDeletedSection } from '@/features/settings/components/RecentlyDeletedSection';
-import { SystemSection } from '@/features/settings/components/SystemSection';
-import { AccountSection } from '@/features/settings/components/AccountSection';
+import {
+  TelegramSection,
+  SyncHistorySection,
+  RecentlyDeletedSection,
+  SystemSection,
+  AccountSection,
+} from './components';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Send, Clock, Trash2, Cpu, User } from 'lucide-react';

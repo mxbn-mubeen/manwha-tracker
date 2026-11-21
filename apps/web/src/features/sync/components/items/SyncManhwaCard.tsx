@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Sparkles, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { ManhwaCoverImage } from '@/features/sources/components/ManhwaCoverImage';
-import { getSourceBadgeClass, STATUS_CONFIG, formatDuration } from '../run-card.utils';
+import { ManhwaCoverImage } from '@/features/sources/components';
+import { getSourceBadgeClass, STATUS_CONFIG, formatDuration } from '../../run-card.utils';
 import type { ManhwaSyncGroup } from './RunGroupItem';
 
 interface SyncManhwaCardProps {

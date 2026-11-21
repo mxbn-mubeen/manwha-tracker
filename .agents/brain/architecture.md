@@ -1,7 +1,7 @@
 # Architecture — Manhwa Tracker
 
 project_root: F:\manwha-tracker
-last_updated: 2026-11-17
+last_updated: 2026-11-21
 
 ## Monorepo Structure (Actual as of 2026-09-07)
 
@@ -80,17 +80,26 @@ manwha-tracker/
 │   │   │   │   │   └── Library.tsx           Grid + search + status filter; syncs ?search= param from genre pills
 │   │   │   │   ├── manhwa-detail/
 │   │   │   │   │   ├── components/
-│   │   │   │   │   │   ├── AddSourceForm.tsx
-│   │   │   │   │   │   ├── ChapterQuickEdit.tsx  Latest chapter display + +1/+2/+5 quick-increment (extracted 2026-11-11)
-│   │   │   │   │   │   ├── EditManhwaModal.tsx   createPortal modal with scroll-lock
-│   │   │   │   │   │   ├── ManageChaptersSection.tsx  Used by EditManhwaModal
-│   │   │   │   │   │   ├── ManhwaCadenceInfo.tsx      Release pattern badge (irregular / upcoming / new today)
-│   │   │   │   │   │   ├── ManhwaHeader.tsx      Title, status pill, genre color pills, description, cadence + chapter toolbar
-│   │   │   │   │   │   ├── ManhwaPoster.tsx      Cover image, Continue Reading CTA, Edit Manhwa button
-│   │   │   │   │   │   ├── ProgressCard.tsx      Reading progress bar + caught-up state
-│   │   │   │   │   │   ├── SourceStatusBadge.tsx Leading / Synced / Behind / Pending badge
-│   │   │   │   │   │   ├── SourcesList.tsx       Per-source cards with status badges + delete
-│   │   │   │   │   │   └── UnreadManhwaStrip.tsx Arrow carousel of unread manhwa with cover images
+│   │   │   │   │   │   ├── header/
+│   │   │   │   │   │   │   ├── ManhwaHeader.tsx      Title, status pill, genre color pills, description
+│   │   │   │   │   │   │   ├── ManhwaCadenceInfo.tsx  Release pattern badge (irregular / upcoming / new today)
+│   │   │   │   │   │   │   └── ChapterQuickEdit.tsx  Latest chapter display + +1/+2/+5 quick-increment
+│   │   │   │   │   │   ├── modals/
+│   │   │   │   │   │   │   ├── EditManhwaModal.tsx   createPortal modal with scroll-lock
+│   │   │   │   │   │   │   └── ManageChaptersSection.tsx  Used by EditManhwaModal
+│   │   │   │   │   │   ├── poster/
+│   │   │   │   │   │   │   └── ManhwaPoster.tsx      Cover image, status-themed Continue Reading CTA, Edit button
+│   │   │   │   │   │   ├── progress/
+│   │   │   │   │   │   │   ├── ProgressCard.tsx      Reading progress bar + contextual status badges/actions
+│   │   │   │   │   │   │   └── progress-card.utils.tsx Reading status badges & glow styles
+│   │   │   │   │   │   ├── sources/
+│   │   │   │   │   │   │   ├── SourcesList.tsx       Per-source cards with status badges + delete
+│   │   │   │   │   │   │   ├── SourceStatusBadge.tsx Leading / Synced / Behind / Pending badge
+│   │   │   │   │   │   │   └── AddSourceForm.tsx     Form to add website / Telegram source
+│   │   │   │   │   │   ├── unread-strip/
+│   │   │   │   │   │   │   ├── UnreadManhwaStrip.tsx Arrow carousel of unread manhwa (skips untracked)
+│   │   │   │   │   │   │   └── UnreadStripCard.tsx   Individual carousel card
+│   │   │   │   │   │   └── index.ts              Barrel export for manhwa-detail components
 │   │   │   │   │   └── ManhwaDetail.tsx
 │   │   │   │   ├── search/
 │   │   │   │   │   ├── components/
@@ -98,44 +107,62 @@ manwha-tracker/
 │   │   │   │   │   └── GlobalSearch.tsx          createPortal full-viewport search overlay
 │   │   │   │   ├── settings/
 │   │   │   │   │   ├── components/
-│   │   │   │   │   │   ├── RecentlyDeletedSection.tsx
-│   │   │   │   │   │   ├── SyncHistorySection.tsx
-│   │   │   │   │   │   ├── SystemSection.tsx
-│   │   │   │   │   │   ├── TelegramLoginWizard.tsx
-│   │   │   │   │   │   └── TelegramSection.tsx
+│   │   │   │   │   │   ├── sections/
+│   │   │   │   │   │   │   ├── AccountSection.tsx
+│   │   │   │   │   │   │   ├── RecentlyDeletedSection.tsx
+│   │   │   │   │   │   │   ├── SyncHistorySection.tsx
+│   │   │   │   │   │   │   └── SystemSection.tsx
+│   │   │   │   │   │   ├── telegram/
+│   │   │   │   │   │   │   ├── TelegramSection.tsx
+│   │   │   │   │   │   │   └── TelegramLoginWizard.tsx
+│   │   │   │   │   │   └── index.ts              Barrel export for settings components
 │   │   │   │   │   └── Settings.tsx
 │   │   │   │   ├── sources/
 │   │   │   │   │   ├── components/
-│   │   │   │   │   │   ├── FixAdapterKeysButton.tsx     Re-detect Adapters action button
-│   │   │   │   │   │   ├── FlatTableSourcesView.tsx     Flat tabular sources list (uses SourceCard)
-│   │   │   │   │   │   ├── ManageSourcesModal.tsx       createPortal modal; wraps ManhwaSourcesView
-│   │   │   │   │   │   ├── ManhwaCoverImage.tsx         SSRF-safe proxied cover image with fallback
-│   │   │   │   │   │   ├── ManhwaSourceListRow.tsx      Single row in ManhwaSourcesView list mode
-│   │   │   │   │   │   ├── ManhwaSourcesCardGrid.tsx    Card grid mode for ManhwaSourcesView
-│   │   │   │   │   │   ├── ManhwaSourcesView.tsx        Grouped-by-manhwa sources view (list/grid toggle)
-│   │   │   │   │   │   ├── ProviderSourcesView.tsx      Grouped-by-adapter view
-│   │   │   │   │   │   ├── SourceCard.tsx               Used by FlatTableSourcesView
-│   │   │   │   │   │   ├── SourceDetailRow.tsx          Shared row used by ManageSourcesModal / ProviderSourcesView
-│   │   │   │   │   │   ├── SourceInputSection.tsx       Add-source form row (used by AddManhwaForm + AddSourceForm)
-│   │   │   │   │   │   ├── SourceRow.tsx                Used by FlatTable, RunCard, SyncHistoryDrawer
-│   │   │   │   │   │   ├── SourcesControlBar.tsx        Filter bar rendered by SourcesPage
-│   │   │   │   │   │   ├── TelegramPanel.tsx
-│   │   │   │   │   │   └── WebsiteFilterPanel.tsx       Domain pills + adapter legend filter (added 2026-11-11)
+│   │   │   │   │   │   ├── common/
+│   │   │   │   │   │   │   └── ManhwaCoverImage.tsx  SSRF-safe proxied cover image with fallback
+│   │   │   │   │   │   ├── controls/
+│   │   │   │   │   │   │   ├── SourcesControlBar.tsx Filter bar with tab/view mode selectors
+│   │   │   │   │   │   │   ├── WebsiteFilterPanel.tsx Domain pills + adapter legend filter
+│   │   │   │   │   │   │   ├── TelegramPanel.tsx     Telegram channels quick summary
+│   │   │   │   │   │   │   └── FixAdapterKeysButton.tsx Re-detect Adapters action button
+│   │   │   │   │   │   ├── modals/
+│   │   │   │   │   │   │   ├── ManageSourcesModal.tsx createPortal modal for per-manhwa sources
+│   │   │   │   │   │   │   └── SourceInputSection.tsx Shared add/edit source form section
+│   │   │   │   │   │   ├── rows/
+│   │   │   │   │   │   │   ├── ManhwaSourceListRow.tsx Single row in ManhwaSourcesView list mode
+│   │   │   │   │   │   │   ├── SourceDetailRow.tsx   Shared row with inline URL editing/testing
+│   │   │   │   │   │   │   ├── SourceRow.tsx         Flat table row item
+│   │   │   │   │   │   │   └── SourceCard.tsx        Mobile card item
+│   │   │   │   │   │   ├── views/
+│   │   │   │   │   │   │   ├── ManhwaSourcesView.tsx Grouped-by-manhwa view (list/grid toggle)
+│   │   │   │   │   │   │   ├── ManhwaSourcesCardGrid.tsx Card grid mode for ManhwaSourcesView
+│   │   │   │   │   │   │   ├── ProviderSourcesView.tsx Grouped-by-adapter accordion view
+│   │   │   │   │   │   │   └── FlatTableSourcesView.tsx Flat tabular sources list
+│   │   │   │   │   │   └── index.ts              Barrel export for sources components
 │   │   │   │   │   ├── utils/
 │   │   │   │   │   │   ├── adapterColors.ts
-│   │   │   │   │   │   └── sourceHelpers.ts             adapterDotColor, getHost helpers
+│   │   │   │   │   │   └── sourceHelpers.ts     adapterDotColor, getHost helpers
 │   │   │   │   │   └── SourcesPage.tsx
 │   │   │   │   ├── stats/
 │   │   │   │   │   ├── components/
-│   │   │   │   │   │   └── LongestSeriesCard.tsx
+│   │   │   │   │   │   ├── LongestSeriesCard.tsx
+│   │   │   │   │   │   └── StatusBreakdownCard.tsx
 │   │   │   │   │   └── StatsPage.tsx
 │   │   │   │   └── sync/
 │   │   │   │       ├── components/
-│   │   │   │       │   ├── RunGroupItem.tsx
-│   │   │   │       │   ├── RunRowItem.tsx
-│   │   │   │       │   └── SyncManhwaCard.tsx
+│   │   │   │       │   ├── controls/
+│   │   │   │       │   │   ├── RunCardControls.tsx   Filter buttons, search, and view mode toggles
+│   │   │   │       │   │   └── RunCardHeader.tsx     Summary bar with duration, badges, and toggle
+│   │   │   │       │   ├── items/
+│   │   │   │       │   │   ├── RunGroupItem.tsx
+│   │   │   │       │   │   ├── RunRowItem.tsx
+│   │   │   │       │   │   └── SyncManhwaCard.tsx
+│   │   │   │       │   ├── modals/
+│   │   │   │       │   │   └── SyncChoiceModal.tsx   Smart Sync vs Full Refresh dialog
+│   │   │   │       │   └── index.ts              Barrel export for sync components
 │   │   │   │       ├── run-card.utils.tsx
-│   │   │   │       ├── RunCard.tsx
+│   │   │   │       ├── RunCard.tsx               Sync run accordion card (195 lines, <230 limit)
 │   │   │   │       └── SyncHistoryDrawer.tsx
 │   │   │   ├── lib/
 │   │   │   │   ├── trpc.ts

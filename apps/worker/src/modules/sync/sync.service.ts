@@ -55,6 +55,8 @@ export class SyncService {
     // Write a 'running' row immediately so killed syncs appear in history
     // rather than vanishing completely. Will be updated to 'completed'/'failed' in finally.
     const syncRunId = await this.repo.startSyncRun(triggeredBy as 'manual' | 'cron');
+    const ghRun = process.env.GITHUB_RUN_NUMBER ? ` (GitHub Run #${process.env.GITHUB_RUN_NUMBER})` : '';
+    console.log(`[sync] 🚀 Initialized Sync Run #${syncRunId}${ghRun} [Trigger: ${triggeredBy}]`);
 
     // Fix #9: Self-ping to prevent Render free-tier idle-sleep from killing
     // a long-running background sync. Fire every 8 minutes; cleared in finally.

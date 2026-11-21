@@ -1,6 +1,14 @@
-# Mistakes Ã¢â‚¬â€œ Manhwa Tracker
+# Mistakes – Manhwa Tracker
 
 Append-only log. Never delete entries.
+
+---
+
+- Problem: GitHub Actions sync workflow was killed after 25 minutes, creating sync history entries with "0 sources · 0ms", leaving `status: 'running'`, and causing subsequent sync runs to immediately fail with "Fatal error: Error: Sync is already running in the background".
+- Cause: (1) GitHub Actions `sync-cron.yml` had `timeout-minutes: 25`, but the sequential scraper across 380+ sources occasionally exceeded 25m. When GitHub Actions hit the hard timeout, it sent SIGKILL to the runner process, completely bypassing `finishSyncRun` and the `finally { releaseSyncLock() }` block. (2) Workflows in GitHub Actions UI lacked visible run numbers and event indicators.
+- Fix: (1) Implemented a soft-timeout cutoff in `sync.website.ts` at 28 minutes to save all scanned sources and release the sync lock before any runner kill. (2) Increased `timeout-minutes: 35` in `sync-cron.yml`. (3) Added `run-name: 'WorkflowName #${{ github.run_number }} (${{ github.event_name }})'` to all GitHub workflows (`ci.yml`, `sync-cron.yml`, `sync-full-cron.yml`, `keep-alive.yml`). (4) Added run ID badges (`#run.id`) and timeout/interrupted guidance banners to `RunCard.tsx`, refactoring it into `RunCardHeader.tsx` and `RunCardControls.tsx` to keep files well under 230 lines.
+- Status: Resolved
+- Date: 2026-11-21
 
 ---
 
@@ -750,3 +758,11 @@ ebuild to retry in the background without crashing the server.
 - Fix: Added `if (!m.progress?.isTracking) return false;` and excluded personal statuses `completed` and `dropped` from `UnreadManhwaStrip.tsx`.
 - Status: Resolved
 - Date: 2026-11-20
+
+---
+
+- Problem: GitHub Actions cron syncs occasionally created orphaned `sync_runs` entries with 0 sources, 0ms duration, and no history, while blocking subsequent runs with "Sync is already running in the background".
+- Cause: (1) GitHub Actions workflow `sync-cron.yml` had a hard 25-minute timeout (`timeout-minutes: 25`). When slower sites caused the run to exceed 25 minutes (e.g. 25m 21s), GitHub abruptly killed the process with SIGKILL before `finishSyncRun` could persist the per-source results to the database. (2) Stale lock remained held in settings table until expiration. (3) Sync run ID was not visible on `RunCard.tsx` cards to trace which sync corresponded to which GitHub Actions run.
+- Fix: (1) Increased GitHub Actions workflow timeout to 35 minutes. (2) Added soft-timeout safety in `sync.website.ts` at 28 minutes so long runs wrap up gracefully, save all processed sources, release the lock, and exit with code 0. (3) Added `id` and `status` to `SyncRun` type in `@manhwa-tracker/shared`. (4) Added `#{run.id}` badge to all history cards in `RunCard.tsx`. (5) Added graceful interrupted/timeout warning message in `RunCard.tsx` when a run was terminated before saving sources. (6) Passed `GITHUB_RUN_NUMBER` from GitHub Actions into worker environment and logged run ID correlation.
+- Status: Resolved
+- Date: 2026-11-21

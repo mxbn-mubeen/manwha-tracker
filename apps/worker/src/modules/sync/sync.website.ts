@@ -108,7 +108,22 @@ export async function runWebsiteSync(
   const entries = Array.from(webSourcesGrouped.entries());
   const total = entries.length;
   let index = 0;
+  const loopStart = Date.now();
+  // Safe cutoff at 28 mins — stops gracefully before GitHub Actions kills the process,
+  // ensuring all scanned rows are preserved in sync_runs and the lock is cleanly released.
+  const SOFT_TIMEOUT_MS = 28 * 60 * 1000;
+
   for (const [manhwaId, sources] of entries) {
+    if (Date.now() - loopStart > SOFT_TIMEOUT_MS) {
+      console.warn(
+        `[sync] ⏱️ Approaching execution limit (${Math.round((Date.now() - loopStart) / 60000)}m). ` +
+        `Stopping gracefully to save history for ${completedCount}/${total} manhwa.`
+      );
+      result.errors.push(
+        `Sync gracefully saved at ${completedCount}/${total} manhwa to prevent runner timeout. Remaining will sync on next run.`
+      );
+      break;
+    }
     index++;
     try {
       await processManhwaSources(manhwaId, sources, repo, result, updatedManhwaIds, index, total, forceFullCheck, refreshReason);

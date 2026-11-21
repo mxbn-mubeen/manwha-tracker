@@ -5,8 +5,8 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Loader2, Pencil, Check, X, Link2, Copy, RefreshCw, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { getAdapterBadgeClass } from "../utils/adapterColors";
-import { ManhwaCoverImage } from "./ManhwaCoverImage";
+import { getAdapterBadgeClass } from "@/features/sources/utils/adapterColors";
+import { ManhwaCoverImage } from "../common/ManhwaCoverImage";
 
 export function SourceRow({ source }: { source: any }) {
   const [isEditing, setIsEditing] = useState(false);

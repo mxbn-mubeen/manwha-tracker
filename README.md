@@ -54,15 +54,15 @@ manwha-tracker/
 │   │   └── src/features/
 │   │       ├── dashboard/    Quick stats, Continue Reading, Recent Activity
 │   │       ├── manhwa/       Library + Add Manhwa
-│   │       ├── manhwa-detail/ Detail view, sources, progress, chapters
-│   │       ├── search/       GlobalSearch component
-│   │       ├── settings/     Telegram auth wizard, sync history, system
-│   │       ├── sources/      Unified sources page (websites + Telegram)
-│   │       ├── stats/        Stats page
-│   │       └── sync/         Sync history drawer + run cards
+│   │       ├── manhwa-detail/ Modular subfolders: header, poster, progress, sources, unread-strip, modals
+│   │       ├── search/       GlobalSearch component + quick nav
+│   │       ├── settings/     Modular subfolders: sections (account, sync, system, deleted) & telegram
+│   │       ├── sources/      Modular subfolders: views, rows, controls, modals, common
+│   │       ├── stats/        Stats page + status distribution charts
+│   │       └── sync/         Modular subfolders: controls, items, modals + RunCard (<230 lines) & drawer
 │   └── worker/               Express — port 3002 (Docker on Render)
 │       └── src/modules/
-│           ├── sync/         Website sync engine (processor, source-processor, utils)
+│           ├── sync/         Website sync engine (with 28m soft-timeout protection against stuck locks)
 │           └── settings/     Worker settings
 ├── libs/
 │   ├── database/             Shared DB layer — Drizzle ORM, Neon HTTP

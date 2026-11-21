@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Loader2, Pencil, Check, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
-import { getAdapterBadgeClass } from "../utils/adapterColors";
+import { getAdapterBadgeClass } from "@/features/sources/utils/adapterColors";
 
 export function SourceCard({ source }: { source: any }) {
   const [isEditing, setIsEditing] = useState(false);

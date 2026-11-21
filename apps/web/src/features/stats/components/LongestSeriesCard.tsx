@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Trophy } from 'lucide-react';
-import { ManhwaCoverImage } from '@/features/sources/components/ManhwaCoverImage';
+import { ManhwaCoverImage } from '@/features/sources/components';
 
 export interface SeriesStatItem {
   id: number;

@@ -8,7 +8,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { getUnreadCount, formatUnreadCount } from '@/lib/utils';
-import { ManhwaCoverImage } from '@/features/sources/components/ManhwaCoverImage';
+import { ManhwaCoverImage } from '@/features/sources/components';
 import type { RouterOutputs } from '@/lib/trpc';
 
 type Manhwa = RouterOutputs['manhwa']['getAll'][number];

@@ -1,4 +1,5 @@
 name: Sync manhwa websites (Full Refresh)
+run-name: 'Full Sync #${{ github.run_number }} (${{ github.event_name }})'
 
 # Runs a full website sync once a week on Sunday at 00:00 UTC. 
 # This bypasses cadence checks and forces a check of all registered website sources.
@@ -44,4 +45,5 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           FLARESOLVERR_URL: http://localhost:8191/v1
           FORCE_FULL_REFRESH: 'true'
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
         run: pnpm run cron:sync

@@ -4,7 +4,7 @@ import { LogIn, LogOut, ShieldCheck, BarChart3, Globe, Settings, Plus, RefreshCw
 import { useSession, signOut } from '@/lib/auth-client';
 import { toast } from 'sonner';
 import { AuthModal } from '@/features/auth/AuthModal';
-import { SyncChoiceModal } from '@/features/sync/components/SyncChoiceModal';
+import { SyncChoiceModal } from '@/features/sync/components';
 import { trpc } from '@/lib/trpc';
 
 export function UserMenu({ onOpenHistory }: { onOpenHistory?: () => void }) {

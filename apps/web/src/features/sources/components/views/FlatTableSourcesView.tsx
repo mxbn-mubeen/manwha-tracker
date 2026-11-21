@@ -1,5 +1,5 @@
-import { SourceRow } from "./SourceRow";
-import { SourceCard } from "./SourceCard";
+import { SourceRow } from "../rows/SourceRow";
+import { SourceCard } from "../rows/SourceCard";
 import type { SourceItem } from "./ManhwaSourcesView";
 
 export function FlatTableSourcesView({ sources }: { sources: SourceItem[] }) {

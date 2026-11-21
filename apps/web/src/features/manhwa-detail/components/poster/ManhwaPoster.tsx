@@ -1,6 +1,6 @@
 import { Edit, BookOpen, CheckCircle2, ExternalLink, CheckCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ManhwaCoverImage } from '@/features/sources/components/ManhwaCoverImage';
+import { ManhwaCoverImage } from '@/features/sources/components';
 
 interface ManhwaPosterProps {
   coverUrl: string | null;

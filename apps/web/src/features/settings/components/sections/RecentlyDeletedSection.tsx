@@ -2,7 +2,7 @@ import { trpc } from "@/lib/trpc";
 import { Trash2, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { ManhwaCoverImage } from "@/features/sources/components/ManhwaCoverImage";
+import { ManhwaCoverImage } from '@/features/sources/components';
 
 const DAYS_UNTIL_PURGE = 30;
 

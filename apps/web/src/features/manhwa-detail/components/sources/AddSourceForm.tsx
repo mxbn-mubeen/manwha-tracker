@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
-import { SourceInputSection } from '@/features/sources/components/SourceInputSection';
+import { SourceInputSection } from '@/features/sources/components';
 
 interface AddSourceFormProps {
   manhwaId: number;

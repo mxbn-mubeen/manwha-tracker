@@ -5,8 +5,8 @@ import {
   ChevronDown,
   Layers,
 } from 'lucide-react';
-import { getAdapterBadgeClass } from '../utils/adapterColors';
-import { SourceDetailRow } from './SourceDetailRow';
+import { getAdapterBadgeClass } from '@/features/sources/utils/adapterColors';
+import { SourceDetailRow } from '../rows/SourceDetailRow';
 import type { SourceItem } from './ManhwaSourcesView';
 
 export interface ProviderGroup {

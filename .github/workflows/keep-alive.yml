@@ -1,4 +1,5 @@
 name: Keep Worker Alive
+run-name: 'Keep Worker Alive #${{ github.run_number }}'
 
 on:
   schedule:

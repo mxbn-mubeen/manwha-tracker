@@ -1,5 +1,5 @@
 import { X, Filter } from 'lucide-react';
-import { adapterDotColor } from '../utils/sourceHelpers';
+import { adapterDotColor } from '@/features/sources/utils/sourceHelpers';
 
 interface Props {
   uniqueDomains: string[];
